@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { db } from "../../lib/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 interface JdResult {
   company: string;
@@ -14,6 +16,7 @@ export default function AiJdForm() {
   const [inputText, setInputText] = useState("");
   const [maskCompany, setMaskCompany] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [publishLoading, setPublishLoading] = useState(false);
   const [result, setResult] = useState<JdResult | null>(null);
 
   const handleFormat = async () => {
@@ -32,6 +35,25 @@ export default function AiJdForm() {
       alert("AI 변환에 실패했습니다.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!result) return;
+    setPublishLoading(true);
+    try {
+      await addDoc(collection(db, "jobs"), {
+        ...result,
+        createdAt: serverTimestamp(),
+      });
+      alert("공고가 성공적으로 발행되었습니다!");
+      setResult(null);
+      setInputText("");
+    } catch (error) {
+      console.error(error);
+      alert("공고 발행에 실패했습니다.");
+    } finally {
+      setPublishLoading(false);
     }
   };
 
@@ -79,7 +101,7 @@ export default function AiJdForm() {
                   <div>
                     <strong className="block text-brand-navy mb-1">🎯 What you will learn (스펙업 포인트)</strong>
                     <ul className="list-disc pl-4 space-y-1 text-slate-600">
-                      {result.learnPoints.map((point, idx) => (
+                      {result.learnPoints?.map((point, idx) => (
                         <li key={idx}>{point}</li>
                       ))}
                     </ul>
@@ -94,8 +116,8 @@ export default function AiJdForm() {
               <div className="h-full flex items-center justify-center text-slate-400 text-sm">변환 결과가 여기에 표시됩니다.</div>
             )}
           </div>
-          <button disabled={!result} className="w-full bg-brand-navy text-brand-gold py-2 rounded-md text-sm font-bold hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50 disabled:hover:bg-brand-navy">
-            공고 즉시 발행
+          <button onClick={handlePublish} disabled={!result || publishLoading} className="w-full bg-brand-navy text-brand-gold py-2 rounded-md text-sm font-bold hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50 disabled:hover:bg-brand-navy">
+            {publishLoading ? "발행 중..." : "공고 즉시 발행"}
           </button>
         </div>
       </div>
