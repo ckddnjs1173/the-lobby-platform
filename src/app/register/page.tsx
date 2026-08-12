@@ -4,6 +4,7 @@ import { useState } from "react";
 import { db } from "../../lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 export default function RegisterProfilePage() {
   const router = useRouter();
@@ -19,25 +20,43 @@ export default function RegisterProfilePage() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.phone) {
-      alert("이름과 연락처를 모두 입력해주세요.");
+    // 1. 빈 값 및 공백 검증
+    const trimmedName = formData.name.trim();
+    const trimmedPhone = formData.phone.trim();
+
+    if (!trimmedName || !trimmedPhone) {
+      toast.error("이름과 연락처를 모두 입력해주세요.");
+      return;
+    }
+
+    // 2. 이름 길이 검증 (최소 2자 이상)
+    if (trimmedName.length < 2) {
+      toast.error("이름은 2글자 이상 정확히 입력해주세요.");
+      return;
+    }
+
+    // 3. 연락처 형식 검증 (정규식: 010-XXXX-XXXX 또는 010XXXXXXXX)
+    const phoneRegex = /^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$/;
+    if (!phoneRegex.test(trimmedPhone)) {
+      toast.error("올바른 연락처 형식을 입력해주세요.\n(예: 010-0000-0000)");
       return;
     }
 
     setLoading(true);
     try {
-      // Storage(영상) 업로드 로직 제거, Firestore에 텍스트 데이터만 바로 저장
       await addDoc(collection(db, "applicants"), {
-        ...formData,
+        name: trimmedName,
+        phone: trimmedPhone, // 필요하다면 하이픈(-)을 자동 추가/제거하는 포맷팅도 가능합니다.
+        skill: formData.skill,
         status: "미확인",
         createdAt: serverTimestamp()
       });
 
-      alert("프로필이 성공적으로 등록되었습니다!");
+      toast.success("프로필이 성공적으로 등록되었습니다!");
       router.push("/jobs");
     } catch (error) {
       console.error("Error submitting profile:", error);
-      alert("등록 중 오류가 발생했습니다.");
+      toast.error("등록 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }

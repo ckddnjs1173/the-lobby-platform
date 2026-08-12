@@ -1,66 +1,60 @@
-import type { Metadata } from "next";
+"use client";
 
-export const metadata: Metadata = {
-  title: "J&C Workspace | The Lobby B2B Admin",
-};
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { auth } from "../../lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
-export default function B2BAdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function B2BAdminLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  useEffect(() => {
+    // 로그인 상태 감지
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setIsAuthorized(true);
+      } else {
+        setIsAuthorized(false);
+        // 로그인 페이지가 아닐 때만 튕겨내기 (무한 루프 방지)
+        if (pathname !== "/b2b-admin/login") {
+          router.push("/b2b-admin/login");
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router, pathname]);
+
+  // 로그인 페이지일 때는 사이드바 없이 로그인 창만 보여줌
+  if (pathname === "/b2b-admin/login") {
+    return <>{children}</>;
+  }
+
+  // 로그인이 안 된 상태에서 대시보드 진입 시도시 흰 화면 처리 (깜빡임 방지)
+  if (!isAuthorized) {
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400">인증 확인 중...</div>;
+  }
+
+  // 로그인 성공 시 정상적인 대시보드 레이아웃 렌더링
   return (
-    <div className="flex h-screen bg-[#fbfbfa] text-slate-800 font-sans overflow-hidden">
-      {/* Sidebar Navigation */}
-      <aside className="w-[240px] bg-white border-r border-slate-200 flex flex-col z-20 shadow-sm">
-        <div className="h-12 flex items-center px-4 border-b border-slate-200 bg-slate-50">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-brand-navy rounded-sm"></div>
-            <span className="font-semibold text-sm tracking-tight text-slate-900">J&C Workspace</span>
-          </div>
+    <div className="flex h-screen bg-slate-50">
+      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col">
+        <div className="h-16 flex items-center px-6 border-b border-slate-800">
+          <span className="text-lg font-bold text-brand-gold tracking-wider">J&C BACKOFFICE</span>
         </div>
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-          <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 mt-2">Core</div>
-          <button className="w-full flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-slate-100 text-brand-navy rounded-md transition-colors">
-            대시보드 홈
-          </button>
-          <button className="w-full flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-md transition-colors">
-            지원자 DB 관리
-          </button>
-          <button className="w-full flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-md transition-colors">
-            채용 공고 (JD) 관리
-          </button>
-          
-          <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 mt-4">Pipeline</div>
-          <button className="w-full flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-md transition-colors">
-            서류 심사 진행중
-          </button>
-          <button className="w-full flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-md transition-colors">
-            고객사 면접 대기
-          </button>
+        <nav className="flex-1 py-4 space-y-1">
+          <a href="/b2b-admin" className="block px-6 py-2 bg-slate-800 text-white font-medium border-l-4 border-brand-gold">지원자 관리</a>
+          <a href="#" className="block px-6 py-2 hover:bg-slate-800 hover:text-white transition-colors">공고 관리 (준비중)</a>
         </nav>
-        <div className="p-4 border-t border-slate-200">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">JC</div>
-            <div className="text-xs font-medium text-slate-700">제이앤씨 헤드헌터</div>
-          </div>
+        <div className="p-4 border-t border-slate-800 text-xs text-slate-500">
+          © 2026 The Lobby by J&C.
         </div>
       </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-10">
-          <h1 className="text-sm font-semibold text-slate-800">Overview</h1>
-          <div className="flex items-center gap-3">
-            <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
-              System Online
-            </span>
-          </div>
-        </header>
-        <div className="flex-1 overflow-auto bg-[#fcfcfc] p-6">
-          <div className="max-w-7xl mx-auto">
-            {children}
-          </div>
+      <main className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-6xl mx-auto">
+          {children}
         </div>
       </main>
     </div>

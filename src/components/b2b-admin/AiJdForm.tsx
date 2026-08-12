@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { db } from "../../lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import toast from "react-hot-toast";
 
 interface JdResult {
   company: string;
@@ -32,7 +33,7 @@ export default function AiJdForm() {
       setResult(data);
     } catch (error) {
       console.error(error);
-      alert("AI 변환에 실패했습니다.");
+      toast.error("AI 변환에 실패했습니다.");
     } finally {
       setLoading(false);
     }
@@ -46,12 +47,12 @@ export default function AiJdForm() {
         ...result,
         createdAt: serverTimestamp(),
       });
-      alert("공고가 성공적으로 발행되었습니다!");
+      toast.success("공고가 성공적으로 발행되었습니다!");
       setResult(null);
       setInputText("");
     } catch (error) {
       console.error(error);
-      alert("공고 발행에 실패했습니다.");
+      toast.error("공고 발행에 실패했습니다.");
     } finally {
       setPublishLoading(false);
     }
