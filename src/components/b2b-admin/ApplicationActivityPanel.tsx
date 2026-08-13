@@ -16,6 +16,7 @@ import {
 
 interface ApplicationActivityPanelProps {
   applicationId: string;
+  refreshKey?: string;
 }
 
 const EVENT_LABELS: Record<
@@ -79,6 +80,7 @@ function activitySummary(
 
 export default function ApplicationActivityPanel({
   applicationId,
+  refreshKey = "",
 }: ApplicationActivityPanelProps) {
   const [activities, setActivities] =
     useState<ApplicationActivityItem[]>([]);
@@ -97,7 +99,6 @@ export default function ApplicationActivityPanel({
 
     setLoading(true);
     setActivities([]);
-    setNote("");
 
     fetchApplicationActivity(applicationId)
       .then((data) => {
@@ -134,6 +135,10 @@ export default function ApplicationActivityPanel({
     return () => {
       cancelled = true;
     };
+  }, [applicationId, refreshKey]);
+
+  useEffect(() => {
+    setNote("");
   }, [applicationId]);
 
   const handleAddNote = async () => {
