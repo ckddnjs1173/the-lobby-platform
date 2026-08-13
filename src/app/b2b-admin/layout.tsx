@@ -48,6 +48,9 @@ export default function B2BAdminLayout({
   const isApplicationsPage =
     pathname === "/b2b-admin";
 
+  const isCandidatesPage =
+    pathname.startsWith("/b2b-admin/candidates");
+
   const isJobsPage =
     pathname.startsWith("/b2b-admin/jobs");
 
@@ -174,6 +177,13 @@ export default function B2BAdminLayout({
               className={navClass(isApplicationsPage)}
             >
               지원자 관리
+            </a>
+
+            <a
+              href="/b2b-admin/candidates/new"
+              className={navClass(isCandidatesPage)}
+            >
+              후보자 직접등록
             </a>
 
             <a
