@@ -5,6 +5,8 @@ import {
 } from "./firebase";
 
 import type {
+  ApplicationSource,
+  ApplicationStage,
   CareerItem,
   EducationItem,
 } from "../types";
@@ -27,6 +29,21 @@ export interface CandidateCrmDetail {
   createdAt: string | null;
   updatedAt: string | null;
   profileUpdatedAt: string | null;
+}
+
+export interface CandidatePlacementItem {
+  applicationId: string;
+  candidateId: string;
+  jobId: string;
+  organizationId: string;
+  recruiterId: string;
+  stage: ApplicationStage;
+  source: ApplicationSource;
+  jobTitle: string;
+  company: string;
+  appliedAt: string | null;
+  updatedAt: string | null;
+  lastActivityAt: string | null;
 }
 
 export interface UpdateCandidateCrmInput {
@@ -201,6 +218,20 @@ export async function fetchCandidateCrmDetail(
     `/api/b2b/candidates/${encodeURIComponent(
       normalizedCandidateId
     )}`,
+    "GET"
+  );
+}
+
+export async function fetchCandidatePlacements(
+  candidateId: string
+): Promise<CandidatePlacementItem[]> {
+  const normalizedCandidateId =
+    normalizeCandidateId(candidateId);
+
+  return authorizedRequest<CandidatePlacementItem[]>(
+    `/api/b2b/candidates/${encodeURIComponent(
+      normalizedCandidateId
+    )}/applications`,
     "GET"
   );
 }
