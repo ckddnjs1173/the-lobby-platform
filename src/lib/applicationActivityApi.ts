@@ -18,6 +18,7 @@ export interface ApplicationActivityItem {
   toStage: ApplicationStage | null;
   changedBy: string;
   note: string | null;
+  metadata: Record<string, unknown> | null;
   createdAt: string | null;
 }
 
