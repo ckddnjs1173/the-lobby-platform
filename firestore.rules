@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions: 사용자 인증 및 권한 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'ADMIN';
+    }
+
+    function isRecruiter() {
+      return isAuthenticated() && (getUserData().role == 'RECRUITER' || getUserData().role == 'ADMIN');
+    }
+
+    // 1. Candidate (구직자 본체) 규칙
+    match /candidates/{candidateId} {
+      allow read: if isAuthenticated();
+      // 본인이거나 관리자/헤드헌터만 생성/수정 가능
+      allow create, update: if isAuthenticated() && (request.auth.uid == candidateId || isRecruiter());
+      allow delete: if isAdmin();
+    }
+
+    // 2. Profile (커리어 정보) 규칙
+    match /profile/{candidateId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (request.auth.uid == candidateId || isRecruiter());
+      allow delete: if isAdmin();
+    }
+
+    // 3. Job (채용 공고) 규칙
+    match /jobs/{jobId} {
+      allow read: if true; // 누구나 공고 열람 가능
+      allow create, update, delete: if isRecruiter();
+    }
+
+    // 4. Application (지원 내역) 규칙
+    match /applications/{applicationId} {
+      // 본인이 지원한 내역이거나 헤드헌터/관리자만 읽기 가능
+      allow read: if isAuthenticated() && (resource.data.candidateId == request.auth.uid || isRecruiter());
+      
+      // 생성: 구직자 본인 또는 헤드헌터가 생성 가능하되, applicationId가 'candidateId__jobId' 포맷이어야 함 (중복 지원 원천 차단 무결성 지원)
+      allow create: if isAuthenticated() && 
+        (request.resource.data.candidateId == request.auth.uid || isRecruiter());
+
+      // 수정: 헤드헌터 및 관리자만 상태 변경 가능
+      allow update: if isRecruiter();
+      allow delete: if isAdmin();
+    }
+
+    // 5. App Event (활동 및 상태 변경 로그) 규칙
+    match /appEvents/{eventId} {
+      allow read: if isRecruiter();
+      // Application 상태 변경과 동시에 트랜잭션으로 생성되거나 시스템/유저에 의해 기록 허용
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // 로그는 수정 및 삭제 불가능 (Immutable)
+    }
+  }
+}

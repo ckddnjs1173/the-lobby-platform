@@ -2,79 +2,105 @@
 
 import { useEffect, useState } from "react";
 import { db } from "../../lib/firebase";
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
-
-interface Job {
-  id: string;
-  company: string;
-  title: string;
-  learnPoints: string[];
-  salary: string;
-  location: string;
-}
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { Job } from "../../types";
+import { createApplicationTransaction } from "../../lib/applicationEngine";
+import toast from "react-hot-toast";
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
 
+  // 1. 공고 목록 실시간 동기화
   useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        const q = query(collection(db, "jobs"), orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(q);
-        const jobsData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Job[];
-        setJobs(jobsData);
-      } catch (error) {
-        console.error("Error fetching jobs:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchJobs();
+    const q = query(collection(db, "jobs"), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const jobsData = snapshot.docs.map((doc) => ({
+        jobId: doc.id,
+        ...doc.data(),
+      })) as Job[];
+      setJobs(jobsData);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
+  // 2. 원클릭 지원 핸들러 (지원 엔진 연동)
+  const handleOneClickApply = async (jobId: string) => {
+    // 실무 서비스 환경에서는 현재 로그인한 구직자의 Firebase Auth UID를 사용합니다.
+    // 여기서는 테스트를 위해 임시 Candidate ID를 고정 또는 생성하여 사용합니다.
+    const candidateId = "cand_test_user_01"; 
+
+    setApplyingJobId(jobId);
+    try {
+      const result = await createApplicationTransaction(candidateId, jobId, "B2C_WEB");
+
+      if (result.success) {
+        toast.success("성공적으로 지원이 완료되었습니다! 헤드헌터가 곧 연락드립니다.");
+      } else {
+        toast.error(result.error || "지원에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("지원 처리 중 오류가 발생했습니다.");
+    } finally {
+      setApplyingJobId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 font-medium">
+        채용 공고를 불러오는 중입니다...
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] pt-24 pb-12">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-10 text-center">
-          <h1 className="text-3xl font-extrabold text-brand-navy mb-4">프리미엄 포지션</h1>
-          <p className="text-slate-500">당신의 커리어를 한 단계 높여줄 엄선된 기회들입니다.</p>
+    <div className="min-h-screen bg-slate-50 pt-24 pb-12 px-4">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold text-slate-900">The Lobby 엄선된 커리어 기회</h1>
+          <p className="text-slate-500 text-sm">완성된 프로필로 단 한 번의 클릭으로 지원하고 헤드헌터의 밀착 케어를 받으세요.</p>
         </div>
 
-        {loading ? (
-          <div className="text-center py-20 text-slate-500">공고를 불러오는 중입니다...</div>
-        ) : jobs.length === 0 ? (
-          <div className="text-center py-20 text-slate-500">현재 등록된 채용 공고가 없습니다.</div>
-        ) : (
-          <div className="space-y-4">
-            {jobs.map((job) => (
-              <div key={job.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer">
-                <div className="flex-1">
-                  <span className="text-xs font-bold text-brand-gold tracking-wide mb-2 block">{job.company}</span>
-                  <h3 className="text-xl font-bold text-brand-navy mb-3 group-hover:text-slate-600 transition-colors">{job.title}</h3>
-                  <div className="bg-brand-light p-3 rounded-lg inline-block">
-                    <span className="text-[12px] font-bold text-brand-navy block mb-1">💡 What you will learn</span>
-                    <ul className="list-disc pl-4 text-sm text-slate-600 space-y-0.5">
-                      {job.learnPoints?.map((point, idx) => (
-                        <li key={idx}>{point}</li>
-                      ))}
-                    </ul>
+        <div className="grid gap-4 mt-8">
+          {jobs.length > 0 ? (
+            jobs.map((job) => (
+              <div 
+                key={job.jobId}
+                className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:shadow-md transition-shadow"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 bg-brand-gold/20 text-brand-navy text-xs font-bold rounded">
+                      {job.company}
+                    </span>
+                    <span className="text-xs text-slate-400 font-mono">{job.location} | {job.salary}</span>
                   </div>
+                  <h2 className="text-lg font-bold text-slate-900">{job.title}</h2>
+                  <p className="text-sm text-slate-600 line-clamp-1">{job.description}</p>
                 </div>
-                <div className="flex flex-col items-start md:items-end gap-3 min-w-[120px]">
-                  <div className="text-sm font-medium text-slate-500">📍 {job.location}</div>
-                  <div className="text-sm font-medium text-slate-500">💰 {job.salary}</div>
-                  <button className="w-full md:w-auto mt-2 bg-slate-900 text-white px-6 py-2.5 rounded-full text-sm font-bold hover:bg-brand-gold transition-colors">
-                    원클릭 지원
-                  </button>
-                </div>
+
+                <button
+                  onClick={() => handleOneClickApply(job.jobId)}
+                  disabled={applyingJobId === job.jobId || job.status !== "OPEN"}
+                  className="w-full md:w-auto px-6 py-3 bg-brand-navy text-brand-gold text-sm font-bold rounded-xl hover:bg-slate-900 transition-colors shadow-sm disabled:opacity-50 whitespace-nowrap"
+                >
+                  {applyingJobId === job.jobId ? "지원 중..." : job.status === "OPEN" ? "원클릭 지원" : "마감된 공고"}
+                </button>
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          ) : (
+            <div className="py-20 text-center text-slate-400 text-sm bg-white rounded-2xl border border-slate-200">
+              현재 등록된 채용 공고가 없습니다.
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );

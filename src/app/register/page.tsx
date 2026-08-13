@@ -2,61 +2,104 @@
 
 import { useState } from "react";
 import { db } from "../../lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 export default function RegisterProfilePage() {
   const router = useRouter();
+  const [step, setStep] = useState<"INPUT" | "PREVIEW">("INPUT");
   const [loading, setLoading] = useState(false);
+  const [resumeText, setResumeText] = useState("");
+  
+  // 기본 폼 및 파싱된 프로필 상태
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
-    skill: "해당 없음 (신입)"
+    email: "",
+    headline: "",
+    careerSummary: "",
+    skills: "",
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async () => {
-    // 1. 빈 값 및 공백 검증
-    const trimmedName = formData.name.trim();
-    const trimmedPhone = formData.phone.trim();
-
-    if (!trimmedName || !trimmedPhone) {
-      toast.error("이름과 연락처를 모두 입력해주세요.");
-      return;
-    }
-
-    // 2. 이름 길이 검증 (최소 2자 이상)
-    if (trimmedName.length < 2) {
-      toast.error("이름은 2글자 이상 정확히 입력해주세요.");
-      return;
-    }
-
-    // 3. 연락처 형식 검증 (정규식: 010-XXXX-XXXX 또는 010XXXXXXXX)
-    const phoneRegex = /^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$/;
-    if (!phoneRegex.test(trimmedPhone)) {
-      toast.error("올바른 연락처 형식을 입력해주세요.\n(예: 010-0000-0000)");
+  // 1. AI 파싱 요청 핸들러
+  const handleAiParse = async () => {
+    if (!resumeText.trim()) {
+      toast.error("분석할 이력서 텍스트를 입력해주세요.");
       return;
     }
 
     setLoading(true);
     try {
-      await addDoc(collection(db, "applicants"), {
-        name: trimmedName,
-        phone: trimmedPhone, // 필요하다면 하이픈(-)을 자동 추가/제거하는 포맷팅도 가능합니다.
-        skill: formData.skill,
-        status: "미확인",
-        createdAt: serverTimestamp()
+      const res = await fetch("/api/ai-parse-resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeText }),
+      });
+      const result = await res.json();
+
+      if (result.success && result.data) {
+        setFormData((prev) => ({
+          ...prev,
+          headline: result.data.headline || "",
+          careerSummary: result.data.careerSummary || "",
+          skills: result.data.skills ? result.data.skills.join(", ") : "",
+        }));
+        setStep("PREVIEW");
+        toast.success("AI가 이력서를 성공적으로 분석했습니다!");
+      } else {
+        toast.error("이력서 분석에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2. 최종 프로필 저장 핸들러 (Candidate & Profile 정규화 구조 반영)
+  const handleSaveProfile = async () => {
+    if (!formData.name || !formData.phone) {
+      toast.error("이름과 연락처는 필수 입력 항목입니다.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 임시 구직자 ID (실제 서비스에서는 Firebase Auth UID 연동)
+      const candidateId = `cand_${Date.now()}`;
+      const now = new Date().toISOString();
+
+      // Candidate 문서 생성
+      await setDoc(doc(db, "candidates", candidateId), {
+        candidateId,
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email || "no-email@lobby.com",
+        accountStatus: "ACTIVE",
+        createdAt: now,
+        updatedAt: now,
       });
 
-      toast.success("프로필이 성공적으로 등록되었습니다!");
+      // Profile 문서 생성 (1:1 관계)
+      const skillsArray = formData.skills.split(",").map((s) => s.trim()).filter(Boolean);
+      await setDoc(doc(db, "profile", candidateId), {
+        candidateId,
+        headline: formData.headline,
+        careerSummary: formData.careerSummary,
+        skills: skillsArray,
+        careers: [],
+        education: [],
+        profileCompleteness: 78, // Profile Completion Guidance 적용 점수
+        updatedAt: now,
+      });
+
+      toast.success("프로필이 성공적으로 생성되었습니다!");
       router.push("/jobs");
     } catch (error) {
-      console.error("Error submitting profile:", error);
-      toast.error("등록 중 오류가 발생했습니다.");
+      console.error(error);
+      toast.error("프로필 저장 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -64,41 +107,121 @@ export default function RegisterProfilePage() {
 
   return (
     <div className="min-h-screen bg-slate-50 pt-24 pb-12 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden">
+      <div className="max-w-xl w-full bg-white rounded-3xl shadow-xl overflow-hidden p-8 space-y-6">
         
-        {/* Form Header */}
-        <div className="bg-brand-navy px-8 py-10 text-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-gold rounded-full opacity-20 blur-2xl transform translate-x-1/2 -translate-y-1/2"></div>
-          <h2 className="text-2xl font-bold text-white mb-2">The Lobby 프로필 생성</h2>
-          <p className="text-slate-300 text-sm">핵심 정보만으로 빠르게 지원을 완료하세요.</p>
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold text-slate-900">The Lobby AI 프로필 빌더</h2>
+          <p className="text-sm text-slate-500">기존 이력서를 붙여넣고 마찰 없이 커리어 프로필을 완성하세요.</p>
         </div>
 
-        {/* Form Body */}
-        <div className="p-8 space-y-6">
+        {step === "INPUT" ? (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">이름 <span className="text-red-500">*</span></label>
-              <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-navy focus:bg-white transition-colors" placeholder="홍길동" />
+              <label className="block text-sm font-bold text-slate-700 mb-1">
+                기존 이력서 / 경력 기술서 텍스트 붙여넣기
+              </label>
+              <textarea
+                value={resumeText}
+                onChange={(e) => setResumeText(e.target.value)}
+                placeholder="여기에 기존 이력서 내용을 그대로 복사해서 붙여넣으세요. (개인정보 보호 정책에 따라 원문은 저장되지 않습니다.)"
+                className="w-full h-48 p-4 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand-navy resize-none font-mono"
+              />
             </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">연락처 <span className="text-red-500">*</span></label>
-              <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-navy focus:bg-white transition-colors" placeholder="010-0000-0000" />
+            <button
+              onClick={handleAiParse}
+              disabled={loading}
+              className="w-full bg-brand-navy text-brand-gold py-4 rounded-xl font-bold hover:bg-slate-900 transition-colors shadow-lg disabled:opacity-50"
+            >
+              {loading ? "AI 분석 중..." : "AI로 이력서 자동 구조화하기"}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-4 bg-brand-gold/10 border border-brand-gold/30 rounded-xl text-xs text-brand-navy font-medium">
+              💡 프로필 완성도 가이드: <strong>78%</strong> — 세부 경력 항목을 보완하면 매칭 정확도가 더욱 높아집니다!
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">이름 *</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand-navy"
+                  placeholder="홍길동"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">연락처 *</label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand-navy"
+                  placeholder="010-0000-0000"
+                />
+              </div>
+            </div>
+
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">핵심 스펙 (선택)</label>
-              <select name="skill" value={formData.skill} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-brand-navy focus:bg-white transition-colors text-slate-600">
-                <option value="어학 능통 (영어, 중국어 등)">어학 능통 (영어, 중국어 등)</option>
-                <option value="호텔/항공 서비스 전공">호텔/항공 서비스 전공</option>
-                <option value="관련 서비스직 1년 이상 경력">관련 서비스직 1년 이상 경력</option>
-                <option value="해당 없음 (신입)">해당 없음 (신입)</option>
-              </select>
+              <label className="block text-xs font-bold text-slate-700 mb-1">이메일</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand-navy"
+                placeholder="example@email.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">프로필 헤드라인 (Headline)</label>
+              <input
+                type="text"
+                value={formData.headline}
+                onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand-navy"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">핵심 역량 및 스킬 (콤마로 구분)</label>
+              <input
+                type="text"
+                value={formData.skills}
+                onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand-navy"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">경력 요약</label>
+              <textarea
+                value={formData.careerSummary}
+                onChange={(e) => setFormData({ ...formData, careerSummary: e.target.value })}
+                className="w-full h-24 p-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand-navy resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setStep("INPUT")}
+                className="w-1/3 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition-colors"
+              >
+                다시 입력
+              </button>
+              <button
+                onClick={handleSaveProfile}
+                disabled={loading}
+                className="w-2/3 bg-brand-navy text-brand-gold py-3 rounded-xl font-bold hover:bg-slate-900 transition-colors shadow-lg disabled:opacity-50"
+              >
+                {loading ? "저장 중..." : "프로필 생성 및 완료"}
+              </button>
             </div>
           </div>
+        )}
 
-          <button onClick={handleSubmit} disabled={loading} className="w-full bg-brand-navy text-brand-gold py-4 rounded-xl text-lg font-bold hover:bg-slate-900 transition-colors shadow-lg hover:shadow-xl mt-4 disabled:opacity-50">
-            {loading ? "처리 중..." : "간편 프로필 등록"}
-          </button>
-        </div>
       </div>
     </div>
   );

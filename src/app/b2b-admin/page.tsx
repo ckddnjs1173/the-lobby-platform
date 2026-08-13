@@ -2,84 +2,184 @@
 
 import { useEffect, useState } from "react";
 import { db } from "../../lib/firebase";
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, doc, getDoc } from "firebase/firestore";
+import { Application, ApplicationStage, Profile } from "../../types";
+import { updateApplicationStageTransaction } from "../../lib/applicationEngine";
+import ApplicationTable from "../../components/b2b-admin/ApplicationTable";
+import ApplicationKanban from "../../components/b2b-admin/ApplicationKanban";
+import ApplicationSlideOver from "../../components/b2b-admin/ApplicationSlideOver";
+import toast from "react-hot-toast";
 
-interface Applicant {
-  id: string;
-  name: string;
-  phone: string;
-  skill: string;
-  status: string;
-  createdAt: any;
-}
+export default function B2BAdminPage() {
+  const [applications, setApplications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"TABLE" | "KANBAN">("TABLE");
+  
+  // Slide-over 상태 관리
+  const [selectedApp, setSelectedApp] = useState<any | null>(null);
+  const [candidateProfile, setCandidateProfile] = useState<Profile | null>(null);
+  const [otherApplications, setOtherApplications] = useState<Application[]>([]);
+  const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
 
-export default function B2BDashboardHome() {
-  const [applicants, setApplicants] = useState<Applicant[]>([]);
-
+  // 1. 지원 내역(Applications) 실시간 동기화
   useEffect(() => {
-    const fetchApplicants = async () => {
-      try {
-        const q = query(collection(db, "applicants"), orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(q);
-        const data = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Applicant[];
-        setApplicants(data);
-      } catch (error) {
-        console.error("Error fetching applicants:", error);
-      }
-    };
-    fetchApplicants();
+    const q = query(collection(db, "applications"), orderBy("appliedAt", "desc"));
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const appsData = await Promise.all(
+        snapshot.docs.map(async (appDoc) => {
+          const app = appDoc.data() as Application;
+          
+          let candidateName = "이름 없음";
+          let candidatePhone = "-";
+          let candidateEmail = "-";
+          if (app.candidateId) {
+            const candRef = doc(db, "candidates", app.candidateId);
+            const candSnap = await getDoc(candRef);
+            if (candSnap.exists()) {
+              const candData = candSnap.data();
+              candidateName = candData.name;
+              candidatePhone = candData.phone;
+              candidateEmail = candData.email;
+            }
+          }
+
+          let jobTitle = "공고명 없음";
+          let company = "기업명 없음";
+          if (app.jobId) {
+            const jobRef = doc(db, "jobs", app.jobId);
+            const jobSnap = await getDoc(jobRef);
+            if (jobSnap.exists()) {
+              const jobData = jobSnap.data();
+              jobTitle = jobData.title;
+              company = jobData.company;
+            }
+          }
+
+          return {
+            ...app,
+            candidateName,
+            candidatePhone,
+            candidateEmail,
+            jobTitle,
+            company,
+          };
+        })
+      );
+
+      setApplications(appsData);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
+  // 2. 행 또는 카드 클릭 시 슬라이드 오버 오픈
+  const handleSelectApplication = async (app: any) => {
+    setSelectedApp(app);
+    setIsSlideOverOpen(true);
+
+    if (app.candidateId) {
+      const profileRef = doc(db, "profile", app.candidateId);
+      const profileSnap = await getDoc(profileRef);
+      if (profileSnap.exists()) {
+        setCandidateProfile(profileSnap.data() as Profile);
+      } else {
+        setCandidateProfile(null);
+      }
+
+      const others = applications.filter(
+        (item) => item.candidateId === app.candidateId && item.applicationId !== app.applicationId
+      );
+      setOtherApplications(others);
+    }
+  };
+
+  // 3. 상태 변경 핸들러 (Transaction 엔진 연동)
+  const handleStageChange = async (applicationId: string, newStage: ApplicationStage, note?: string) => {
+    const result = await updateApplicationStageTransaction(
+      applicationId, 
+      newStage, 
+      "ADMIN_USER", 
+      note
+    );
+
+    if (result.success) {
+      toast.success("지원 단계가 성공적으로 변경되었습니다.");
+      setSelectedApp((prev: any) => prev ? { ...prev, stage: newStage } : null);
+    } else {
+      toast.error(result.error || "상태 변경에 실패했습니다.");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center text-slate-400 font-medium">
+        데이터를 불러오는 중입니다...
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-end">
+    <div className="space-y-6 h-full flex flex-col">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">대시보드</h2>
-          <p className="text-sm text-slate-500 mt-1">오늘 업데이트된 신규 지원자 현황입니다.</p>
+          <h1 className="text-2xl font-bold text-slate-900">지원자 진행관리 Workspace</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            총 <span className="font-semibold text-brand-navy">{applications.length}건</span>의 지원 내역이 실시간 연동되어 있습니다.
+          </p>
+        </div>
+
+        {/* 뷰 전환 토글 버튼 */}
+        <div className="bg-slate-200 p-1 rounded-xl flex gap-1">
+          <button
+            onClick={() => setViewMode("TABLE")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+              viewMode === "TABLE"
+                ? "bg-white text-brand-navy shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            📋 테이블 뷰
+          </button>
+          <button
+            onClick={() => setViewMode("KANBAN")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+              viewMode === "KANBAN"
+                ? "bg-white text-brand-navy shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            📊 칸반 보드 뷰
+          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-        <div className="px-4 py-3 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
-          <h3 className="text-sm font-semibold text-slate-800">최근 인입 지원자</h3>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider">
-                <th className="py-2.5 px-4 font-medium w-12">ID</th>
-                <th className="py-2.5 px-4 font-medium">지원자명</th>
-                <th className="py-2.5 px-4 font-medium">연락처</th>
-                <th className="py-2.5 px-4 font-medium">핵심 역량</th>
-                <th className="py-2.5 px-4 font-medium">상태</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm divide-y divide-slate-100">
-              {applicants.length === 0 ? (
-                <tr><td colSpan={5} className="py-6 text-center text-slate-400">등록된 지원자가 없습니다.</td></tr>
-              ) : (
-                applicants.map((row, i) => (
-                  <tr key={row.id} className="hover:bg-slate-50/50 transition-colors group cursor-pointer">
-                    <td className="py-2 px-4 text-xs font-mono text-slate-400">{i + 1}</td>
-                    <td className="py-2 px-4 font-medium text-slate-900">{row.name}</td>
-                    <td className="py-2 px-4 text-slate-600">{row.phone}</td>
-                    <td className="py-2 px-4 text-slate-600">{row.skill}</td>
-                    <td className="py-2 px-4">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-red-100 text-red-700">
-                        {row.status || "미확인"}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* 뷰 모드에 따른 컴포넌트 렌더링 */}
+      <div className="flex-1 min-h-[500px]">
+        {viewMode === "TABLE" ? (
+          <ApplicationTable
+            applications={applications}
+            onSelectApplication={handleSelectApplication}
+            onStageChange={(id, stage) => handleStageChange(id, stage)}
+          />
+        ) : (
+          <ApplicationKanban
+            applications={applications}
+            onStageChange={(id, stage) => handleStageChange(id, stage)}
+            onSelectApplication={handleSelectApplication}
+          />
+        )}
       </div>
+
+      {/* Slide-over Detail Panel */}
+      <ApplicationSlideOver
+        isOpen={isSlideOverOpen}
+        onClose={() => setIsSlideOverOpen(false)}
+        selectedApp={selectedApp}
+        candidateProfile={candidateProfile}
+        otherApplications={otherApplications}
+        onStageChange={handleStageChange}
+      />
     </div>
   );
 }
