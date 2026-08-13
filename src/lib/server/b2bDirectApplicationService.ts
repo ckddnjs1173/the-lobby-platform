@@ -80,6 +80,19 @@ function requireString(
   return value.trim();
 }
 
+function optionalString(
+  value: unknown
+): string | null {
+  if (
+    typeof value !== "string" ||
+    !value.trim()
+  ) {
+    return null;
+  }
+
+  return value.trim();
+}
+
 export async function createB2BDirectApplication(
   actorUid: string,
   candidateIdInput: string,
@@ -203,15 +216,30 @@ export async function createB2BDirectApplication(
         "JOB_ORGANIZATION_MISSING"
       );
 
-      if (
-        actor.role === "RECRUITER" &&
-        actor.organizationId !== organizationId
-      ) {
-        throw new B2BDirectApplicationServiceError(
-          "다른 조직의 공고에는 후보자를 등록할 수 없습니다.",
-          403,
-          "TENANT_ACCESS_DENIED"
+      const candidateOrganizationId =
+        optionalString(
+          candidateData.organizationId
         );
+
+      if (actor.role === "RECRUITER") {
+        if (!candidateOrganizationId) {
+          throw new B2BDirectApplicationServiceError(
+            "후보자의 조직 소유 정보를 확인할 수 없습니다.",
+            409,
+            "CANDIDATE_ORGANIZATION_MISSING"
+          );
+        }
+
+        if (
+          actor.organizationId !== organizationId ||
+          actor.organizationId !== candidateOrganizationId
+        ) {
+          throw new B2BDirectApplicationServiceError(
+            "다른 조직의 후보자 또는 공고에는 지원을 생성할 수 없습니다.",
+            403,
+            "TENANT_ACCESS_DENIED"
+          );
+        }
       }
 
       const recruiterId = requireString(
