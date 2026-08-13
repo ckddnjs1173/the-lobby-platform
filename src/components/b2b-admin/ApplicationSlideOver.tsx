@@ -14,6 +14,7 @@ import type {
 } from "../../lib/b2bApi";
 
 import ApplicationActivityPanel from "./ApplicationActivityPanel";
+import ApplicationOperationsPanel from "./ApplicationOperationsPanel";
 
 interface ApplicationSlideOverProps {
   isOpen: boolean;
@@ -58,6 +59,7 @@ export default function ApplicationSlideOver({
 }: ApplicationSlideOverProps) {
   const [noteText, setNoteText] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [activityRevision, setActivityRevision] = useState(0);
 
   if (!isOpen || !selectedApp) {
     return null;
@@ -83,6 +85,13 @@ export default function ApplicationSlideOver({
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleOperationsActivityChanged = () => {
+    setActivityRevision(
+      (previous) =>
+        previous + 1
+    );
   };
 
   return (
@@ -182,9 +191,16 @@ export default function ApplicationSlideOver({
             </div>
           </section>
 
+          <ApplicationOperationsPanel
+            application={selectedApp}
+            onActivityChanged={
+              handleOperationsActivityChanged
+            }
+          />
+
           <ApplicationActivityPanel
             applicationId={selectedApp.applicationId}
-            refreshKey={selectedApp.stage}
+            refreshKey={`${selectedApp.stage}-${activityRevision}`}
           />
 
           <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
