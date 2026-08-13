@@ -257,7 +257,7 @@ function normalizeSkills(
   ).slice(0, 20);
 }
 
-function normalizeObjectArray<T extends Record<string, unknown>>(
+function normalizeObjectArray<T extends object>(
   value: unknown
 ): T[] {
   if (!Array.isArray(value)) {
