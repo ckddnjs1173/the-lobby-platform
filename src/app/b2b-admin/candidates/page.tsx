@@ -46,10 +46,8 @@ export default function CandidatePoolPage() {
 
   const [candidates, setCandidates] =
     useState<CandidatePoolItem[]>([]);
-
   const [loading, setLoading] =
     useState(true);
-
   const [queryText, setQueryText] =
     useState("");
 
@@ -76,10 +74,7 @@ export default function CandidatePoolPage() {
           error
         );
 
-        if (
-          error instanceof
-          CandidatePoolApiError
-        ) {
+        if (error instanceof CandidatePoolApiError) {
           toast.error(error.message);
         } else {
           toast.error(
@@ -119,9 +114,7 @@ export default function CandidatePoolPage() {
             .join(" ")
             .toLowerCase();
 
-          return searchTarget.includes(
-            normalized
-          );
+          return searchTarget.includes(normalized);
         }
       );
     },
@@ -199,7 +192,8 @@ export default function CandidatePoolPage() {
                   <th className="py-3 pr-4 font-semibold">헤드라인 / 스킬</th>
                   <th className="py-3 pr-4 font-semibold">프로필</th>
                   <th className="py-3 pr-4 font-semibold">등록자</th>
-                  <th className="py-3 font-semibold">최근 갱신</th>
+                  <th className="py-3 pr-4 font-semibold">최근 갱신</th>
+                  <th className="py-3 font-semibold">관리</th>
                 </tr>
               </thead>
 
@@ -211,9 +205,14 @@ export default function CandidatePoolPage() {
                       className="border-b border-slate-100 last:border-0 align-top"
                     >
                       <td className="py-4 pr-4 min-w-52">
-                        <div className="font-bold text-slate-900">
+                        <a
+                          href={`/b2b-admin/candidates/${encodeURIComponent(
+                            candidate.candidateId
+                          )}`}
+                          className="font-bold text-slate-900 hover:text-brand-navy hover:underline"
+                        >
                           {candidate.name}
-                        </div>
+                        </a>
                         <div className="text-xs text-slate-500 mt-1">
                           {candidate.phone}
                         </div>
@@ -260,11 +259,22 @@ export default function CandidatePoolPage() {
                         {candidate.createdBy}
                       </td>
 
-                      <td className="py-4 text-xs text-slate-500 whitespace-nowrap">
+                      <td className="py-4 pr-4 text-xs text-slate-500 whitespace-nowrap">
                         {formatDate(
                           candidate.updatedAt ||
                           candidate.createdAt
                         )}
+                      </td>
+
+                      <td className="py-4 whitespace-nowrap">
+                        <a
+                          href={`/b2b-admin/candidates/${encodeURIComponent(
+                            candidate.candidateId
+                          )}`}
+                          className="inline-flex px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-brand-navy hover:bg-slate-50"
+                        >
+                          상세 / 수정
+                        </a>
                       </td>
                     </tr>
                   )
