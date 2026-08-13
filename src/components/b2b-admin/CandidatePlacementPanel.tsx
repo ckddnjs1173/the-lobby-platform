@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 
 import {
   CandidateCrmApiError,
+  fetchCandidateCrmDetail,
   fetchCandidatePlacements,
   type CandidatePlacementItem,
 } from "../../lib/candidateCrmApi";
@@ -27,7 +28,6 @@ import {
 
 interface CandidatePlacementPanelProps {
   candidateId: string;
-  organizationId: string;
 }
 
 function formatDateTime(
@@ -57,8 +57,9 @@ function formatDateTime(
 
 export default function CandidatePlacementPanel({
   candidateId,
-  organizationId,
 }: CandidatePlacementPanelProps) {
+  const [organizationId, setOrganizationId] =
+    useState("");
   const [placements, setPlacements] =
     useState<CandidatePlacementItem[]>([]);
   const [jobs, setJobs] =
@@ -74,14 +75,22 @@ export default function CandidatePlacementPanel({
     setLoading(true);
 
     Promise.all([
+      fetchCandidateCrmDetail(candidateId),
       fetchCandidatePlacements(candidateId),
       fetchB2BJobs(),
     ])
-      .then(([placementData, jobData]) => {
+      .then(([
+        candidate,
+        placementData,
+        jobData,
+      ]) => {
         if (cancelled) {
           return;
         }
 
+        setOrganizationId(
+          candidate.organizationId
+        );
         setPlacements(placementData);
         setJobs(jobData);
       })
