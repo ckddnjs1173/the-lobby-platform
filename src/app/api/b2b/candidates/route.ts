@@ -12,16 +12,16 @@ import {
 } from "../../../../lib/server/candidateService";
 
 import {
+  getFirebaseAdminDb,
+} from "../../../../lib/server/firebaseAdmin";
+
+import {
   ServerAuthError,
   requireFirebaseUser,
 } from "../../../../lib/server/serverAuth";
 
 export const runtime =
   "nodejs";
-
-// ============================================================================
-// Error Response
-// ============================================================================
 
 function errorResponse(
   error: unknown
@@ -102,10 +102,6 @@ function errorResponse(
   );
 }
 
-// ============================================================================
-// POST
-// ============================================================================
-
 export async function POST(
   request: Request
 ) {
@@ -141,6 +137,26 @@ export async function POST(
         authenticatedUser.uid,
         body
       );
+
+    /**
+     * Passive Candidate는 Client SDK에서 직접 조회되지 않지만,
+     * 이후 B2B_DIRECT Application 생성 시 tenant 경계를 검증할 수 있도록
+     * 서버 소유 provenance를 Candidate 문서에 남긴다.
+     *
+     * B2C Firestore Rules의 exact schema에는 이 필드가 포함되지 않으므로
+     * Client가 동일 필드를 주입하는 것은 계속 차단된다.
+     */
+    const db = getFirebaseAdminDb();
+
+    await db
+      .collection("candidates")
+      .doc(result.candidateId)
+      .update({
+        organizationId:
+          result.actorOrganizationId,
+        createdBy:
+          result.createdBy,
+      });
 
     return NextResponse.json(
       {
