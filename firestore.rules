@@ -1,101 +1,367 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // =====================================================================
-    // [ Helper Functions ] - 공통 권한 및 검증 로직
-    // =====================================================================
-    
+
+    // ========================================================================
+    // Authentication Helpers
+    // ========================================================================
+
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+
+    function hasUserDocument() {
+      return isAuthenticated()
+        && exists(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        );
     }
-    
+
+    function currentUserData() {
+      return get(
+        /databases/$(database)/documents/users/$(request.auth.uid)
+      ).data;
+    }
+
+    function isActiveB2BUser() {
+      return hasUserDocument()
+        && currentUserData().status == 'ACTIVE'
+        && (
+          currentUserData().role == 'ADMIN'
+          || currentUserData().role == 'RECRUITER'
+        );
+    }
+
+    function isAdmin() {
+      return isActiveB2BUser()
+        && currentUserData().role == 'ADMIN';
+    }
+
     function isRecruiter() {
-      return isAuthenticated() && 
-             (getUserData().role == 'RECRUITER' || getUserData().role == 'ADMIN');
+      return isActiveB2BUser()
+        && currentUserData().role == 'RECRUITER';
     }
 
-    function hasTenantAccess(orgId) {
-      // ADMIN은 모든 테넌트 접근 가능, RECRUITER는 본인 소속 조직(organizationId)만 접근 가능
-      return getUserData().role == 'ADMIN' || getUserData().organizationId == orgId;
+    function hasTenantAccess(organizationId) {
+      return isAdmin()
+        || (
+          isRecruiter()
+          && currentUserData().organizationId == organizationId
+        );
     }
-    
+
+    // ========================================================================
+    // Candidate Helpers
+    // ========================================================================
+
+    function candidateExists(candidateId) {
+      return exists(
+        /databases/$(database)/documents/candidates/$(candidateId)
+      );
+    }
+
+    function candidateData(candidateId) {
+      return get(
+        /databases/$(database)/documents/candidates/$(candidateId)
+      ).data;
+    }
+
     function isCandidateOwner(candidateId) {
-      // Candidate 문서의 authUid가 현재 로그인한 유저의 uid와 일치하는지 교차 검증
-      return get(/databases/$(database)/documents/candidates/$(candidateId)).data.authUid == request.auth.uid;
+      return isAuthenticated()
+        && candidateExists(candidateId)
+        && candidateData(candidateId).authUid == request.auth.uid;
     }
 
-    // =====================================================================
-    // [ Collection Rules ] - 도메인별 접근 통제
-    // =====================================================================
+    function hasCandidateSchema(data) {
+      return data.keys().hasAll([
+          'candidateId',
+          'authUid',
+          'name',
+          'phone',
+          'email',
+          'source',
+          'accountStatus',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'candidateId',
+          'authUid',
+          'name',
+          'phone',
+          'email',
+          'source',
+          'accountStatus',
+          'createdAt',
+          'updatedAt'
+        ]);
+    }
 
-    // 1. candidates (구직자 본체)
+    function hasValidCandidateTypes(data) {
+      return data.candidateId is string
+        && data.authUid is string
+        && data.name is string
+        && data.phone is string
+        && data.email is string
+        && data.source is string
+        && data.accountStatus is string
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // ========================================================================
+    // Profile Helpers
+    // ========================================================================
+
+    function hasProfileSchema(data) {
+      return data.keys().hasAll([
+          'candidateId',
+          'headline',
+          'careerSummary',
+          'skills',
+          'careers',
+          'education',
+          'profileCompleteness',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'candidateId',
+          'headline',
+          'careerSummary',
+          'skills',
+          'careers',
+          'education',
+          'profileCompleteness',
+          'updatedAt'
+        ]);
+    }
+
+    function hasValidProfileTypes(data) {
+      return data.candidateId is string
+        && data.headline is string
+        && data.careerSummary is string
+        && data.skills is list
+        && data.careers is list
+        && data.education is list
+        && data.profileCompleteness is int
+        && data.profileCompleteness >= 0
+        && data.profileCompleteness <= 100
+        && data.updatedAt is timestamp;
+    }
+
+    // ========================================================================
+    // candidates
+    // ========================================================================
+
     match /candidates/{candidateId} {
-      // 읽기: 본인이거나 시스템 내 리쿠르터
-      allow read: if isAuthenticated() && (resource.data.authUid == request.auth.uid || isRecruiter());
-      
-      // 생성: authUid 필드가 본인의 uid로 정확히 세팅되었을 때만 허용
-      allow create: if isAuthenticated() && request.resource.data.authUid == request.auth.uid;
-      
-      // 수정: 본인이거나 리쿠르터
-      allow update: if isAuthenticated() && (resource.data.authUid == request.auth.uid || isRecruiter());
-      
-      allow delete: if false; // 하드 삭제 엄격 금지 (accountStatus 'INACTIVE' 처리 유도)
+
+      /**
+       * Candidate PII는 Candidate 본인만 Client SDK에서 조회한다.
+       *
+       * B2B Recruiter 조회는 Firebase Admin 기반 Server API를 사용한다.
+       */
+      allow read: if isAuthenticated()
+        && resource.data.authUid == request.auth.uid;
+
+      /**
+       * B2C Candidate Self Registration.
+       *
+       * Client가 서버 소유 필드나 임의 스키마를 주입하지 못하도록
+       * 정확한 필드 집합과 타입을 함께 검증한다.
+       */
+      allow create: if isAuthenticated()
+        && hasCandidateSchema(request.resource.data)
+        && hasValidCandidateTypes(request.resource.data)
+        && request.resource.data.candidateId == candidateId
+        && request.resource.data.authUid == request.auth.uid
+        && request.resource.data.source == 'B2C_SELF'
+        && request.resource.data.accountStatus == 'ACTIVE'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      /**
+       * Candidate 본인의 Client Update.
+       *
+       * Identity / Source / Status / 생성시간은 Client에서 바꿀 수 없다.
+       * 변경 가능한 PII 필드도 정해진 타입만 허용한다.
+       */
+      allow update: if isAuthenticated()
+        && resource.data.authUid == request.auth.uid
+        && hasCandidateSchema(request.resource.data)
+        && hasValidCandidateTypes(request.resource.data)
+        && request.resource.data.authUid == resource.data.authUid
+        && request.resource.data.candidateId == resource.data.candidateId
+        && request.resource.data.source == resource.data.source
+        && request.resource.data.accountStatus == resource.data.accountStatus
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly([
+            'name',
+            'phone',
+            'email',
+            'updatedAt'
+          ]);
+
+      allow delete: if false;
     }
 
-    // 2. profile (커리어 정보)
+    // ========================================================================
+    // profile
+    // ========================================================================
+
     match /profile/{candidateId} {
-      allow read: if isAuthenticated() && (isCandidateOwner(candidateId) || isRecruiter());
-      allow create, update: if isAuthenticated() && isCandidateOwner(candidateId);
+
+      /**
+       * Profile Client Read는 본인만.
+       *
+       * Recruiter는 Server API:
+       * /api/b2b/applications/{applicationId}/candidate-profile
+       */
+      allow read: if isCandidateOwner(candidateId);
+
+      /**
+       * Firestore Rules는 skills/careers/education이 list인지 검증할 수 있다.
+       * 다만 list 내부 모든 map 요소의 스키마를 반복 검증할 수 없으므로
+       * CareerItem / EducationItem 상세 스키마는 Server API DTO에서도 검증한다.
+       */
+      allow create: if isCandidateOwner(candidateId)
+        && hasProfileSchema(request.resource.data)
+        && hasValidProfileTypes(request.resource.data)
+        && request.resource.data.candidateId == candidateId
+        && request.resource.data.updatedAt == request.time;
+
+      /**
+       * Profile 상세 필드는 Candidate가 수정할 수 있다.
+       * candidateId는 불변이고 임의 최상위 필드 추가를 금지한다.
+       */
+      allow update: if isCandidateOwner(candidateId)
+        && hasProfileSchema(request.resource.data)
+        && hasValidProfileTypes(request.resource.data)
+        && request.resource.data.candidateId == resource.data.candidateId
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly([
+            'headline',
+            'careerSummary',
+            'skills',
+            'careers',
+            'education',
+            'profileCompleteness',
+            'updatedAt'
+          ]);
+
       allow delete: if false;
     }
 
-    // 3. jobs (채용 공고)
+    // ========================================================================
+    // jobs
+    // ========================================================================
+
     match /jobs/{jobId} {
-      allow read: if true; // 공고 열람은 전체 공개
-      
-      // 작성/수정: 리쿠르터이면서, 해당 공고에 기입된 조직(organizationId)에 속해야 함
-      allow create, update: if isRecruiter() && hasTenantAccess(request.resource.data.organizationId);
-      allow delete: if false;
+
+      /**
+       * Public:
+       * OPEN 공고만 조회 가능.
+       *
+       * B2B:
+       * 자신의 Tenant 공고 또는 ADMIN만 OPEN 외 상태 조회 가능.
+       */
+      allow read: if resource.data.status == 'OPEN'
+        || (
+          isActiveB2BUser()
+          && hasTenantAccess(resource.data.organizationId)
+        );
+
+      /**
+       * Job Write는 Client SDK에서 차단한다.
+       *
+       * 향후 Job Management Server API에서 Firebase Admin으로 처리한다.
+       */
+      allow create, update, delete: if false;
     }
 
-    // 4. applications (지원 내역)
+    // ========================================================================
+    // applications
+    // ========================================================================
+
     match /applications/{applicationId} {
-      // 읽기: 본인의 지원 내역이거나, 해당 공고를 올린 조직의 리쿠르터만 열람 가능
-      allow read: if isAuthenticated() && 
-                  (isCandidateOwner(resource.data.candidateId) || 
-                  (isRecruiter() && hasTenantAccess(resource.data.organizationId)));
-      
-      // 생성: 구직자 본인이 직접 지원할 때만 허용 + 결정론적 ID(candidateId__jobId) 서버 검증
-      allow create: if isAuthenticated() 
-                    && isCandidateOwner(request.resource.data.candidateId)
-                    && applicationId == request.resource.data.candidateId + "__" + request.resource.data.jobId;
-      
-      // 수정: 리쿠르터만 상태 변경 가능. 단, 기존 핵심 키값(후보자, 공고, 조직) 변조는 원천 차단
-      allow update: if isRecruiter() 
-                    && hasTenantAccess(resource.data.organizationId)
-                    && request.resource.data.candidateId == resource.data.candidateId
-                    && request.resource.data.jobId == resource.data.jobId
-                    && request.resource.data.organizationId == resource.data.organizationId;
-                    
-      allow delete: if false;
+
+      /**
+       * Candidate:
+       * 자신의 Application만 읽기 가능.
+       *
+       * Recruiter:
+       * 자신의 Tenant만.
+       *
+       * ADMIN:
+       * 전체 Tenant.
+       */
+      allow read: if isAuthenticated()
+        && (
+          isCandidateOwner(resource.data.candidateId)
+          || (
+            isActiveB2BUser()
+            && hasTenantAccess(resource.data.organizationId)
+          )
+        );
+
+      /**
+       * 모든 Application Write는 Server Application Service만 수행한다.
+       *
+       * Firebase Admin SDK는 Firestore Security Rules를 우회하며
+       * Server API에서 Authentication / Authorization / Validation 수행.
+       */
+      allow create, update, delete: if false;
     }
 
-    // 5. appEvents (감사 로그 - Audit Trail)
+    // ========================================================================
+    // appEvents
+    // ========================================================================
+
     match /appEvents/{eventId} {
-      // 이벤트 로그는 리쿠르터만 열람 가능
-      allow read: if isRecruiter();
-      
-      // 생성: 클라이언트 임의 생성 차단. 이벤트 발생 주체(changedBy)가 실제 로그인한 유저 UID와 일치해야 함.
-      allow create: if isAuthenticated() 
-                    && request.resource.data.changedBy == request.auth.uid;
-                    
-      // 수정 및 삭제 절대 불가 (Immutable 특성 강제)
-      allow update, delete: if false;
+
+      /**
+       * Audit Trail은 Client SDK에서 직접 접근하지 않는다.
+       *
+       * 향후 Activity Timeline API를 통해 Tenant 검증 후 제공한다.
+       */
+      allow read, create, update, delete: if false;
+    }
+
+    // ========================================================================
+    // users
+    // ========================================================================
+
+    match /users/{uid} {
+
+      /**
+       * Role / Tenant 정보는 보안 경계이므로 Client 직접 접근 차단.
+       *
+       * B2B Session API와 Firestore Rules 내부 get()에서만 사용한다.
+       */
+      allow read, create, update, delete: if false;
+    }
+
+    // ========================================================================
+    // organizations
+    // ========================================================================
+
+    match /organizations/{organizationId} {
+      allow read, create, update, delete: if false;
+    }
+
+    // ========================================================================
+    // Default Deny
+    // ========================================================================
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

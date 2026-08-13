@@ -1,14 +1,27 @@
 "use client";
 
-import { ApplicationStage } from "../../types";
+import {
+  ApplicationStage,
+  ApplicationView,
+} from "../../types";
 
 interface ApplicationTableProps {
-  applications: any[];
-  onSelectApplication: (app: any) => void;
-  onStageChange: (applicationId: string, newStage: ApplicationStage) => void;
+  applications: ApplicationView[];
+
+  onSelectApplication: (
+    application: ApplicationView
+  ) => void;
+
+  onStageChange: (
+    applicationId: string,
+    newStage: ApplicationStage
+  ) => void;
 }
 
-const STAGE_LABELS: Record<ApplicationStage, string> = {
+const STAGE_LABELS: Record<
+  ApplicationStage,
+  string
+> = {
   NEW: "신규지원",
   REVIEWING: "검토중",
   CONTACTED: "연락완료",
@@ -23,6 +36,26 @@ const STAGE_LABELS: Record<ApplicationStage, string> = {
   CANCELED: "지원취소",
 };
 
+function formatAppliedDate(
+  isoDate: string
+): string {
+  if (!isoDate) {
+    return "-";
+  }
+
+  const parsedDate = new Date(isoDate);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "-";
+  }
+
+  return parsedDate.toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
 export default function ApplicationTable({
   applications,
   onSelectApplication,
@@ -34,62 +67,136 @@ export default function ApplicationTable({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-              <th className="py-4 px-6">지원자 정보</th>
-              <th className="py-4 px-6">지원 공고 / 기업</th>
-              <th className="py-4 px-6">현재 단계</th>
-              <th className="py-4 px-6">지원 일시</th>
-              <th className="py-4 px-6 text-right">관리</th>
+              <th className="py-4 px-6">
+                지원자 정보
+              </th>
+
+              <th className="py-4 px-6">
+                지원 공고 / 기업
+              </th>
+
+              <th className="py-4 px-6">
+                현재 단계
+              </th>
+
+              <th className="py-4 px-6">
+                지원 일시
+              </th>
+
+              <th className="py-4 px-6 text-right">
+                관리
+              </th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-slate-100 text-sm">
             {applications.length > 0 ? (
-              applications.map((app) => (
-                <tr
-                  key={app.applicationId}
-                  onClick={() => onSelectApplication(app)}
-                  className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
-                >
-                  <td className="py-4 px-6">
-                    <div className="font-bold text-slate-900 group-hover:text-brand-navy transition-colors">
-                      {app.candidateName}
-                    </div>
-                    <div className="text-xs text-slate-400 font-mono mt-0.5">
-                      {app.candidatePhone} | {app.candidateEmail}
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="font-semibold text-slate-800">{app.jobTitle}</div>
-                    <div className="text-xs text-brand-navy font-medium mt-0.5">
-                      {app.company}
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                      {STAGE_LABELS[app.stage as ApplicationStage] || app.stage}
-                    </span>
-                  </td>
-                  <td className="py-4 px-6 text-xs text-slate-500 font-mono">
-                    {app.appliedAt ? new Date(app.appliedAt).toLocaleDateString() : "-"}
-                  </td>
-                  <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
-                    <select
-                      value={app.stage}
-                      onChange={(e) => onStageChange(app.applicationId, e.target.value as ApplicationStage)}
-                      className="text-xs bg-white border border-slate-200 rounded-lg px-3 py-1.5 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-navy/20"
+              applications.map(
+                (application) => (
+                  <tr
+                    key={
+                      application.applicationId
+                    }
+                    onClick={() =>
+                      onSelectApplication(
+                        application
+                      )
+                    }
+                    className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                  >
+                    {/* Candidate */}
+                    <td className="py-4 px-6">
+                      <div className="font-bold text-slate-900 group-hover:text-brand-navy transition-colors">
+                        {
+                          application.candidateName
+                        }
+                      </div>
+
+                      <div className="text-xs text-slate-400 font-mono mt-0.5">
+                        {
+                          application.candidatePhone
+                        }{" "}
+                        |{" "}
+                        {
+                          application.candidateEmail
+                        }
+                      </div>
+                    </td>
+
+                    {/* Job */}
+                    <td className="py-4 px-6">
+                      <div className="font-semibold text-slate-800">
+                        {application.jobTitle}
+                      </div>
+
+                      <div className="text-xs text-brand-navy font-medium mt-0.5">
+                        {application.company}
+                      </div>
+                    </td>
+
+                    {/* Stage */}
+                    <td className="py-4 px-6">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                        {
+                          STAGE_LABELS[
+                            application.stage
+                          ]
+                        }
+                      </span>
+                    </td>
+
+                    {/* Applied At */}
+                    <td className="py-4 px-6 text-xs text-slate-500 font-mono">
+                      {formatAppliedDate(
+                        application.appliedAt
+                      )}
+                    </td>
+
+                    {/* Action */}
+                    <td
+                      className="py-4 px-6 text-right"
+                      onClick={(event) =>
+                        event.stopPropagation()
+                      }
                     >
-                      {Object.entries(STAGE_LABELS).map(([key, label]) => (
-                        <option key={key} value={key}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              ))
+                      <select
+                        value={
+                          application.stage
+                        }
+                        onChange={(event) =>
+                          onStageChange(
+                            application.applicationId,
+                            event.target
+                              .value as ApplicationStage
+                          )
+                        }
+                        className="text-xs bg-white border border-slate-200 rounded-lg px-3 py-1.5 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-navy/20"
+                      >
+                        {Object.entries(
+                          STAGE_LABELS
+                        ).map(
+                          ([stage, label]) => (
+                            <option
+                              key={stage}
+                              value={stage}
+                            >
+                              {label}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </td>
+                  </tr>
+                )
+              )
             ) : (
               <tr>
-                <td colSpan={5} className="py-16 text-center text-slate-400 font-medium">
-                  등록된 지원 내역이 없습니다.
+                <td
+                  colSpan={5}
+                  className="py-16 text-center text-slate-400 font-medium"
+                >
+                  등록된 지원 내역이
+                  없습니다.
                 </td>
               </tr>
             )}

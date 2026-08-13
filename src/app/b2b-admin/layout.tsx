@@ -1,62 +1,285 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { auth } from "../../lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import {
+  useEffect,
+  useState,
+} from "react";
 
-export default function B2BAdminLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+import {
+  usePathname,
+  useRouter,
+} from "next/navigation";
+
+import {
+  onAuthStateChanged,
+} from "firebase/auth";
+
+import {
+  auth,
+} from "../../lib/firebase";
+
+import {
+  B2BApiError,
+  fetchB2BSession,
+  type B2BSession,
+} from "../../lib/b2bApi";
+
+import {
+  B2BSessionProvider,
+} from "../../components/b2b-admin/B2BSessionContext";
+
+export default function B2BAdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const router =
+    useRouter();
+
+  const pathname =
+    usePathname();
+
+  const [
+    session,
+    setSession,
+  ] =
+    useState<B2BSession | null>(
+      null
+    );
+
+  const [
+    checkingAuth,
+    setCheckingAuth,
+  ] = useState(true);
+
+  /**
+   * 로그인 페이지는 B2B Session Provider 없이
+   * 독립적으로 렌더링한다.
+   */
+  const isLoginPage =
+    pathname ===
+    "/b2b-admin/login";
 
   useEffect(() => {
-    // 로그인 상태 감지
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setIsAuthorized(true);
-      } else {
-        setIsAuthorized(false);
-        // 로그인 페이지가 아닐 때만 튕겨내기 (무한 루프 방지)
-        if (pathname !== "/b2b-admin/login") {
-          router.push("/b2b-admin/login");
+    if (isLoginPage) {
+      setCheckingAuth(
+        false
+      );
+
+      setSession(
+        null
+      );
+
+      return;
+    }
+
+    let cancelled =
+      false;
+
+    setCheckingAuth(true);
+
+    const unsubscribe =
+      onAuthStateChanged(
+        auth,
+
+        async (user) => {
+          if (cancelled) {
+            return;
+          }
+
+          if (!user) {
+            setSession(
+              null
+            );
+
+            setCheckingAuth(
+              false
+            );
+
+            router.replace(
+              "/b2b-admin/login"
+            );
+
+            return;
+          }
+
+          try {
+            /**
+             * 단순 Firebase 로그인 여부가 아니라
+             * Server API에서 실제 Role / Tenant를 검증한다.
+             */
+            const verifiedSession =
+              await fetchB2BSession();
+
+            if (cancelled) {
+              return;
+            }
+
+            setSession(
+              verifiedSession
+            );
+
+            setCheckingAuth(
+              false
+            );
+          } catch (error) {
+            if (cancelled) {
+              return;
+            }
+
+            console.error(
+              "B2B authorization error:",
+              error
+            );
+
+            setSession(
+              null
+            );
+
+            setCheckingAuth(
+              false
+            );
+
+            if (
+              error instanceof
+              B2BApiError
+            ) {
+              const params =
+                new URLSearchParams();
+
+              params.set(
+                "error",
+                error.code
+              );
+
+              router.replace(
+                `/b2b-admin/login?${params.toString()}`
+              );
+
+              return;
+            }
+
+            router.replace(
+              "/b2b-admin/login?error=B2B_SESSION_FAILED"
+            );
+          }
         }
-      }
-    });
+      );
 
-    return () => unsubscribe();
-  }, [router, pathname]);
+    return () => {
+      cancelled = true;
 
-  // 로그인 페이지일 때는 사이드바 없이 로그인 창만 보여줌
-  if (pathname === "/b2b-admin/login") {
+      unsubscribe();
+    };
+  }, [
+    isLoginPage,
+    router,
+  ]);
+
+  // ==========================================================================
+  // Login Page
+  // ==========================================================================
+
+  if (isLoginPage) {
     return <>{children}</>;
   }
 
-  // 로그인이 안 된 상태에서 대시보드 진입 시도시 흰 화면 처리 (깜빡임 방지)
-  if (!isAuthorized) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400">인증 확인 중...</div>;
+  // ==========================================================================
+  // Authorization Loading
+  // ==========================================================================
+
+  if (
+    checkingAuth ||
+    !session
+  ) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <div className="text-sm font-semibold text-slate-600">
+            관리자 권한을 확인하고
+            있습니다...
+          </div>
+
+          <div className="text-xs text-slate-400">
+            Firebase 인증 및 조직
+            권한 검증 중
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  // 로그인 성공 시 정상적인 대시보드 레이아웃 렌더링
+  // ==========================================================================
+  // Authorized Workspace
+  // ==========================================================================
+
   return (
-    <div className="flex h-screen bg-slate-50">
-      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-slate-800">
-          <span className="text-lg font-bold text-brand-gold tracking-wider">J&C BACKOFFICE</span>
-        </div>
-        <nav className="flex-1 py-4 space-y-1">
-          <a href="/b2b-admin" className="block px-6 py-2 bg-slate-800 text-white font-medium border-l-4 border-brand-gold">지원자 관리</a>
-          <a href="#" className="block px-6 py-2 hover:bg-slate-800 hover:text-white transition-colors">공고 관리 (준비중)</a>
-        </nav>
-        <div className="p-4 border-t border-slate-800 text-xs text-slate-500">
-          © 2026 The Lobby by J&C.
-        </div>
-      </aside>
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-6xl mx-auto">
-          {children}
-        </div>
-      </main>
-    </div>
+    <B2BSessionProvider
+      session={session}
+    >
+      <div className="flex h-screen bg-slate-50">
+        {/* Sidebar */}
+        <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0">
+          <div className="h-16 flex items-center px-6 border-b border-slate-800">
+            <span className="text-lg font-bold text-brand-gold tracking-wider">
+              J&C BACKOFFICE
+            </span>
+          </div>
+
+          <nav className="flex-1 py-4 space-y-1">
+            <a
+              href="/b2b-admin"
+              className="block px-6 py-2 bg-slate-800 text-white font-medium border-l-4 border-brand-gold"
+            >
+              지원자 관리
+            </a>
+
+            <a
+              href="#"
+              className="block px-6 py-2 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              공고 관리 (준비중)
+            </a>
+          </nav>
+
+          {/* Current User */}
+          <div className="p-4 border-t border-slate-800">
+            <div className="text-xs font-semibold text-slate-300 truncate">
+              {session.name}
+            </div>
+
+            <div className="text-[11px] text-slate-500 mt-1 truncate">
+              {session.email}
+            </div>
+
+            <div className="flex items-center gap-2 mt-2">
+              <span className="inline-flex px-2 py-0.5 bg-slate-800 rounded text-[10px] font-bold text-brand-gold">
+                {session.role}
+              </span>
+
+              {session.organizationId && (
+                <span className="text-[10px] text-slate-500 truncate">
+                  {
+                    session.organizationId
+                  }
+                </span>
+              )}
+            </div>
+
+            <div className="text-[10px] text-slate-600 mt-3">
+              © 2026 The Lobby by
+              J&C.
+            </div>
+          </div>
+        </aside>
+
+        {/* Main */}
+        <main className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-6xl mx-auto">
+            {children}
+          </div>
+        </main>
+      </div>
+    </B2BSessionProvider>
   );
 }
