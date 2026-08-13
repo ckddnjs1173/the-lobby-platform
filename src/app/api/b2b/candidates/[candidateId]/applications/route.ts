@@ -4,17 +4,17 @@ import {
 
 import {
   B2BAuthorizationError,
-} from "../../../../../../../lib/server/b2bAuthorization";
+} from "../../../../../../lib/server/b2bAuthorization";
 
 import {
   CandidatePlacementServiceError,
   listB2BCandidatePlacements,
-} from "../../../../../../../lib/server/candidatePlacementService";
+} from "../../../../../../lib/server/candidatePlacementService";
 
 import {
   ServerAuthError,
   requireFirebaseUser,
-} from "../../../../../../../lib/server/serverAuth";
+} from "../../../../../../lib/server/serverAuth";
 
 export const runtime = "nodejs";
 
