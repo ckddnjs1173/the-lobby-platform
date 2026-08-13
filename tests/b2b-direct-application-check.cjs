@@ -303,10 +303,12 @@ async function run() {
   createdCandidateId =
     candidateResult.parsed.data.candidateId;
 
-  const candidateSnapshot = await db
+  const candidateReference = db
     .collection("candidates")
-    .doc(createdCandidateId)
-    .get();
+    .doc(createdCandidateId);
+
+  const candidateSnapshot =
+    await candidateReference.get();
 
   const candidateData =
     candidateSnapshot.data();
@@ -321,9 +323,21 @@ async function run() {
     candidateData?.authUid === null
   );
 
+  console.log(
+    "CANDIDATE_ORGANIZATION_ID:",
+    candidateData?.organizationId
+  );
+
+  console.log(
+    "CANDIDATE_CREATED_BY:",
+    candidateData?.createdBy
+  );
+
   if (
     candidateData?.source !== "B2B_DIRECT" ||
-    candidateData?.authUid !== null
+    candidateData?.authUid !== null ||
+    candidateData?.organizationId !== "jnc" ||
+    candidateData?.createdBy !== recruiterUid
   ) {
     throw new Error(
       "PASSIVE_CANDIDATE_INVARIANT_FAILED"
@@ -331,7 +345,52 @@ async function run() {
   }
 
   console.log(
-    "STEP_3: CREATE_B2B_DIRECT_APPLICATION"
+    "STEP_3: CROSS_TENANT_CANDIDATE_BLOCKED"
+  );
+
+  await candidateReference.update({
+    organizationId:
+      "e2e-other-org",
+  });
+
+  const crossTenantResult = await callApi(
+    recruiterToken,
+    "/api/b2b/applications",
+    "POST",
+    {
+      candidateId:
+        createdCandidateId,
+      jobId:
+        createdJobId,
+    }
+  );
+
+  console.log(
+    "CROSS_TENANT_STATUS:",
+    crossTenantResult.status
+  );
+
+  console.log(
+    "CROSS_TENANT_BODY:",
+    crossTenantResult.body
+  );
+
+  if (
+    crossTenantResult.status !== 403 ||
+    crossTenantResult.parsed?.code !==
+      "TENANT_ACCESS_DENIED"
+  ) {
+    throw new Error(
+      "CROSS_TENANT_CANDIDATE_NOT_BLOCKED"
+    );
+  }
+
+  await candidateReference.update({
+    organizationId: "jnc",
+  });
+
+  console.log(
+    "STEP_4: CREATE_B2B_DIRECT_APPLICATION"
   );
 
   const applicationResult = await callApi(
@@ -407,7 +466,7 @@ async function run() {
   }
 
   console.log(
-    "STEP_4: VERIFY_AUDIT_EVENT"
+    "STEP_5: VERIFY_AUDIT_EVENT"
   );
 
   const events = await db
@@ -449,7 +508,7 @@ async function run() {
   }
 
   console.log(
-    "STEP_5: DUPLICATE_APPLICATION_BLOCKED"
+    "STEP_6: DUPLICATE_APPLICATION_BLOCKED"
   );
 
   const duplicateResult = await callApi(
@@ -485,7 +544,7 @@ async function run() {
   }
 
   console.log(
-    "STEP_6: B2C_CANDIDATE_ACCESS_DENIED"
+    "STEP_7: B2C_CANDIDATE_ACCESS_DENIED"
   );
 
   const candidateToken =
