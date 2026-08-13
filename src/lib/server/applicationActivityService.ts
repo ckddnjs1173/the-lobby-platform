@@ -42,6 +42,7 @@ export interface ApplicationActivityItem {
   toStage: ApplicationStage | null;
   changedBy: string;
   note: string | null;
+  metadata: Record<string, unknown> | null;
   createdAt: string | null;
 }
 
@@ -180,6 +181,20 @@ function timestampToIsoString(value: unknown): string | null {
   }
 }
 
+function normalizeMetadata(
+  value: unknown
+): Record<string, unknown> | null {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value)
+  ) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
 function toActivityItem(
   eventId: string,
   data: DocumentData,
@@ -204,6 +219,7 @@ function toActivityItem(
     toStage: isApplicationStage(data.toStage) ? data.toStage : null,
     changedBy: data.changedBy.trim(),
     note: isNonEmptyString(data.note) ? data.note.trim() : null,
+    metadata: normalizeMetadata(data.metadata),
     createdAt: timestampToIsoString(data.createdAt),
   };
 }
