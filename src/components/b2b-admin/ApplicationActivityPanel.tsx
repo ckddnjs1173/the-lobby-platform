@@ -32,6 +32,15 @@ const EVENT_LABELS: Record<
   PROFILE_UPDATED: "프로필 갱신",
 };
 
+const INTERVIEW_METHOD_LABELS: Record<
+  string,
+  string
+> = {
+  ONSITE: "대면",
+  VIDEO: "화상",
+  PHONE: "전화",
+};
+
 function formatActivityTime(
   value: string | null
 ): string {
@@ -57,6 +66,19 @@ function formatActivityTime(
   ).format(date);
 }
 
+function metadataString(
+  activity: ApplicationActivityItem,
+  key: string
+): string | null {
+  const value =
+    activity.metadata?.[key];
+
+  return typeof value === "string" &&
+    value.trim()
+    ? value.trim()
+    : null;
+}
+
 function activitySummary(
   activity: ApplicationActivityItem
 ): string | null {
@@ -73,6 +95,75 @@ function activitySummary(
     activity.toStage
   ) {
     return `초기 단계: ${activity.toStage}`;
+  }
+
+  if (
+    activity.type === "RECRUITER_ASSIGNED"
+  ) {
+    const recruiterName =
+      metadataString(
+        activity,
+        "toRecruiterName"
+      );
+
+    const recruiterId =
+      metadataString(
+        activity,
+        "toRecruiterId"
+      );
+
+    if (
+      recruiterName ||
+      recruiterId
+    ) {
+      return `담당자: ${
+        recruiterName ||
+        recruiterId
+      }`;
+    }
+  }
+
+  if (
+    activity.type === "INTERVIEW_SCHEDULED"
+  ) {
+    const scheduledAt =
+      metadataString(
+        activity,
+        "scheduledAt"
+      );
+
+    const method =
+      metadataString(
+        activity,
+        "method"
+      );
+
+    const location =
+      metadataString(
+        activity,
+        "location"
+      );
+
+    const parts = [
+      scheduledAt
+        ? formatActivityTime(
+            scheduledAt
+          )
+        : null,
+      method
+        ? INTERVIEW_METHOD_LABELS[
+            method
+          ] || method
+        : null,
+      location,
+    ].filter(
+      (item): item is string =>
+        Boolean(item)
+    );
+
+    if (parts.length > 0) {
+      return parts.join(" · ");
+    }
   }
 
   return null;
