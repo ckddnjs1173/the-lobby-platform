@@ -43,7 +43,7 @@ export interface CreateB2BJobInput {
 export type UpdateB2BJobInput = Partial<
   Omit<
     CreateB2BJobInput,
-    "organizationId"
+    "organizationId" | "status"
   >
 > & {
   status?: JobStatus;
