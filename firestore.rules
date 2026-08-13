@@ -1,8 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper Functions: 사용자 인증 및 권한 확인
+    
+    // =====================================================================
+    // [ Helper Functions ] - 공통 권한 및 검증 로직
+    // =====================================================================
+    
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -10,56 +13,88 @@ service cloud.firestore {
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-
-    function isAdmin() {
-      return isAuthenticated() && getUserData().role == 'ADMIN';
-    }
-
+    
     function isRecruiter() {
-      return isAuthenticated() && (getUserData().role == 'RECRUITER' || getUserData().role == 'ADMIN');
+      return isAuthenticated() && 
+             (getUserData().role == 'RECRUITER' || getUserData().role == 'ADMIN');
     }
 
-    // 1. Candidate (구직자 본체) 규칙 - 본인 또는 권한자만 접근
+    function hasTenantAccess(orgId) {
+      // ADMIN은 모든 테넌트 접근 가능, RECRUITER는 본인 소속 조직(organizationId)만 접근 가능
+      return getUserData().role == 'ADMIN' || getUserData().organizationId == orgId;
+    }
+    
+    function isCandidateOwner(candidateId) {
+      // Candidate 문서의 authUid가 현재 로그인한 유저의 uid와 일치하는지 교차 검증
+      return get(/databases/$(database)/documents/candidates/$(candidateId)).data.authUid == request.auth.uid;
+    }
+
+    // =====================================================================
+    // [ Collection Rules ] - 도메인별 접근 통제
+    // =====================================================================
+
+    // 1. candidates (구직자 본체)
     match /candidates/{candidateId} {
+      // 읽기: 본인이거나 시스템 내 리쿠르터
       allow read: if isAuthenticated() && (resource.data.authUid == request.auth.uid || isRecruiter());
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (resource.data.authUid == request.auth.uid || isRecruiter());
-      allow delete: if isAdmin();
-    }
-
-    // 2. Profile (커리어 정보) 규칙 - 본인 또는 권한자만 접근
-    match /profile/{candidateId} {
-      allow read: if isAuthenticated() && (request.auth.uid == candidateId || isRecruiter());
-      allow create, update: if isAuthenticated() && (request.auth.uid == candidateId || isRecruiter());
-      allow delete: if isAdmin();
-    }
-
-    // 3. Job (채용 공고) 규칙
-    match /jobs/{jobId} {
-      allow read: if true; // 누구나 공고 열람 가능
-      allow create, update, delete: if isRecruiter();
-    }
-
-    // 4. Application (지원 내역) 규칙 - 결정론적 ID 및 위변조 방지
-    match /applications/{applicationId} {
-      // applicationId가 'candidateId__jobId' 형식이며 본인 혹은 리쿠르터일 때만 읽기 허용
-      allow read: if isAuthenticated() && (resource.data.candidateId == request.auth.uid || isRecruiter());
       
-      // 생성: 결정론적 ID 포맷 검증 및 권한 확인
-      allow create: if isAuthenticated() && 
-        applicationId == request.resource.data.candidateId + '__' + request.resource.data.jobId &&
-        (request.resource.data.candidateId == request.auth.uid || isRecruiter());
-
-      // 수정: 리쿠르터는 상태 변경 가능 (단, 핵심 키값 불변 보장)
-      allow update: if isRecruiter();
-      allow delete: if isAdmin();
+      // 생성: authUid 필드가 본인의 uid로 정확히 세팅되었을 때만 허용
+      allow create: if isAuthenticated() && request.resource.data.authUid == request.auth.uid;
+      
+      // 수정: 본인이거나 리쿠르터
+      allow update: if isAuthenticated() && (resource.data.authUid == request.auth.uid || isRecruiter());
+      
+      allow delete: if false; // 하드 삭제 엄격 금지 (accountStatus 'INACTIVE' 처리 유도)
     }
 
-    // 5. App Event (활동 및 감사 로그) 규칙 - Immutable
+    // 2. profile (커리어 정보)
+    match /profile/{candidateId} {
+      allow read: if isAuthenticated() && (isCandidateOwner(candidateId) || isRecruiter());
+      allow create, update: if isAuthenticated() && isCandidateOwner(candidateId);
+      allow delete: if false;
+    }
+
+    // 3. jobs (채용 공고)
+    match /jobs/{jobId} {
+      allow read: if true; // 공고 열람은 전체 공개
+      
+      // 작성/수정: 리쿠르터이면서, 해당 공고에 기입된 조직(organizationId)에 속해야 함
+      allow create, update: if isRecruiter() && hasTenantAccess(request.resource.data.organizationId);
+      allow delete: if false;
+    }
+
+    // 4. applications (지원 내역)
+    match /applications/{applicationId} {
+      // 읽기: 본인의 지원 내역이거나, 해당 공고를 올린 조직의 리쿠르터만 열람 가능
+      allow read: if isAuthenticated() && 
+                  (isCandidateOwner(resource.data.candidateId) || 
+                  (isRecruiter() && hasTenantAccess(resource.data.organizationId)));
+      
+      // 생성: 구직자 본인이 직접 지원할 때만 허용 + 결정론적 ID(candidateId__jobId) 서버 검증
+      allow create: if isAuthenticated() 
+                    && isCandidateOwner(request.resource.data.candidateId)
+                    && applicationId == request.resource.data.candidateId + "__" + request.resource.data.jobId;
+      
+      // 수정: 리쿠르터만 상태 변경 가능. 단, 기존 핵심 키값(후보자, 공고, 조직) 변조는 원천 차단
+      allow update: if isRecruiter() 
+                    && hasTenantAccess(resource.data.organizationId)
+                    && request.resource.data.candidateId == resource.data.candidateId
+                    && request.resource.data.jobId == resource.data.jobId
+                    && request.resource.data.organizationId == resource.data.organizationId;
+                    
+      allow delete: if false;
+    }
+
+    // 5. appEvents (감사 로그 - Audit Trail)
     match /appEvents/{eventId} {
+      // 이벤트 로그는 리쿠르터만 열람 가능
       allow read: if isRecruiter();
-      // 로그는 인증된 사용자가 생성하되 수정 및 삭제는 절대 불가 (Audit Trail 무결성)
-      allow create: if isAuthenticated();
+      
+      // 생성: 클라이언트 임의 생성 차단. 이벤트 발생 주체(changedBy)가 실제 로그인한 유저 UID와 일치해야 함.
+      allow create: if isAuthenticated() 
+                    && request.resource.data.changedBy == request.auth.uid;
+                    
+      // 수정 및 삭제 절대 불가 (Immutable 특성 강제)
       allow update, delete: if false;
     }
   }

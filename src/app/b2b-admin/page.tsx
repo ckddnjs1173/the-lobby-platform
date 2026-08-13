@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { db } from "../../lib/firebase";
+import { db, auth } from "../../lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import { collection, onSnapshot, query, orderBy, doc, getDoc } from "firebase/firestore";
 import { Application, ApplicationStage, Profile } from "../../types";
 import { updateApplicationStageTransaction } from "../../lib/applicationEngine";
@@ -9,24 +10,37 @@ import ApplicationTable from "../../components/b2b-admin/ApplicationTable";
 import ApplicationKanban from "../../components/b2b-admin/ApplicationKanban";
 import ApplicationSlideOver from "../../components/b2b-admin/ApplicationSlideOver";
 import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 export default function B2BAdminPage() {
+  const router = useRouter();
+  
+  const [adminUid, setAdminUid] = useState<string | null>(null);
+  
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"TABLE" | "KANBAN">("TABLE");
   
-  // Slide-over 상태 관리
   const [selectedApp, setSelectedApp] = useState<any | null>(null);
   const [candidateProfile, setCandidateProfile] = useState<Profile | null>(null);
   const [otherApplications, setOtherApplications] = useState<Application[]>([]);
   const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
 
-  // 1. 지원 내역(Applications) 실시간 동기화 (N+1 쿼리 제거, 스냅샷 직접 활용)
   useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setAdminUid(user.uid);
+      } else {
+        toast.error("관리자 로그인이 필요합니다.");
+        router.push("/b2b-admin/login");
+      }
+    });
+
     const q = query(collection(db, "applications"), orderBy("appliedAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeData = onSnapshot(q, (snapshot) => {
       const appsData = snapshot.docs.map((appDoc) => {
         const app = appDoc.data() as Application;
+        const rawData = appDoc.data(); 
         
         return {
           ...app,
@@ -35,6 +49,7 @@ export default function B2BAdminPage() {
           candidateEmail: app.candidateSnapshot?.email || "-",
           jobTitle: app.jobSnapshot?.title || "공고명 없음",
           company: app.jobSnapshot?.company || "기업명 없음",
+          appliedAt: rawData.appliedAt?.toDate ? rawData.appliedAt.toDate().toISOString() : app.appliedAt,
         };
       });
 
@@ -42,16 +57,17 @@ export default function B2BAdminPage() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      unsubscribeAuth();
+      unsubscribeData();
+    };
+  }, [router]);
 
-  // 2. 행 또는 카드 클릭 시 슬라이드 오버 오픈 및 프로필/다른 지원 건 로드
   const handleSelectApplication = async (app: any) => {
     setSelectedApp(app);
     setIsSlideOverOpen(true);
 
     if (app.candidateId) {
-      // Profile은 상세 보기 시점에만 1회 조회
       const profileRef = doc(db, "profile", app.candidateId);
       const profileSnap = await getDoc(profileRef);
       if (profileSnap.exists()) {
@@ -67,10 +83,11 @@ export default function B2BAdminPage() {
     }
   };
 
-  // 3. 상태 변경 핸들러 (실제 관리자 UID 반영 트랜잭션 엔진 연동)
   const handleStageChange = async (applicationId: string, newStage: ApplicationStage, note?: string) => {
-    // 실무 서비스 환경에서는 현재 로그인한 관리자의 Firebase Auth UID를 동적으로 전달합니다.
-    const adminUid = "admin_user_uid_placeholder"; 
+    if (!adminUid) {
+      toast.error("관리자 인증 정보가 유효하지 않습니다.");
+      return;
+    }
 
     const result = await updateApplicationStageTransaction(
       applicationId, 
@@ -90,7 +107,7 @@ export default function B2BAdminPage() {
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center text-slate-400 font-medium">
-        데이터를 불러오는 중입니다...
+        워크스페이스를 불러오는 중입니다...
       </div>
     );
   }
@@ -105,7 +122,6 @@ export default function B2BAdminPage() {
           </p>
         </div>
 
-        {/* 뷰 전환 토글 버튼 */}
         <div className="bg-slate-200 p-1 rounded-xl flex gap-1">
           <button
             onClick={() => setViewMode("TABLE")}
@@ -130,7 +146,6 @@ export default function B2BAdminPage() {
         </div>
       </div>
 
-      {/* 뷰 모드에 따른 컴포넌트 렌더링 */}
       <div className="flex-1 min-h-[500px]">
         {viewMode === "TABLE" ? (
           <ApplicationTable
@@ -147,7 +162,6 @@ export default function B2BAdminPage() {
         )}
       </div>
 
-      {/* Slide-over Detail Panel */}
       <ApplicationSlideOver
         isOpen={isSlideOverOpen}
         onClose={() => setIsSlideOverOpen(false)}

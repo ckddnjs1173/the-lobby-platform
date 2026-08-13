@@ -1,21 +1,44 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { db } from "../../lib/firebase";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { db, auth } from "../../lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, onSnapshot, query, orderBy, where, getDocs } from "firebase/firestore";
 import { Job } from "../../types";
 import { createApplicationTransaction } from "../../lib/applicationEngine";
 import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 export default function JobsPage() {
+  const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+  
+  // 현재 로그인한 사용자의 Auth 및 Candidate 정보
+  const [currentUserAuthUid, setCurrentUserAuthUid] = useState<string | null>(null);
+  const [currentCandidateId, setCurrentCandidateId] = useState<string | null>(null);
 
-  // 1. 공고 목록 실시간 동기화 (OPEN 상태 공고 중심 필터링 가능)
   useEffect(() => {
-    const q = query(collection(db, "jobs"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    // 1. Firebase Auth 상태 구독
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setCurrentUserAuthUid(user.uid);
+        // authUid를 기반으로 내부 Candidate ID 조회
+        const q = query(collection(db, "candidates"), where("authUid", "==", user.uid));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          setCurrentCandidateId(querySnapshot.docs[0].id);
+        }
+      } else {
+        setCurrentUserAuthUid(null);
+        setCurrentCandidateId(null);
+      }
+    });
+
+    // 2. 공고 목록 실시간 동기화
+    const qJobs = query(collection(db, "jobs"), orderBy("createdAt", "desc"));
+    const unsubscribeJobs = onSnapshot(qJobs, (snapshot) => {
       const jobsData = snapshot.docs.map((doc) => ({
         jobId: doc.id,
         ...doc.data(),
@@ -24,18 +47,28 @@ export default function JobsPage() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeJobs();
+    };
   }, []);
 
-  // 2. 원클릭 지원 핸들러 (개선된 트랜잭션 엔진 및 OPEN 검증 연동)
   const handleOneClickApply = async (jobId: string) => {
-    // 실제 서비스 환경에서는 로그인한 구직자의 내부 candidateId 및 authUid를 주입합니다.
-    const candidateId = "cand_test_user_01"; 
-    const authUid = "auth_user_uid_placeholder";
+    if (!currentUserAuthUid || !currentCandidateId) {
+      toast.error("프로필 등록 및 로그인이 필요합니다.");
+      router.push("/register");
+      return;
+    }
 
     setApplyingJobId(jobId);
     try {
-      const result = await createApplicationTransaction(candidateId, jobId, "B2C_WEB", authUid);
+      // 하드코딩 제거: 실제 식별자 사용
+      const result = await createApplicationTransaction(
+        currentCandidateId, 
+        jobId, 
+        "B2C_WEB", 
+        currentUserAuthUid
+      );
 
       if (result.success) {
         toast.success("성공적으로 지원이 완료되었습니다! 헤드헌터가 곧 연락드립니다.");
@@ -48,6 +81,14 @@ export default function JobsPage() {
     } finally {
       setApplyingJobId(null);
     }
+  };
+
+  const handleOneKeyApplyAction = (jobId: string, status: string) => {
+    if (status !== "OPEN") {
+      toast.error("마감된 공고에는 지원할 수 없습니다.");
+      return;
+    }
+    handleOneClickApply(jobId);
   };
 
   if (loading) {
@@ -104,12 +145,4 @@ export default function JobsPage() {
       </div>
     </div>
   );
-  
-  function handleOneKeyApplyAction(jobId: string, status: string) {
-    if (status !== "OPEN") {
-      toast.error("마감된 공고에는 지원할 수 없습니다.");
-      return;
-    }
-    handleOneClickApply(jobId);
-  }
 }
