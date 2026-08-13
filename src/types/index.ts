@@ -1,6 +1,27 @@
-// --- 1. Candidate (구직자 본체) ---
+// --- 0. System, Role & Organization ---
+export type UserRole = "ADMIN" | "RECRUITER" | "CANDIDATE";
+
+export interface Organization {
+  organizationId: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface UserUser {
+  uid: string; // Firebase Auth UID
+  email: string;
+  name: string;
+  role: UserRole;
+  organizationId: string;
+  createdAt: string;
+}
+
+export type ApplicationSource = "B2C_WEB" | "B2B_DIRECT" | "HEADHUNTING" | "REFERRAL";
+
+// --- 1. Candidate (구직자 본체 - 비회원 외부 후보자 지원) ---
 export interface Candidate {
-  candidateId: string; // Firebase Auth UID
+  candidateId: string;       // The Lobby 내부 관리용 고유 ID (Auto-ID 또는 UUID)
+  authUid?: string | null;   // B2C 가입자만 연결되는 Firebase Auth UID (외부 발굴자는 null/undefined)
   name: string;
   phone: string;
   email: string;
@@ -31,7 +52,7 @@ export interface Profile {
 // --- 3. Job (채용 공고) ---
 export interface Job {
   jobId: string;
-  organizationId: string; // 멀티테넌트 / 기업 확장 대비
+  organizationId: string; // 멀티테넌트 필수 격리 필드
   company: string;
   displayCompany: string;
   title: string;
@@ -47,7 +68,7 @@ export interface Job {
   updatedAt: string;
 }
 
-// --- 4. Application (지원 내역 - 1:N 관계) ---
+// --- 4. Application (지원 내역 - 1:N 관계 및 N+1 방지 Denormalization) ---
 export type ApplicationStage =
   | "NEW"              // 신규
   | "REVIEWING"        // 검토
@@ -62,19 +83,36 @@ export type ApplicationStage =
   | "REJECTED"         // 탈락 (Terminal)
   | "CANCELED";        // 지원취소 (Terminal)
 
+export interface ApplicationSnapshotCandidate {
+  name: string;
+  phone: string;
+  email: string;
+}
+
+export interface ApplicationSnapshotJob {
+  title: string;
+  company: string;
+}
+
 export interface Application {
   applicationId: string;
   candidateId: string;
   jobId: string;
+  organizationId: string; // 권한 및 테넌트 필터링용
   recruiterId?: string;
   stage: ApplicationStage;
-  source: string;
+  source: ApplicationSource;
+  
+  // N+1 쿼리 방지를 위한 스냅샷 비정규화
+  candidateSnapshot: ApplicationSnapshotCandidate;
+  jobSnapshot: ApplicationSnapshotJob;
+
   appliedAt: string;
   updatedAt: string;
   lastActivityAt: string;
 }
 
-// --- 5. App Event (활동 및 상태 변경 로그) ---
+// --- 5. App Event (활동 및 감사 로그 - Audit Trail) ---
 export type EventType =
   | "APPLICATION_CREATED"
   | "STAGE_CHANGED"
@@ -90,8 +128,8 @@ export interface AppEvent {
   type: EventType;
   fromStage?: ApplicationStage;
   toStage?: ApplicationStage;
-  changedBy: string; // Admin/Recruiter UID 또는 System
+  changedBy: string; // 실제 요청 주체인 관리자/구직자의 Firebase UID 또는 시스템 식별자
   note?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
 }

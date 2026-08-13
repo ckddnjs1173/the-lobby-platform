@@ -12,7 +12,7 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
 
-  // 1. 공고 목록 실시간 동기화
+  // 1. 공고 목록 실시간 동기화 (OPEN 상태 공고 중심 필터링 가능)
   useEffect(() => {
     const q = query(collection(db, "jobs"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -27,15 +27,15 @@ export default function JobsPage() {
     return () => unsubscribe();
   }, []);
 
-  // 2. 원클릭 지원 핸들러 (지원 엔진 연동)
+  // 2. 원클릭 지원 핸들러 (개선된 트랜잭션 엔진 및 OPEN 검증 연동)
   const handleOneClickApply = async (jobId: string) => {
-    // 실무 서비스 환경에서는 현재 로그인한 구직자의 Firebase Auth UID를 사용합니다.
-    // 여기서는 테스트를 위해 임시 Candidate ID를 고정 또는 생성하여 사용합니다.
+    // 실제 서비스 환경에서는 로그인한 구직자의 내부 candidateId 및 authUid를 주입합니다.
     const candidateId = "cand_test_user_01"; 
+    const authUid = "auth_user_uid_placeholder";
 
     setApplyingJobId(jobId);
     try {
-      const result = await createApplicationTransaction(candidateId, jobId, "B2C_WEB");
+      const result = await createApplicationTransaction(candidateId, jobId, "B2C_WEB", authUid);
 
       if (result.success) {
         toast.success("성공적으로 지원이 완료되었습니다! 헤드헌터가 곧 연락드립니다.");
@@ -86,7 +86,7 @@ export default function JobsPage() {
                 </div>
 
                 <button
-                  onClick={() => handleOneClickApply(job.jobId)}
+                  onClick={() => handleOneKeyApplyAction(job.jobId, job.status)}
                   disabled={applyingJobId === job.jobId || job.status !== "OPEN"}
                   className="w-full md:w-auto px-6 py-3 bg-brand-navy text-brand-gold text-sm font-bold rounded-xl hover:bg-slate-900 transition-colors shadow-sm disabled:opacity-50 whitespace-nowrap"
                 >
@@ -104,4 +104,12 @@ export default function JobsPage() {
       </div>
     </div>
   );
+  
+  function handleOneKeyApplyAction(jobId: string, status: string) {
+    if (status !== "OPEN") {
+      toast.error("마감된 공고에는 지원할 수 없습니다.");
+      return;
+    }
+    handleOneClickApply(jobId);
+  }
 }

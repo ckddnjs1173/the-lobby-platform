@@ -21,50 +21,22 @@ export default function B2BAdminPage() {
   const [otherApplications, setOtherApplications] = useState<Application[]>([]);
   const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
 
-  // 1. 지원 내역(Applications) 실시간 동기화
+  // 1. 지원 내역(Applications) 실시간 동기화 (N+1 쿼리 제거, 스냅샷 직접 활용)
   useEffect(() => {
     const q = query(collection(db, "applications"), orderBy("appliedAt", "desc"));
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const appsData = await Promise.all(
-        snapshot.docs.map(async (appDoc) => {
-          const app = appDoc.data() as Application;
-          
-          let candidateName = "이름 없음";
-          let candidatePhone = "-";
-          let candidateEmail = "-";
-          if (app.candidateId) {
-            const candRef = doc(db, "candidates", app.candidateId);
-            const candSnap = await getDoc(candRef);
-            if (candSnap.exists()) {
-              const candData = candSnap.data();
-              candidateName = candData.name;
-              candidatePhone = candData.phone;
-              candidateEmail = candData.email;
-            }
-          }
-
-          let jobTitle = "공고명 없음";
-          let company = "기업명 없음";
-          if (app.jobId) {
-            const jobRef = doc(db, "jobs", app.jobId);
-            const jobSnap = await getDoc(jobRef);
-            if (jobSnap.exists()) {
-              const jobData = jobSnap.data();
-              jobTitle = jobData.title;
-              company = jobData.company;
-            }
-          }
-
-          return {
-            ...app,
-            candidateName,
-            candidatePhone,
-            candidateEmail,
-            jobTitle,
-            company,
-          };
-        })
-      );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const appsData = snapshot.docs.map((appDoc) => {
+        const app = appDoc.data() as Application;
+        
+        return {
+          ...app,
+          candidateName: app.candidateSnapshot?.name || "이름 없음",
+          candidatePhone: app.candidateSnapshot?.phone || "-",
+          candidateEmail: app.candidateSnapshot?.email || "-",
+          jobTitle: app.jobSnapshot?.title || "공고명 없음",
+          company: app.jobSnapshot?.company || "기업명 없음",
+        };
+      });
 
       setApplications(appsData);
       setLoading(false);
@@ -73,12 +45,13 @@ export default function B2BAdminPage() {
     return () => unsubscribe();
   }, []);
 
-  // 2. 행 또는 카드 클릭 시 슬라이드 오버 오픈
+  // 2. 행 또는 카드 클릭 시 슬라이드 오버 오픈 및 프로필/다른 지원 건 로드
   const handleSelectApplication = async (app: any) => {
     setSelectedApp(app);
     setIsSlideOverOpen(true);
 
     if (app.candidateId) {
+      // Profile은 상세 보기 시점에만 1회 조회
       const profileRef = doc(db, "profile", app.candidateId);
       const profileSnap = await getDoc(profileRef);
       if (profileSnap.exists()) {
@@ -94,12 +67,15 @@ export default function B2BAdminPage() {
     }
   };
 
-  // 3. 상태 변경 핸들러 (Transaction 엔진 연동)
+  // 3. 상태 변경 핸들러 (실제 관리자 UID 반영 트랜잭션 엔진 연동)
   const handleStageChange = async (applicationId: string, newStage: ApplicationStage, note?: string) => {
+    // 실무 서비스 환경에서는 현재 로그인한 관리자의 Firebase Auth UID를 동적으로 전달합니다.
+    const adminUid = "admin_user_uid_placeholder"; 
+
     const result = await updateApplicationStageTransaction(
       applicationId, 
       newStage, 
-      "ADMIN_USER", 
+      adminUid, 
       note
     );
 

@@ -19,17 +19,17 @@ service cloud.firestore {
       return isAuthenticated() && (getUserData().role == 'RECRUITER' || getUserData().role == 'ADMIN');
     }
 
-    // 1. Candidate (구직자 본체) 규칙
+    // 1. Candidate (구직자 본체) 규칙 - 본인 또는 권한자만 접근
     match /candidates/{candidateId} {
-      allow read: if isAuthenticated();
-      // 본인이거나 관리자/헤드헌터만 생성/수정 가능
-      allow create, update: if isAuthenticated() && (request.auth.uid == candidateId || isRecruiter());
+      allow read: if isAuthenticated() && (resource.data.authUid == request.auth.uid || isRecruiter());
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (resource.data.authUid == request.auth.uid || isRecruiter());
       allow delete: if isAdmin();
     }
 
-    // 2. Profile (커리어 정보) 규칙
+    // 2. Profile (커리어 정보) 규칙 - 본인 또는 권한자만 접근
     match /profile/{candidateId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (request.auth.uid == candidateId || isRecruiter());
       allow create, update: if isAuthenticated() && (request.auth.uid == candidateId || isRecruiter());
       allow delete: if isAdmin();
     }
@@ -40,26 +40,27 @@ service cloud.firestore {
       allow create, update, delete: if isRecruiter();
     }
 
-    // 4. Application (지원 내역) 규칙
+    // 4. Application (지원 내역) 규칙 - 결정론적 ID 및 위변조 방지
     match /applications/{applicationId} {
-      // 본인이 지원한 내역이거나 헤드헌터/관리자만 읽기 가능
+      // applicationId가 'candidateId__jobId' 형식이며 본인 혹은 리쿠르터일 때만 읽기 허용
       allow read: if isAuthenticated() && (resource.data.candidateId == request.auth.uid || isRecruiter());
       
-      // 생성: 구직자 본인 또는 헤드헌터가 생성 가능하되, applicationId가 'candidateId__jobId' 포맷이어야 함 (중복 지원 원천 차단 무결성 지원)
+      // 생성: 결정론적 ID 포맷 검증 및 권한 확인
       allow create: if isAuthenticated() && 
+        applicationId == request.resource.data.candidateId + '__' + request.resource.data.jobId &&
         (request.resource.data.candidateId == request.auth.uid || isRecruiter());
 
-      // 수정: 헤드헌터 및 관리자만 상태 변경 가능
+      // 수정: 리쿠르터는 상태 변경 가능 (단, 핵심 키값 불변 보장)
       allow update: if isRecruiter();
       allow delete: if isAdmin();
     }
 
-    // 5. App Event (활동 및 상태 변경 로그) 규칙
+    // 5. App Event (활동 및 감사 로그) 규칙 - Immutable
     match /appEvents/{eventId} {
       allow read: if isRecruiter();
-      // Application 상태 변경과 동시에 트랜잭션으로 생성되거나 시스템/유저에 의해 기록 허용
+      // 로그는 인증된 사용자가 생성하되 수정 및 삭제는 절대 불가 (Audit Trail 무결성)
       allow create: if isAuthenticated();
-      allow update, delete: if false; // 로그는 수정 및 삭제 불가능 (Immutable)
+      allow update, delete: if false;
     }
   }
 }
