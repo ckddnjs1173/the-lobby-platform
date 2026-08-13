@@ -184,6 +184,7 @@ export default function ApplicationSlideOver({
 
           <ApplicationActivityPanel
             applicationId={selectedApp.applicationId}
+            refreshKey={selectedApp.stage}
           />
 
           <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
