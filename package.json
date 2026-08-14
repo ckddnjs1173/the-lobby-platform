@@ -26,7 +26,8 @@
     "check:phase8": "node --env-file=.env.local tests/phase8-regression-check.cjs",
     "check:phase9:analytics": "node tests/phase9-analytics-performance-check.cjs",
     "check:phase9:e2e": "node --env-file=.env.local tests/phase9-analytics-performance-e2e.cjs",
-    "check:phase9": "node --env-file=.env.local tests/phase9-regression-check.cjs"
+    "check:phase9": "node --env-file=.env.local tests/phase9-regression-check.cjs",
+    "deploy:firestore:indexes": "firebase deploy --only firestore:indexes --project the-lobby-platform"
   },
   "dependencies": {
     "firebase": "^12.17.1",
