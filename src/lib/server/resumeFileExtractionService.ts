@@ -1,9 +1,5 @@
 import { Buffer } from "node:buffer";
 
-import {
-  MAX_RESUME_LENGTH,
-} from "./resumeParsingService";
-
 export class ResumeFileExtractionError extends Error {
   readonly status: number;
   readonly code: string;
@@ -43,6 +39,9 @@ export const MAX_RESUME_FILE_BYTES =
   8 * 1024 * 1024;
 
 export const MAX_RESUME_PDF_PAGES = 30;
+
+export const MAX_EXTRACTED_RESUME_LENGTH =
+  40_000;
 
 const PDF_MIME_TYPES = new Set([
   "application/pdf",
@@ -194,7 +193,7 @@ function validateExtractedText(
     );
   }
 
-  if (text.length > MAX_RESUME_LENGTH) {
+  if (text.length > MAX_EXTRACTED_RESUME_LENGTH) {
     throw new ResumeFileExtractionError(
       "파일에서 추출된 이력서 텍스트가 너무 깁니다. 40,000자 이하의 이력서를 사용해주세요.",
       413,
