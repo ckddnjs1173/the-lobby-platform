@@ -10,6 +10,7 @@ const checks = [
   "tests/phase6-stage-policy-check.cjs",
   "tests/phase6-interview-lifecycle-check.cjs",
   "tests/phase6-interview-transition-check.cjs",
+  "tests/phase6-hiring-outcome-check.cjs",
 ];
 
 for (const relativePath of checks) {
