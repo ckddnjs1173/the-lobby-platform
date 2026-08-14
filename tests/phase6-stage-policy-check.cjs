@@ -25,14 +25,16 @@ const service = read(
 const slideOver = read(
   "src/components/b2b-admin/ApplicationSlideOver.tsx"
 );
+const table = read(
+  "src/components/b2b-admin/ApplicationTable.tsx"
+);
 
 console.log("STEP_1: GUARDED_HIGH_RISK_STAGES");
 
 assert(
-  policy.includes("INTERVIEW:") &&
-    policy.includes("RECOMMENDED") &&
-    policy.includes("DOCUMENT_SCREEN"),
-  "INTERVIEW_ENTRY_POLICY_MISSING"
+  policy.includes("INTERVIEW_SCHEDULE_REQUIRED") &&
+    policy.includes('toStage ===\n    "INTERVIEW"'),
+  "DIRECT_INTERVIEW_ENTRY_GUARD_MISSING"
 );
 assert(
   policy.includes("OFFER:") &&
@@ -81,12 +83,22 @@ assert(
   "STAGE_TRANSITION_AUDIT_METADATA_MISSING"
 );
 
-console.log("STEP_4: REASON_UI_AVAILABLE");
+console.log("STEP_4: UI_PREVENTS_DIRECT_INTERVIEW_ENTRY");
 
 assert(
   slideOver.includes("단계 변경 메모") &&
     slideOver.includes("noteText.trim() || undefined"),
   "STAGE_REASON_UI_MISSING"
+);
+assert(
+  slideOver.includes('newStage === "INTERVIEW"') &&
+    slideOver.includes("면접 단계는 Stage 버튼으로 직접 변경하지 않습니다"),
+  "DETAIL_DIRECT_INTERVIEW_GUARD_MISSING"
+);
+assert(
+  table.includes('stage === "INTERVIEW"') &&
+    table.includes("일정 확정 필요"),
+  "TABLE_DIRECT_INTERVIEW_GUARD_MISSING"
 );
 
 console.log("PHASE6_STAGE_POLICY_CHECK_PASSED");
