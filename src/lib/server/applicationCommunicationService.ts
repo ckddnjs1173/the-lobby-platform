@@ -1,4 +1,8 @@
 import {
+  createHash,
+} from "node:crypto";
+
+import {
   FieldValue,
   type DocumentData,
 } from "firebase-admin/firestore";
@@ -31,8 +35,7 @@ export class ApplicationCommunicationServiceError extends Error {
     code = "APPLICATION_COMMUNICATION_SERVICE_ERROR"
   ) {
     super(message);
-    this.name =
-      "ApplicationCommunicationServiceError";
+    this.name = "ApplicationCommunicationServiceError";
     this.status = status;
     this.code = code;
   }
@@ -88,6 +91,9 @@ const REQUEST_ID_PATTERN =
 const EMAIL_PATTERN =
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const SAFE_PENDING_RETRY_WINDOW_MS =
+  23 * 60 * 60 * 1000;
+
 function isNonEmptyString(
   value: unknown
 ): value is string {
@@ -128,8 +134,7 @@ function requireString(
 function normalizeApplicationId(
   value: string
 ): string {
-  const applicationId =
-    value.trim();
+  const applicationId = value.trim();
 
   if (!applicationId) {
     throw new ApplicationCommunicationServiceError(
@@ -147,9 +152,7 @@ function parseRequestId(
 ): string {
   if (
     typeof value !== "string" ||
-    !REQUEST_ID_PATTERN.test(
-      value.trim()
-    )
+    !REQUEST_ID_PATTERN.test(value.trim())
   ) {
     throw new ApplicationCommunicationServiceError(
       "이메일 발송 요청 ID 형식이 올바르지 않습니다.",
@@ -172,8 +175,7 @@ function parseSubject(
     );
   }
 
-  const subject =
-    value.trim();
+  const subject = value.trim();
 
   if (!subject) {
     throw new ApplicationCommunicationServiceError(
@@ -205,8 +207,7 @@ function parseBody(
     );
   }
 
-  const body =
-    value.trim();
+  const body = value.trim();
 
   if (!body) {
     throw new ApplicationCommunicationServiceError(
@@ -276,19 +277,31 @@ function timestampToIsoString(
     toDate?: () => Date;
   };
 
-  if (
-    typeof timestamp.toDate !== "function"
-  ) {
+  if (typeof timestamp.toDate !== "function") {
     return null;
   }
 
   try {
-    return timestamp
-      .toDate()
-      .toISOString();
+    return timestamp.toDate().toISOString();
   } catch {
     return null;
   }
+}
+
+function timestampToMillis(
+  value: unknown
+): number | null {
+  const iso = timestampToIsoString(value);
+
+  if (!iso) {
+    return null;
+  }
+
+  const milliseconds = Date.parse(iso);
+
+  return Number.isFinite(milliseconds)
+    ? milliseconds
+    : null;
 }
 
 function toCommunicationView(
@@ -320,126 +333,60 @@ function toCommunicationView(
 
   return {
     communicationId,
-    applicationId:
-      expectedApplicationId,
-    organizationId:
-      expectedOrganizationId,
-    candidateId:
-      data.candidateId.trim(),
+    applicationId: expectedApplicationId,
+    organizationId: expectedOrganizationId,
+    candidateId: data.candidateId.trim(),
     channel: "EMAIL",
-    status:
-      data.status,
-    to:
-      data.to.trim(),
-    subject:
-      data.subject.trim(),
-    body:
-      data.body.trim(),
+    status: data.status,
+    to: data.to.trim(),
+    subject: data.subject.trim(),
+    body: data.body.trim(),
     provider:
       isNonEmptyString(data.provider)
         ? data.provider.trim()
         : null,
     providerMessageId:
-      isNonEmptyString(
-        data.providerMessageId
-      )
+      isNonEmptyString(data.providerMessageId)
         ? data.providerMessageId.trim()
         : null,
-    requestedBy:
-      data.requestedBy.trim(),
+    requestedBy: data.requestedBy.trim(),
     attempts:
       Number.isFinite(data.attempts)
-        ? Math.max(
-            0,
-            Math.floor(data.attempts)
-          )
+        ? Math.max(0, Math.floor(data.attempts))
         : 0,
     errorCode:
       isNonEmptyString(data.errorCode)
         ? data.errorCode.trim()
         : null,
     errorMessage:
-      isNonEmptyString(
-        data.errorMessage
-      )
+      isNonEmptyString(data.errorMessage)
         ? data.errorMessage.trim()
         : null,
-    createdAt:
-      timestampToIsoString(
-        data.createdAt
-      ),
-    updatedAt:
-      timestampToIsoString(
-        data.updatedAt
-      ),
-    sentAt:
-      timestampToIsoString(
-        data.sentAt
-      ),
-    failedAt:
-      timestampToIsoString(
-        data.failedAt
-      ),
+    createdAt: timestampToIsoString(data.createdAt),
+    updatedAt: timestampToIsoString(data.updatedAt),
+    sentAt: timestampToIsoString(data.sentAt),
+    failedAt: timestampToIsoString(data.failedAt),
   };
 }
 
-async function getAuthorizedApplication(
-  actorUid: string,
-  applicationIdInput: string
-): Promise<AuthorizedApplicationContext> {
-  const actor =
-    await requireB2BActor(
-      actorUid
-    );
-  const applicationId =
-    normalizeApplicationId(
-      applicationIdInput
-    );
-  const db =
-    getFirebaseAdminDb();
-  const applicationSnapshot =
-    await db
-      .collection("applications")
-      .doc(applicationId)
-      .get();
-
-  if (!applicationSnapshot.exists) {
-    throw new ApplicationCommunicationServiceError(
-      "존재하지 않는 지원 내역입니다.",
-      404,
-      "APPLICATION_NOT_FOUND"
-    );
-  }
-
-  const data =
-    applicationSnapshot.data();
-
-  if (!data) {
-    throw new ApplicationCommunicationServiceError(
-      "지원 내역 데이터가 비어 있습니다.",
-      409,
-      "APPLICATION_DATA_MISSING"
-    );
-  }
-
-  const organizationId =
-    requireString(
-      data,
-      "organizationId",
-      "APPLICATION_ORGANIZATION_MISSING"
-    );
-
-  assertTenantAccess(
-    actor,
-    organizationId
+function buildAuthorizedApplicationContext(
+  actor: B2BActor,
+  applicationId: string,
+  data: DocumentData
+): AuthorizedApplicationContext {
+  const organizationId = requireString(
+    data,
+    "organizationId",
+    "APPLICATION_ORGANIZATION_MISSING"
   );
 
-  const candidateId =
-    requireString(
-      data,
-      "candidateId",
-      "APPLICATION_CANDIDATE_MISSING"
-    );
+  assertTenantAccess(actor, organizationId);
+
+  const candidateId = requireString(
+    data,
+    "candidateId",
+    "APPLICATION_CANDIDATE_MISSING"
+  );
 
   if (!isRecord(data.candidateSnapshot)) {
     throw new ApplicationCommunicationServiceError(
@@ -450,17 +397,13 @@ async function getAuthorizedApplication(
   }
 
   const candidateEmail =
-    isNonEmptyString(
-      data.candidateSnapshot.email
-    )
+    isNonEmptyString(data.candidateSnapshot.email)
       ? data.candidateSnapshot.email.trim()
       : "";
 
   if (
     !candidateEmail ||
-    !EMAIL_PATTERN.test(
-      candidateEmail
-    )
+    !EMAIL_PATTERN.test(candidateEmail)
   ) {
     throw new ApplicationCommunicationServiceError(
       "지원자 이메일 주소가 유효하지 않습니다.",
@@ -470,9 +413,7 @@ async function getAuthorizedApplication(
   }
 
   const candidateName =
-    isNonEmptyString(
-      data.candidateSnapshot.name
-    )
+    isNonEmptyString(data.candidateSnapshot.name)
       ? data.candidateSnapshot.name.trim()
       : "지원자";
 
@@ -499,27 +440,61 @@ async function getAuthorizedApplication(
   };
 }
 
+async function getAuthorizedApplication(
+  actorUid: string,
+  applicationIdInput: string
+): Promise<AuthorizedApplicationContext> {
+  const actor = await requireB2BActor(actorUid);
+  const applicationId =
+    normalizeApplicationId(applicationIdInput);
+  const db = getFirebaseAdminDb();
+  const applicationSnapshot = await db
+    .collection("applications")
+    .doc(applicationId)
+    .get();
+
+  if (!applicationSnapshot.exists) {
+    throw new ApplicationCommunicationServiceError(
+      "존재하지 않는 지원 내역입니다.",
+      404,
+      "APPLICATION_NOT_FOUND"
+    );
+  }
+
+  const data = applicationSnapshot.data();
+
+  if (!data) {
+    throw new ApplicationCommunicationServiceError(
+      "지원 내역 데이터가 비어 있습니다.",
+      409,
+      "APPLICATION_DATA_MISSING"
+    );
+  }
+
+  return buildAuthorizedApplicationContext(
+    actor,
+    applicationId,
+    data
+  );
+}
+
 export async function listApplicationCommunications(
   actorUid: string,
   applicationIdInput: string
 ): Promise<ApplicationCommunicationView[]> {
-  const context =
-    await getAuthorizedApplication(
-      actorUid,
-      applicationIdInput
-    );
-  const db =
-    getFirebaseAdminDb();
-
-  const snapshot =
-    await db
-      .collection("communications")
-      .where(
-        "applicationId",
-        "==",
-        context.applicationId
-      )
-      .get();
+  const context = await getAuthorizedApplication(
+    actorUid,
+    applicationIdInput
+  );
+  const db = getFirebaseAdminDb();
+  const snapshot = await db
+    .collection("communications")
+    .where(
+      "applicationId",
+      "==",
+      context.applicationId
+    )
+    .get();
 
   return snapshot.docs
     .map((document) =>
@@ -531,20 +506,16 @@ export async function listApplicationCommunications(
       )
     )
     .filter(
-      (
-        item
-      ): item is ApplicationCommunicationView =>
+      (item): item is ApplicationCommunicationView =>
         item !== null
     )
     .sort((a, b) => {
-      const aTime =
-        a.createdAt
-          ? Date.parse(a.createdAt)
-          : 0;
-      const bTime =
-        b.createdAt
-          ? Date.parse(b.createdAt)
-          : 0;
+      const aTime = a.createdAt
+        ? Date.parse(a.createdAt)
+        : 0;
+      const bTime = b.createdAt
+        ? Date.parse(b.createdAt)
+        : 0;
 
       return bTime - aTime;
     });
@@ -555,61 +526,81 @@ export async function sendApplicationEmail(
   applicationIdInput: string,
   rawInput: SendApplicationEmailInput
 ): Promise<ApplicationCommunicationView> {
-  const requestId =
-    parseRequestId(
-      rawInput.requestId
-    );
-  const subject =
-    parseSubject(
-      rawInput.subject
-    );
-  const body =
-    parseBody(
-      rawInput.body
-    );
-  const context =
-    await getAuthorizedApplication(
-      actorUid,
-      applicationIdInput
-    );
-  const db =
-    getFirebaseAdminDb();
-  const applicationRef =
-    db
-      .collection("applications")
-      .doc(context.applicationId);
-  const communicationId =
-    `${context.applicationId}__${requestId}`;
-  const communicationRef =
-    db
-      .collection("communications")
-      .doc(communicationId);
-  const providerIdempotencyKey =
-    `application-email/${communicationId}`
-      .slice(0, 256);
+  const actor = await requireB2BActor(actorUid);
+  const applicationId =
+    normalizeApplicationId(applicationIdInput);
+  const requestId = parseRequestId(rawInput.requestId);
+  const subject = parseSubject(rawInput.subject);
+  const body = parseBody(rawInput.body);
 
+  const db = getFirebaseAdminDb();
+  const applicationRef = db
+    .collection("applications")
+    .doc(applicationId);
+  const communicationId =
+    `${applicationId}__${requestId}`;
+  const communicationRef = db
+    .collection("communications")
+    .doc(communicationId);
+  const providerIdempotencyKey =
+    `application-email/${createHash("sha256")
+      .update(communicationId)
+      .digest("hex")}`;
+
+  let deliveryContext:
+    AuthorizedApplicationContext | null = null;
   let alreadySent:
     ApplicationCommunicationView | null = null;
 
   await db.runTransaction(
     async (transaction) => {
-      const existingSnapshot =
-        await transaction.get(
-          communicationRef
+      const [
+        applicationSnapshot,
+        existingSnapshot,
+      ] = await Promise.all([
+        transaction.get(applicationRef),
+        transaction.get(communicationRef),
+      ]);
+
+      if (!applicationSnapshot.exists) {
+        throw new ApplicationCommunicationServiceError(
+          "존재하지 않는 지원 내역입니다.",
+          404,
+          "APPLICATION_NOT_FOUND"
         );
+      }
+
+      const applicationData =
+        applicationSnapshot.data();
+
+      if (!applicationData) {
+        throw new ApplicationCommunicationServiceError(
+          "지원 내역 데이터가 비어 있습니다.",
+          409,
+          "APPLICATION_DATA_MISSING"
+        );
+      }
+
+      const context =
+        buildAuthorizedApplicationContext(
+          actor,
+          applicationId,
+          applicationData
+        );
+
+      deliveryContext = context;
 
       if (existingSnapshot.exists) {
         const existingData =
           existingSnapshot.data();
-        const existingView =
-          existingData
-            ? toCommunicationView(
-                existingSnapshot.id,
-                existingData,
-                context.applicationId,
-                context.organizationId
-              )
-            : null;
+        const existingView = existingData
+          ? toCommunicationView(
+              existingSnapshot.id,
+              existingData,
+              applicationId,
+              context.organizationId
+            )
+          : null;
 
         if (!existingView) {
           throw new ApplicationCommunicationServiceError(
@@ -632,25 +623,34 @@ export async function sendApplicationEmail(
         }
 
         if (existingView.status === "SENT") {
-          alreadySent =
-            existingView;
+          alreadySent = existingView;
           return;
         }
 
         if (existingView.status === "PENDING") {
-          throw new ApplicationCommunicationServiceError(
-            "동일한 이메일 발송 요청이 처리 중입니다.",
-            409,
-            "COMMUNICATION_IN_PROGRESS"
-          );
+          const updatedAt =
+            timestampToMillis(existingData?.updatedAt);
+          const age = updatedAt === null
+            ? Number.POSITIVE_INFINITY
+            : Date.now() - updatedAt;
+
+          if (
+            age < 0 ||
+            age > SAFE_PENDING_RETRY_WINDOW_MS
+          ) {
+            throw new ApplicationCommunicationServiceError(
+              "이전 이메일 발송의 최종 상태를 안전하게 확인할 수 없습니다. 새 요청으로 재발송하기 전에 provider 발송 이력을 확인해주세요.",
+              409,
+              "COMMUNICATION_DELIVERY_STATE_UNKNOWN"
+            );
+          }
         }
 
         transaction.update(
           communicationRef,
           {
             status: "PENDING",
-            attempts:
-              FieldValue.increment(1),
+            attempts: FieldValue.increment(1),
             errorCode: null,
             errorMessage: null,
             failedAt: null,
@@ -669,8 +669,7 @@ export async function sendApplicationEmail(
         communicationRef,
         {
           communicationId,
-          applicationId:
-            context.applicationId,
+          applicationId,
           organizationId:
             context.organizationId,
           candidateId:
@@ -679,21 +678,17 @@ export async function sendApplicationEmail(
           status: "PENDING",
           requestId,
           providerIdempotencyKey,
-          to:
-            context.candidateEmail,
+          to: context.candidateEmail,
           subject,
           body,
           provider: null,
           providerMessageId: null,
-          requestedBy:
-            context.actor.uid,
+          requestedBy: actor.uid,
           attempts: 1,
           errorCode: null,
           errorMessage: null,
-          createdAt:
-            serverTimestamp,
-          updatedAt:
-            serverTimestamp,
+          createdAt: serverTimestamp,
+          updatedAt: serverTimestamp,
           sentAt: null,
           failedAt: null,
         }
@@ -705,25 +700,27 @@ export async function sendApplicationEmail(
     return alreadySent;
   }
 
+  if (!deliveryContext) {
+    throw new ApplicationCommunicationServiceError(
+      "이메일 발송 대상 정보를 확인할 수 없습니다.",
+      500,
+      "COMMUNICATION_CONTEXT_MISSING"
+    );
+  }
+
+  const context = deliveryContext;
+
   let providerResult:
-    Awaited<
-      ReturnType<
-        typeof sendEmailWithProvider
-      >
-    >;
+    Awaited<ReturnType<typeof sendEmailWithProvider>>;
 
   try {
-    providerResult =
-      await sendEmailWithProvider({
-        to:
-          context.candidateEmail,
-        subject,
-        text: body,
-        html:
-          `<div>${textToHtml(body)}</div>`,
-        idempotencyKey:
-          providerIdempotencyKey,
-      });
+    providerResult = await sendEmailWithProvider({
+      to: context.candidateEmail,
+      subject,
+      text: body,
+      html: `<div>${textToHtml(body)}</div>`,
+      idempotencyKey: providerIdempotencyKey,
+    });
   } catch (error) {
     const providerError =
       error instanceof EmailProviderError
@@ -738,13 +735,9 @@ export async function sendApplicationEmail(
     try {
       await communicationRef.update({
         status: "FAILED",
-        errorCode:
-          providerError.code,
+        errorCode: providerError.code,
         errorMessage:
-          providerError.message.slice(
-            0,
-            500
-          ),
+          providerError.message.slice(0, 500),
         failedAt:
           FieldValue.serverTimestamp(),
         updatedAt:
@@ -764,17 +757,19 @@ export async function sendApplicationEmail(
     );
   }
 
-  const eventRef =
-    db
-      .collection("appEvents")
-      .doc();
+  const eventRef = db
+    .collection("appEvents")
+    .doc();
 
   await db.runTransaction(
     async (transaction) => {
-      const communicationSnapshot =
-        await transaction.get(
-          communicationRef
-        );
+      const [
+        communicationSnapshot,
+        applicationSnapshot,
+      ] = await Promise.all([
+        transaction.get(communicationRef),
+        transaction.get(applicationRef),
+      ]);
 
       if (!communicationSnapshot.exists) {
         throw new ApplicationCommunicationServiceError(
@@ -784,12 +779,10 @@ export async function sendApplicationEmail(
         );
       }
 
-      const data =
+      const communicationData =
         communicationSnapshot.data();
 
-      if (
-        data?.status === "SENT"
-      ) {
+      if (communicationData?.status === "SENT") {
         return;
       }
 
@@ -800,64 +793,51 @@ export async function sendApplicationEmail(
         communicationRef,
         {
           status: "SENT",
-          provider:
-            providerResult.provider,
+          provider: providerResult.provider,
           providerMessageId:
             providerResult.messageId,
           errorCode: null,
           errorMessage: null,
-          sentAt:
-            serverTimestamp,
+          sentAt: serverTimestamp,
           failedAt: null,
-          updatedAt:
-            serverTimestamp,
+          updatedAt: serverTimestamp,
         }
       );
 
-      transaction.update(
-        applicationRef,
-        {
-          updatedAt:
-            serverTimestamp,
-          lastActivityAt:
-            serverTimestamp,
-        }
-      );
+      if (applicationSnapshot.exists) {
+        transaction.update(
+          applicationRef,
+          {
+            updatedAt: serverTimestamp,
+            lastActivityAt: serverTimestamp,
+          }
+        );
+      }
 
       transaction.set(
         eventRef,
         {
-          eventId:
-            eventRef.id,
-          applicationId:
-            context.applicationId,
+          eventId: eventRef.id,
+          applicationId,
           organizationId:
             context.organizationId,
           type:
             "EMAIL_SENT" satisfies EventType,
-          changedBy:
-            context.actor.uid,
+          changedBy: actor.uid,
           note:
             `지원자에게 이메일을 발송했습니다: ${subject}`,
           metadata: {
             communicationId,
-            candidateId:
-              context.candidateId,
-            candidateName:
-              context.candidateName,
-            recipient:
-              context.candidateEmail,
-            jobTitle:
-              context.jobTitle,
-            company:
-              context.company,
-            provider:
-              providerResult.provider,
+            candidateId: context.candidateId,
+            candidateName: context.candidateName,
+            recipient: context.candidateEmail,
+            jobTitle: context.jobTitle,
+            company: context.company,
+            provider: providerResult.provider,
             providerMessageId:
               providerResult.messageId,
           },
-          createdAt:
-            serverTimestamp,
+          createdAt: serverTimestamp,
         }
       );
     }
@@ -865,17 +845,15 @@ export async function sendApplicationEmail(
 
   const finalSnapshot =
     await communicationRef.get();
-  const finalData =
-    finalSnapshot.data();
-  const finalView =
-    finalData
-      ? toCommunicationView(
-          finalSnapshot.id,
-          finalData,
-          context.applicationId,
-          context.organizationId
-        )
-      : null;
+  const finalData = finalSnapshot.data();
+  const finalView = finalData
+    ? toCommunicationView(
+        finalSnapshot.id,
+        finalData,
+        applicationId,
+        context.organizationId
+      )
+    : null;
 
   if (!finalView) {
     throw new ApplicationCommunicationServiceError(
