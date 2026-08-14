@@ -336,6 +336,7 @@ export default function ApplicationSlideOver({
 
           <ApplicationCommunicationPanel
             application={displayApplication}
+            refreshKey={activityRevision}
             onActivityChanged={
               handleOperationsActivityChanged
             }
