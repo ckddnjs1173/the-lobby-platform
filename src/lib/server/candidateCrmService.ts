@@ -66,6 +66,8 @@ interface NormalizedUpdateInput {
   headline: string;
   careerSummary: string;
   skills: string[];
+  careers: CareerItem[] | null;
+  education: EducationItem[] | null;
 }
 
 const UPDATE_FIELDS = [
@@ -75,6 +77,8 @@ const UPDATE_FIELDS = [
   "headline",
   "careerSummary",
   "skills",
+  "careers",
+  "education",
 ] as const;
 
 const EMAIL_PATTERN =
@@ -257,6 +261,115 @@ function normalizeSkills(
   ).slice(0, 20);
 }
 
+function normalizeCareers(
+  value: unknown
+): CareerItem[] {
+  if (!Array.isArray(value)) {
+    throw new CandidateCrmServiceError(
+      "careers는 배열이어야 합니다.",
+      400,
+      "INVALID_CAREERS"
+    );
+  }
+
+  if (value.length > 30) {
+    throw new CandidateCrmServiceError(
+      "경력은 최대 30개까지 입력할 수 있습니다.",
+      400,
+      "TOO_MANY_CAREERS"
+    );
+  }
+
+  return value.map((item, index) => {
+    if (!isRecord(item)) {
+      throw new CandidateCrmServiceError(
+        `경력 ${index + 1}번 항목 형식이 올바르지 않습니다.`,
+        400,
+        "INVALID_CAREER_ITEM"
+      );
+    }
+
+    return {
+      companyName: sanitizeRequiredString(
+        item.companyName,
+        `경력 ${index + 1} 회사명`,
+        200,
+        "CAREER_COMPANY_REQUIRED"
+      ),
+      role: sanitizeRequiredString(
+        item.role,
+        `경력 ${index + 1} 직무`,
+        200,
+        "CAREER_ROLE_REQUIRED"
+      ),
+      period: sanitizeOptionalString(
+        item.period,
+        `경력 ${index + 1} 기간`,
+        100
+      ),
+      description: sanitizeOptionalString(
+        item.description,
+        `경력 ${index + 1} 업무 내용`,
+        2000
+      ),
+    };
+  });
+}
+
+function normalizeEducation(
+  value: unknown
+): EducationItem[] {
+  if (!Array.isArray(value)) {
+    throw new CandidateCrmServiceError(
+      "education은 배열이어야 합니다.",
+      400,
+      "INVALID_EDUCATION"
+    );
+  }
+
+  if (value.length > 20) {
+    throw new CandidateCrmServiceError(
+      "학력은 최대 20개까지 입력할 수 있습니다.",
+      400,
+      "TOO_MANY_EDUCATION"
+    );
+  }
+
+  return value.map((item, index) => {
+    if (!isRecord(item)) {
+      throw new CandidateCrmServiceError(
+        `학력 ${index + 1}번 항목 형식이 올바르지 않습니다.`,
+        400,
+        "INVALID_EDUCATION_ITEM"
+      );
+    }
+
+    return {
+      schoolName: sanitizeRequiredString(
+        item.schoolName,
+        `학력 ${index + 1} 학교명`,
+        200,
+        "EDUCATION_SCHOOL_REQUIRED"
+      ),
+      major: sanitizeOptionalString(
+        item.major,
+        `학력 ${index + 1} 전공`,
+        200
+      ),
+      degree: sanitizeOptionalString(
+        item.degree,
+        `학력 ${index + 1} 학위`,
+        100
+      ),
+      period: sanitizeOptionalString(
+        item.period,
+        `학력 ${index + 1} 기간`,
+        100
+      ),
+    };
+  });
+}
+
 function normalizeObjectArray<T extends object>(
   value: unknown
 ): T[] {
@@ -430,6 +543,20 @@ function normalizeUpdateInput(
       3000
     ),
     skills: normalizeSkills(rawInput.skills),
+    careers:
+      Object.prototype.hasOwnProperty.call(
+        rawInput,
+        "careers"
+      )
+        ? normalizeCareers(rawInput.careers)
+        : null,
+    education:
+      Object.prototype.hasOwnProperty.call(
+        rawInput,
+        "education"
+      )
+        ? normalizeEducation(rawInput.education)
+        : null,
   };
 }
 
@@ -440,6 +567,15 @@ function arraysEqual(
   return (
     left.length === right.length &&
     left.every((value, index) => value === right[index])
+  );
+}
+
+function structuredArraysEqual<T extends object>(
+  left: T[],
+  right: T[]
+): boolean {
+  return (
+    JSON.stringify(left) === JSON.stringify(right)
   );
 }
 
@@ -645,6 +781,22 @@ export async function updateB2BCandidateProfile(
           .map((item) => item.trim())
       : [];
 
+    const currentCareers =
+      normalizeObjectArray<CareerItem>(
+        profileData.careers
+      );
+
+    const currentEducation =
+      normalizeObjectArray<EducationItem>(
+        profileData.education
+      );
+
+    const nextCareers =
+      input.careers ?? currentCareers;
+
+    const nextEducation =
+      input.education ?? currentEducation;
+
     const comparisons: [string, boolean][] = [
       ["name", candidateData.name !== input.name],
       ["phone", candidateData.phone !== input.phone],
@@ -655,6 +807,22 @@ export async function updateB2BCandidateProfile(
         (profileData.careerSummary || "") !== input.careerSummary,
       ],
       ["skills", !arraysEqual(currentSkills, input.skills)],
+      [
+        "careers",
+        input.careers !== null &&
+          !structuredArraysEqual(
+            currentCareers,
+            input.careers
+          ),
+      ],
+      [
+        "education",
+        input.education !== null &&
+          !structuredArraysEqual(
+            currentEducation,
+            input.education
+          ),
+      ],
     ];
 
     changedFields = comparisons
@@ -667,17 +835,16 @@ export async function updateB2BCandidateProfile(
 
     changed = true;
 
-    const careers = normalizeObjectArray<CareerItem>(
-      profileData.careers
-    );
-    const education = normalizeObjectArray<EducationItem>(
-      profileData.education
-    );
     const profileCompleteness =
       calculateProfileCompleteness({
-        ...input,
-        careers,
-        education,
+        name: input.name,
+        phone: input.phone,
+        email: input.email,
+        headline: input.headline,
+        careerSummary: input.careerSummary,
+        skills: input.skills,
+        careers: nextCareers,
+        education: nextEducation,
       });
     const serverTimestamp = FieldValue.serverTimestamp();
 
@@ -695,8 +862,8 @@ export async function updateB2BCandidateProfile(
         headline: input.headline,
         careerSummary: input.careerSummary,
         skills: input.skills,
-        careers,
-        education,
+        careers: nextCareers,
+        education: nextEducation,
         profileCompleteness,
         updatedAt: serverTimestamp,
       },

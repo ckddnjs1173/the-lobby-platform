@@ -53,6 +53,8 @@ export interface UpdateCandidateCrmInput {
   headline: string;
   careerSummary: string;
   skills: string[];
+  careers: CareerItem[];
+  education: EducationItem[];
 }
 
 export interface UpdateCandidateCrmResult {
@@ -255,6 +257,8 @@ export async function updateCandidateCrmDetail(
       headline: input.headline,
       careerSummary: input.careerSummary,
       skills: input.skills,
+      careers: input.careers,
+      education: input.education,
     }
   );
 }

@@ -20,6 +20,11 @@ import {
   type CandidateCrmDetail,
 } from "../../../../lib/candidateCrmApi";
 
+import type {
+  CareerItem,
+  EducationItem,
+} from "../../../../types";
+
 function formatDateTime(
   value: string | null
 ): string {
@@ -69,6 +74,10 @@ export default function CandidateCrmDetailPage() {
   const [headline, setHeadline] = useState("");
   const [careerSummary, setCareerSummary] = useState("");
   const [skillsText, setSkillsText] = useState("");
+  const [careers, setCareers] =
+    useState<CareerItem[]>([]);
+  const [education, setEducation] =
+    useState<EducationItem[]>([]);
 
   useEffect(() => {
     if (!candidateId) {
@@ -92,6 +101,8 @@ export default function CandidateCrmDetailPage() {
         setHeadline(data.headline);
         setCareerSummary(data.careerSummary);
         setSkillsText(data.skills.join(", "));
+        setCareers(data.careers);
+        setEducation(data.education);
       })
       .catch((error) => {
         if (cancelled) {
@@ -131,6 +142,100 @@ export default function CandidateCrmDetailPage() {
     [skillsText]
   );
 
+  const updateCareer = (
+    index: number,
+    field: keyof CareerItem,
+    value: string
+  ) => {
+    setCareers((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item
+      )
+    );
+  };
+
+  const addCareer = () => {
+    if (careers.length >= 30) {
+      toast.error(
+        "경력은 최대 30개까지 등록할 수 있습니다."
+      );
+      return;
+    }
+
+    setCareers((current) => [
+      ...current,
+      {
+        companyName: "",
+        role: "",
+        period: "",
+        description: "",
+      },
+    ]);
+  };
+
+  const removeCareer = (
+    index: number
+  ) => {
+    setCareers((current) =>
+      current.filter(
+        (_, itemIndex) =>
+          itemIndex !== index
+      )
+    );
+  };
+
+  const updateEducation = (
+    index: number,
+    field: keyof EducationItem,
+    value: string
+  ) => {
+    setEducation((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item
+      )
+    );
+  };
+
+  const addEducation = () => {
+    if (education.length >= 20) {
+      toast.error(
+        "학력은 최대 20개까지 등록할 수 있습니다."
+      );
+      return;
+    }
+
+    setEducation((current) => [
+      ...current,
+      {
+        schoolName: "",
+        major: "",
+        degree: "",
+        period: "",
+      },
+    ]);
+  };
+
+  const removeEducation = (
+    index: number
+  ) => {
+    setEducation((current) =>
+      current.filter(
+        (_, itemIndex) =>
+          itemIndex !== index
+      )
+    );
+  };
+
   const handleSave = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
@@ -147,6 +252,31 @@ export default function CandidateCrmDetailPage() {
       return;
     }
 
+    if (
+      careers.some(
+        (item) =>
+          !item.companyName.trim() ||
+          !item.role.trim()
+      )
+    ) {
+      toast.error(
+        "경력의 회사명과 직무는 필수입니다."
+      );
+      return;
+    }
+
+    if (
+      education.some(
+        (item) =>
+          !item.schoolName.trim()
+      )
+    ) {
+      toast.error(
+        "학력의 학교명은 필수입니다."
+      );
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -159,6 +289,30 @@ export default function CandidateCrmDetailPage() {
           headline: headline.trim(),
           careerSummary: careerSummary.trim(),
           skills,
+          careers: careers.map(
+            (item) => ({
+              companyName:
+                item.companyName.trim(),
+              role:
+                item.role.trim(),
+              period:
+                item.period.trim(),
+              description:
+                item.description.trim(),
+            })
+          ),
+          education: education.map(
+            (item) => ({
+              schoolName:
+                item.schoolName.trim(),
+              major:
+                item.major?.trim() || "",
+              degree:
+                item.degree?.trim() || "",
+              period:
+                item.period?.trim() || "",
+            })
+          ),
         }
       );
 
@@ -169,6 +323,8 @@ export default function CandidateCrmDetailPage() {
       setHeadline(result.candidate.headline);
       setCareerSummary(result.candidate.careerSummary);
       setSkillsText(result.candidate.skills.join(", "));
+      setCareers(result.candidate.careers);
+      setEducation(result.candidate.education);
 
       if (result.changed) {
         toast.success(
@@ -363,6 +519,262 @@ export default function CandidateCrmDetailPage() {
             </label>
           </section>
 
+          <section className="space-y-4 pt-5 border-t border-slate-100">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  경력
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  회사명과 직무는 필수입니다. 최대 30개까지 등록할 수 있습니다.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={addCareer}
+                className="shrink-0 px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-brand-navy hover:bg-slate-50"
+              >
+                + 경력 추가
+              </button>
+            </div>
+
+            {careers.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-200 p-5 text-center text-xs text-slate-400">
+                등록된 경력이 없습니다.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {careers.map((item, index) => (
+                  <div
+                    key={index}
+                    className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-600">
+                        경력 {index + 1}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeCareer(index)
+                        }
+                        className="text-xs font-semibold text-rose-500 hover:text-rose-700"
+                      >
+                        삭제
+                      </button>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="space-y-1">
+                        <span className="text-xs font-semibold text-slate-600">
+                          회사명 *
+                        </span>
+                        <input
+                          value={item.companyName}
+                          onChange={(event) =>
+                            updateCareer(
+                              index,
+                              "companyName",
+                              event.target.value
+                            )
+                          }
+                          maxLength={200}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-sm focus:outline-none focus:border-brand-navy"
+                        />
+                      </label>
+
+                      <label className="space-y-1">
+                        <span className="text-xs font-semibold text-slate-600">
+                          직무 *
+                        </span>
+                        <input
+                          value={item.role}
+                          onChange={(event) =>
+                            updateCareer(
+                              index,
+                              "role",
+                              event.target.value
+                            )
+                          }
+                          maxLength={200}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-sm focus:outline-none focus:border-brand-navy"
+                        />
+                      </label>
+                    </div>
+
+                    <label className="space-y-1 block">
+                      <span className="text-xs font-semibold text-slate-600">
+                        재직 기간
+                      </span>
+                      <input
+                        value={item.period}
+                        onChange={(event) =>
+                          updateCareer(
+                            index,
+                            "period",
+                            event.target.value
+                          )
+                        }
+                        maxLength={100}
+                        placeholder="예: 2023.07 - 현재"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-sm focus:outline-none focus:border-brand-navy"
+                      />
+                    </label>
+
+                    <label className="space-y-1 block">
+                      <span className="text-xs font-semibold text-slate-600">
+                        주요 업무
+                      </span>
+                      <textarea
+                        value={item.description}
+                        onChange={(event) =>
+                          updateCareer(
+                            index,
+                            "description",
+                            event.target.value
+                          )
+                        }
+                        maxLength={2000}
+                        rows={4}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-sm focus:outline-none focus:border-brand-navy resize-y"
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-4 pt-5 border-t border-slate-100">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  학력
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  학교명은 필수입니다. 최대 20개까지 등록할 수 있습니다.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={addEducation}
+                className="shrink-0 px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-brand-navy hover:bg-slate-50"
+              >
+                + 학력 추가
+              </button>
+            </div>
+
+            {education.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-200 p-5 text-center text-xs text-slate-400">
+                등록된 학력이 없습니다.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {education.map((item, index) => (
+                  <div
+                    key={index}
+                    className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-600">
+                        학력 {index + 1}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeEducation(index)
+                        }
+                        className="text-xs font-semibold text-rose-500 hover:text-rose-700"
+                      >
+                        삭제
+                      </button>
+                    </div>
+
+                    <label className="space-y-1 block">
+                      <span className="text-xs font-semibold text-slate-600">
+                        학교명 *
+                      </span>
+                      <input
+                        value={item.schoolName}
+                        onChange={(event) =>
+                          updateEducation(
+                            index,
+                            "schoolName",
+                            event.target.value
+                          )
+                        }
+                        maxLength={200}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-sm focus:outline-none focus:border-brand-navy"
+                      />
+                    </label>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="space-y-1">
+                        <span className="text-xs font-semibold text-slate-600">
+                          전공
+                        </span>
+                        <input
+                          value={item.major || ""}
+                          onChange={(event) =>
+                            updateEducation(
+                              index,
+                              "major",
+                              event.target.value
+                            )
+                          }
+                          maxLength={200}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-sm focus:outline-none focus:border-brand-navy"
+                        />
+                      </label>
+
+                      <label className="space-y-1">
+                        <span className="text-xs font-semibold text-slate-600">
+                          학위
+                        </span>
+                        <input
+                          value={item.degree || ""}
+                          onChange={(event) =>
+                            updateEducation(
+                              index,
+                              "degree",
+                              event.target.value
+                            )
+                          }
+                          maxLength={100}
+                          placeholder="예: 학사"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-sm focus:outline-none focus:border-brand-navy"
+                        />
+                      </label>
+                    </div>
+
+                    <label className="space-y-1 block">
+                      <span className="text-xs font-semibold text-slate-600">
+                        재학 기간
+                      </span>
+                      <input
+                        value={item.period || ""}
+                        onChange={(event) =>
+                          updateEducation(
+                            index,
+                            "period",
+                            event.target.value
+                          )
+                        }
+                        maxLength={100}
+                        placeholder="예: 2017.03 - 2021.02"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-sm focus:outline-none focus:border-brand-navy"
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
           <div className="flex justify-end pt-2">
             <button
               type="submit"
@@ -443,7 +855,7 @@ export default function CandidateCrmDetailPage() {
               </div>
             </div>
             <p className="text-[11px] text-slate-400">
-              경력·학력 항목 편집은 Candidate CRM 확장 단계에서 추가합니다.
+              경력·학력 항목은 좌측 프로필 편집 영역에서 관리할 수 있습니다.
             </p>
           </section>
         </aside>
