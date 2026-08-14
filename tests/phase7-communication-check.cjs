@@ -24,8 +24,14 @@ const provider = read(
 const service = read(
   "src/lib/server/applicationCommunicationService.ts"
 );
+const templateService = read(
+  "src/lib/server/applicationCommunicationTemplateService.ts"
+);
 const route = read(
   "src/app/api/b2b/applications/[applicationId]/communications/route.ts"
+);
+const templateRoute = read(
+  "src/app/api/b2b/applications/[applicationId]/communications/templates/route.ts"
 );
 const client = read(
   "src/lib/applicationCommunicationApi.ts"
@@ -35,6 +41,9 @@ const panel = read(
 );
 const slideOver = read(
   "src/components/b2b-admin/ApplicationSlideOver.tsx"
+);
+const firestoreRules = read(
+  "firestore.rules"
 );
 
 console.log(
@@ -159,9 +168,68 @@ assert(
   ),
   "COMMUNICATION_SERVICE_MUST_USE_ADMIN_ONLY"
 );
+assert(
+  firestoreRules.includes(
+    "match /communications/{communicationId}"
+  ) &&
+    firestoreRules.includes(
+      "B2B Communication API가 Firebase Admin으로만 처리한다"
+    ),
+  "COMMUNICATION_FIRESTORE_RULE_BOUNDARY_MISSING"
+);
 
 console.log(
-  "STEP_3: AUTHORIZED_COMMUNICATION_API"
+  "STEP_3: WORKFLOW_AWARE_TEMPLATE_AUTOMATION"
+);
+
+assert(
+  templateService.includes(
+    'collection("interviews")'
+  ) &&
+    templateService.includes(
+      'data.status !== "SCHEDULED"'
+    ) &&
+    templateService.includes(
+      "formatKoreanDateTime"
+    ),
+  "INTERVIEW_TEMPLATE_MUST_USE_LATEST_SCHEDULE"
+);
+assert(
+  templateService.includes(
+    'key: "INTERVIEW_SCHEDULED"'
+  ) &&
+    templateService.includes(
+      'key: "OFFER_FOLLOW_UP"'
+    ) &&
+    templateService.includes(
+      'key: "HIRED_CONFIRMATION"'
+    ) &&
+    templateService.includes(
+      'key: "REJECTION_NOTICE"'
+    ),
+  "WORKFLOW_TEMPLATE_SET_INCOMPLETE"
+);
+assert(
+  templateService.includes(
+    "plannedStartDate"
+  ) &&
+    !templateService.includes(
+      "hiringOutcome.note"
+    ),
+  "HIRING_OUTCOME_TEMPLATE_PRIVACY_GUARD_MISSING"
+);
+assert(
+  templateService.includes(
+    "requireB2BActor"
+  ) &&
+    templateService.includes(
+      "TENANT_ACCESS_DENIED"
+    ),
+  "COMMUNICATION_TEMPLATE_TENANT_GUARD_MISSING"
+);
+
+console.log(
+  "STEP_4: AUTHORIZED_COMMUNICATION_API"
 );
 
 const authIndex =
@@ -171,6 +239,14 @@ const authIndex =
 const sendIndex =
   route.indexOf(
     "sendApplicationEmail("
+  );
+const templateAuthIndex =
+  templateRoute.indexOf(
+    "requireFirebaseUser"
+  );
+const templateListIndex =
+  templateRoute.indexOf(
+    "listApplicationCommunicationTemplates("
   );
 
 assert(
@@ -188,9 +264,15 @@ assert(
     ),
   "COMMUNICATION_API_OPERATIONS_MISSING"
 );
+assert(
+  templateAuthIndex >= 0 &&
+    templateListIndex >= 0 &&
+    templateAuthIndex < templateListIndex,
+  "COMMUNICATION_TEMPLATE_AUTH_MUST_PRECEDE_READ"
+);
 
 console.log(
-  "STEP_4: RECRUITER_UI_SAFE_RETRY"
+  "STEP_5: RECRUITER_UI_SAFE_RETRY_AND_REVIEW"
 );
 
 assert(
@@ -199,6 +281,9 @@ assert(
   ) &&
     client.includes(
       "sendApplicationEmailViaApi"
+    ) &&
+    client.includes(
+      "listApplicationCommunicationTemplatesViaApi"
     ),
   "COMMUNICATION_CLIENT_AUTH_MISSING"
 );
@@ -216,6 +301,15 @@ assert(
     "내용 수정 없이 다시 시도하면 동일 요청 ID를 재사용합니다"
   ),
   "COMMUNICATION_RETRY_NOTICE_MISSING"
+);
+assert(
+  panel.includes(
+    "자동 발송하지 않으며 Recruiter가 최종 확인 후 발송합니다"
+  ) &&
+    panel.includes(
+      "template.recommended"
+    ),
+  "COMMUNICATION_HUMAN_REVIEW_MISSING"
 );
 assert(
   slideOver.includes(
