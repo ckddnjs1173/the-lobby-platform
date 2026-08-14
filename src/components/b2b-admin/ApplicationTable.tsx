@@ -36,6 +36,13 @@ const STAGE_LABELS: Record<
   CANCELED: "지원취소",
 };
 
+const WORKFLOW_ONLY_STAGES =
+  new Set<ApplicationStage>([
+    "INTERVIEW",
+    "HIRED",
+    "REJECTED",
+  ]);
+
 function formatAppliedDate(
   isoDate: string
 ): string {
@@ -170,26 +177,32 @@ export default function ApplicationTable({
                               .value as ApplicationStage
                           )
                         }
-                        title="면접 단계 이동은 칸반에서 면접 일정을 확정하며 처리합니다."
+                        title="면접·입사확정·불합격은 상세 운영 Workflow에서 처리합니다."
                         className="text-xs bg-white border border-slate-200 rounded-lg px-3 py-1.5 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-navy/20"
                       >
                         {Object.entries(
                           STAGE_LABELS
-                        ).map(([stage, label]) => (
-                          <option
-                            key={stage}
-                            value={stage}
-                            disabled={
-                              stage === "INTERVIEW" &&
-                              application.stage !== "INTERVIEW"
-                            }
-                          >
-                            {stage === "INTERVIEW" &&
-                            application.stage !== "INTERVIEW"
-                              ? `${label} · 일정 확정 필요`
-                              : label}
-                          </option>
-                        ))}
+                        ).map(([stage, label]) => {
+                          const typedStage =
+                            stage as ApplicationStage;
+                          const workflowOnly =
+                            WORKFLOW_ONLY_STAGES.has(
+                              typedStage
+                            ) &&
+                            application.stage !== typedStage;
+
+                          return (
+                            <option
+                              key={stage}
+                              value={stage}
+                              disabled={workflowOnly}
+                            >
+                              {workflowOnly
+                                ? `${label} · 전용 처리 필요`
+                                : label}
+                            </option>
+                          );
+                        })}
                       </select>
                     </td>
                   </tr>
