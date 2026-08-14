@@ -361,7 +361,6 @@ export default function ApplicationKanban({
                         </button>
                       );
                     })
-                  )
                 ) : (
                   <div
                     className={`h-32 flex items-center justify-center text-xs border border-dashed rounded-xl transition-colors ${
