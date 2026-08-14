@@ -108,6 +108,11 @@ export type CandidateSource =
  * authUid:
  * B2C 가입자가 Firebase Auth를 연결했을 때만 존재한다.
  *
+ * organizationId / createdBy:
+ * B2B에서 서버가 생성한 Candidate의 tenant provenance다.
+ * B2C_SELF Candidate 문서에는 존재하지 않을 수 있으므로 optional로 둔다.
+ * legacy 문서의 null 값도 읽을 수 있도록 null을 수용한다.
+ *
  * 예:
  *
  * B2C 가입자
@@ -117,6 +122,8 @@ export type CandidateSource =
  * B2B 직접 발굴 후보자
  * candidateId = "xyz789"
  * authUid = null
+ * organizationId = "org_..."
+ * createdBy = "recruiterFirebaseUid..."
  */
 export interface Candidate {
   candidateId: string;
@@ -132,6 +139,10 @@ export interface Candidate {
   source: CandidateSource;
 
   accountStatus: CandidateAccountStatus;
+
+  organizationId?: string | null;
+
+  createdBy?: string | null;
 
   createdAt: DbTimestamp;
   updatedAt: DbTimestamp;
