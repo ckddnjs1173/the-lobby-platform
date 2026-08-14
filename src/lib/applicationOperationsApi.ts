@@ -58,6 +58,13 @@ export interface ApplicationInterviewView {
   canceledAt: string | null;
 }
 
+export interface ScheduleInterviewTransitionResult {
+  applicationId: string;
+  interviewId: string;
+  stage: "INTERVIEW";
+  changedStage: boolean;
+}
+
 interface ApiSuccessResponse<T> {
   success: true;
   data: T;
@@ -352,6 +359,55 @@ export async function scheduleApplicationInterviewViaApi(
     `/api/b2b/applications/${encodeURIComponent(
       normalizedApplicationId
     )}/interviews`,
+    "POST",
+    {
+      scheduledAt:
+        input.scheduledAt,
+      method:
+        input.method,
+      ...(input.location?.trim()
+        ? {
+            location:
+              input.location.trim(),
+          }
+        : {}),
+      ...(input.interviewer?.trim()
+        ? {
+            interviewer:
+              input.interviewer.trim(),
+          }
+        : {}),
+      ...(input.note?.trim()
+        ? {
+            note:
+              input.note.trim(),
+          }
+        : {}),
+    }
+  );
+}
+
+export async function scheduleInterviewAndTransitionViaApi(
+  applicationId: string,
+  input: {
+    scheduledAt: string;
+    method: InterviewMethod;
+    location?: string;
+    interviewer?: string;
+    note?: string;
+  }
+): Promise<ScheduleInterviewTransitionResult> {
+  const normalizedApplicationId =
+    normalizeApplicationId(
+      applicationId
+    );
+
+  return authorizedRequest<
+    ScheduleInterviewTransitionResult
+  >(
+    `/api/b2b/applications/${encodeURIComponent(
+      normalizedApplicationId
+    )}/interviews/transition`,
     "POST",
     {
       scheduledAt:
