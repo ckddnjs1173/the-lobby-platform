@@ -42,6 +42,7 @@ export interface CandidateCrmDetail {
   source: "B2B_DIRECT";
   accountStatus: "ACTIVE" | "INACTIVE" | "SUSPENDED";
   createdBy: string;
+  createdByName: string | null;
   headline: string;
   careerSummary: string;
   skills: string[];
@@ -470,6 +471,61 @@ function assertB2BDirectCandidate(
   }
 }
 
+async function resolveCreatorName(
+  createdBy: string,
+  candidateOrganizationId: string
+): Promise<string | null> {
+  const db = getFirebaseAdminDb();
+
+  const userSnapshot = await db
+    .collection("users")
+    .doc(createdBy)
+    .get();
+
+  if (!userSnapshot.exists) {
+    return null;
+  }
+
+  const userData = userSnapshot.data();
+
+  if (!userData) {
+    return null;
+  }
+
+  const name =
+    isNonEmptyString(userData.name)
+      ? userData.name.trim()
+      : null;
+
+  if (!name) {
+    return null;
+  }
+
+  if (userData.role === "ADMIN") {
+    return name;
+  }
+
+  if (userData.role !== "RECRUITER") {
+    return null;
+  }
+
+  const creatorOrganizationId =
+    isNonEmptyString(
+      userData.organizationId
+    )
+      ? userData.organizationId.trim()
+      : null;
+
+  if (
+    creatorOrganizationId !==
+    candidateOrganizationId
+  ) {
+    return null;
+  }
+
+  return name;
+}
+
 function calculateProfileCompleteness(input: {
   name: string;
   phone: string;
@@ -617,10 +673,25 @@ async function readCandidateDetail(
 
   assertCandidateTenantAccess(actor, organizationId);
 
-  const profileSnapshot = await db
-    .collection("profile")
-    .doc(candidateId)
-    .get();
+  const createdBy = requireString(
+    candidateData,
+    "createdBy",
+    "CANDIDATE_CREATED_BY_MISSING"
+  );
+
+  const [
+    profileSnapshot,
+    createdByName,
+  ] = await Promise.all([
+    db
+      .collection("profile")
+      .doc(candidateId)
+      .get(),
+    resolveCreatorName(
+      createdBy,
+      organizationId
+    ),
+  ]);
 
   const profileData = profileSnapshot.data() || {};
 
@@ -646,11 +717,8 @@ async function readCandidateDetail(
     accountStatus: normalizeAccountStatus(
       candidateData.accountStatus
     ),
-    createdBy: requireString(
-      candidateData,
-      "createdBy",
-      "CANDIDATE_CREATED_BY_MISSING"
-    ),
+    createdBy,
+    createdByName,
     headline: isNonEmptyString(profileData.headline)
       ? profileData.headline.trim()
       : "",

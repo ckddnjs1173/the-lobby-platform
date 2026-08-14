@@ -807,8 +807,8 @@ export default function CandidateCrmDetailPage() {
               </div>
               <div>
                 <dt className="text-slate-400">등록자</dt>
-                <dd className="mt-1 text-slate-700 font-mono break-all">
-                  {candidate.createdBy}
+                <dd className="mt-1 font-semibold text-slate-700">
+                  {candidate.createdByName || candidate.createdBy}
                 </dd>
               </div>
               <div>

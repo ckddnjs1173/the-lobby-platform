@@ -20,6 +20,7 @@ export interface CandidateCrmDetail {
   source: "B2B_DIRECT";
   accountStatus: "ACTIVE" | "INACTIVE" | "SUSPENDED";
   createdBy: string;
+  createdByName: string | null;
   headline: string;
   careerSummary: string;
   skills: string[];
