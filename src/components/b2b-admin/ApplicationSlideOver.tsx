@@ -68,7 +68,10 @@ export default function ApplicationSlideOver({
   const handleStageUpdate = async (
     newStage: ApplicationStage
   ) => {
-    if (newStage === selectedApp.stage) {
+    if (
+      newStage === selectedApp.stage ||
+      newStage === "INTERVIEW"
+    ) {
       return;
     }
 
@@ -152,24 +155,42 @@ export default function ApplicationSlideOver({
               <div className="grid grid-cols-3 gap-2">
                 {STAGE_OPTIONS.map((option) => {
                   const isActive = selectedApp.stage === option.value;
+                  const requiresInterviewSchedule =
+                    option.value === "INTERVIEW" &&
+                    !isActive;
 
                   return (
                     <button
                       type="button"
                       key={option.value}
-                      disabled={isUpdating || isActive}
+                      disabled={
+                        isUpdating ||
+                        isActive ||
+                        requiresInterviewSchedule
+                      }
                       onClick={() => handleStageUpdate(option.value)}
+                      title={
+                        requiresInterviewSchedule
+                          ? "면접 일정 확정과 함께 면접 단계로 이동합니다."
+                          : undefined
+                      }
                       className={`py-1.5 px-2 text-xs font-medium rounded-lg border transition-all ${
                         isActive
                           ? "bg-brand-navy text-brand-gold border-brand-navy font-bold shadow-sm"
                           : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                      } disabled:cursor-not-allowed`}
+                      } disabled:cursor-not-allowed disabled:opacity-50`}
                     >
                       {option.label}
                     </button>
                   );
                 })}
               </div>
+
+              {selectedApp.stage !== "INTERVIEW" ? (
+                <p className="text-[11px] leading-5 text-indigo-600">
+                  면접 단계는 Stage 버튼으로 직접 변경하지 않습니다. 칸반에서 면접 단계로 이동해 일정을 확정해주세요.
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-1 pt-2">
