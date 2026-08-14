@@ -126,15 +126,30 @@ export async function GET(
         "organizationId"
       ) || undefined;
 
-    const candidates =
+    const cursor =
+      requestUrl.searchParams.get(
+        "cursor"
+      ) || undefined;
+
+    const limit =
+      requestUrl.searchParams.get(
+        "limit"
+      ) || undefined;
+
+    const result =
       await listB2BCandidatePool(
         authenticatedUser.uid,
-        organizationId
+        {
+          organizationId,
+          cursor,
+          limit,
+        }
       );
 
     return NextResponse.json({
       success: true,
-      data: candidates,
+      data: result.items,
+      pagination: result.pagination,
     });
   } catch (error) {
     return errorResponse(error);

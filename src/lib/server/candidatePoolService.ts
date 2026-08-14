@@ -1,5 +1,7 @@
-import type {
-  DocumentData,
+import {
+  FieldPath,
+  Timestamp,
+  type DocumentData,
 } from "firebase-admin/firestore";
 
 import {
@@ -36,12 +38,40 @@ export interface CandidatePoolItem {
   source: "B2B_DIRECT";
   accountStatus: "ACTIVE" | "INACTIVE" | "SUSPENDED";
   createdBy: string;
+  createdByName: string | null;
   headline: string;
   skills: string[];
   profileCompleteness: number;
   createdAt: string | null;
   updatedAt: string | null;
 }
+
+export interface CandidatePoolPagination {
+  total: number;
+  limit: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
+export interface CandidatePoolPageResult {
+  items: CandidatePoolItem[];
+  pagination: CandidatePoolPagination;
+}
+
+interface CandidatePoolListOptions {
+  organizationId?: string;
+  cursor?: string;
+  limit?: string | number;
+}
+
+interface CandidatePoolCursor {
+  seconds: number;
+  nanoseconds: number;
+  documentId: string;
+}
+
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 50;
 
 function isNonEmptyString(
   value: unknown
@@ -120,6 +150,96 @@ function resolveOrganizationId(
   return organizationId;
 }
 
+function normalizePageSize(
+  value: string | number | undefined
+): number {
+  if (value === undefined) {
+    return DEFAULT_PAGE_SIZE;
+  }
+
+  const parsed =
+    typeof value === "number"
+      ? value
+      : Number(value);
+
+  if (
+    !Number.isInteger(parsed) ||
+    parsed < 1 ||
+    parsed > MAX_PAGE_SIZE
+  ) {
+    throw new CandidatePoolServiceError(
+      `limit은 1~${MAX_PAGE_SIZE} 사이의 정수여야 합니다.`,
+      400,
+      "INVALID_PAGE_LIMIT"
+    );
+  }
+
+  return parsed;
+}
+
+function encodeCursor(
+  data: DocumentData,
+  documentId: string
+): string {
+  const updatedAt = data.updatedAt;
+
+  if (!(updatedAt instanceof Timestamp)) {
+    throw new CandidatePoolServiceError(
+      "후보자 pagination cursor를 생성할 수 없습니다.",
+      409,
+      "CANDIDATE_UPDATED_AT_MISSING"
+    );
+  }
+
+  const payload: CandidatePoolCursor = {
+    seconds: updatedAt.seconds,
+    nanoseconds: updatedAt.nanoseconds,
+    documentId,
+  };
+
+  return Buffer.from(
+    JSON.stringify(payload),
+    "utf8"
+  ).toString("base64url");
+}
+
+function decodeCursor(
+  value?: string
+): CandidatePoolCursor | null {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(
+        value.trim(),
+        "base64url"
+      ).toString("utf8")
+    ) as Partial<CandidatePoolCursor>;
+
+    if (
+      !Number.isInteger(parsed.seconds) ||
+      !Number.isInteger(parsed.nanoseconds) ||
+      !isNonEmptyString(parsed.documentId)
+    ) {
+      throw new Error("INVALID_CURSOR_PAYLOAD");
+    }
+
+    return {
+      seconds: parsed.seconds as number,
+      nanoseconds: parsed.nanoseconds as number,
+      documentId: parsed.documentId.trim(),
+    };
+  } catch {
+    throw new CandidatePoolServiceError(
+      "후보자 페이지 cursor가 올바르지 않습니다.",
+      400,
+      "INVALID_PAGE_CURSOR"
+    );
+  }
+}
+
 function normalizeSkills(
   value: unknown
 ): string[] {
@@ -171,39 +291,101 @@ function requireCandidateString(
   key: string
 ): string | null {
   const value = data[key];
+
   return isNonEmptyString(value)
     ? value.trim()
     : null;
 }
 
+function resolveCreatorName(
+  userData: DocumentData | undefined,
+  candidateOrganizationId: string
+): string | null {
+  if (!userData) {
+    return null;
+  }
+
+  const name =
+    isNonEmptyString(userData.name)
+      ? userData.name.trim()
+      : null;
+
+  if (!name) {
+    return null;
+  }
+
+  if (userData.role === "ADMIN") {
+    return name;
+  }
+
+  if (userData.role !== "RECRUITER") {
+    return null;
+  }
+
+  const creatorOrganizationId =
+    isNonEmptyString(userData.organizationId)
+      ? userData.organizationId.trim()
+      : null;
+
+  return creatorOrganizationId === candidateOrganizationId
+    ? name
+    : null;
+}
+
 export async function listB2BCandidatePool(
   actorUid: string,
-  organizationIdInput?: string
-): Promise<CandidatePoolItem[]> {
+  options: CandidatePoolListOptions = {}
+): Promise<CandidatePoolPageResult> {
   const actor = await requireB2BActor(actorUid);
 
   const organizationId = resolveOrganizationId(
     actor,
-    organizationIdInput
+    options.organizationId
   );
+
+  const pageSize = normalizePageSize(options.limit);
+  const cursor = decodeCursor(options.cursor);
 
   const db = getFirebaseAdminDb();
 
-  const candidateSnapshot = await db
+  const baseQuery = db
     .collection("candidates")
     .where("organizationId", "==", organizationId)
-    .get();
+    .where("source", "==", "B2B_DIRECT")
+    .where("authUid", "==", null);
 
-  const items = await Promise.all(
-    candidateSnapshot.docs.map(async (document) => {
+  let pageQuery = baseQuery
+    .orderBy("updatedAt", "desc")
+    .orderBy(FieldPath.documentId(), "desc")
+    .limit(pageSize + 1);
+
+  if (cursor) {
+    pageQuery = pageQuery.startAfter(
+      new Timestamp(
+        cursor.seconds,
+        cursor.nanoseconds
+      ),
+      cursor.documentId
+    );
+  }
+
+  const [
+    candidateSnapshot,
+    countSnapshot,
+  ] = await Promise.all([
+    pageQuery.get(),
+    baseQuery.count().get(),
+  ]);
+
+  const hasMore =
+    candidateSnapshot.docs.length > pageSize;
+
+  const pageDocuments =
+    candidateSnapshot.docs.slice(0, pageSize);
+
+  const normalizedCandidates = pageDocuments
+    .map((document) => {
       const data = document.data();
-
-      if (
-        data.source !== "B2B_DIRECT" ||
-        data.authUid !== null
-      ) {
-        return null;
-      }
 
       const candidateId =
         requireCandidateString(data, "candidateId") ||
@@ -212,7 +394,10 @@ export async function listB2BCandidatePool(
       const name = requireCandidateString(data, "name");
       const phone = requireCandidateString(data, "phone");
       const email = requireCandidateString(data, "email");
-      const createdBy = requireCandidateString(data, "createdBy");
+      const createdBy = requireCandidateString(
+        data,
+        "createdBy"
+      );
 
       if (
         !name ||
@@ -223,24 +408,99 @@ export async function listB2BCandidatePool(
         return null;
       }
 
-      const profileSnapshot = await db
-        .collection("profile")
-        .doc(candidateId)
-        .get();
-
-      const profile = profileSnapshot.data();
-
       return {
         candidateId,
-        organizationId,
+        data,
         name,
         phone,
         email,
+        createdBy,
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is NonNullable<typeof item> =>
+        item !== null
+    );
+
+  const profileRefs = normalizedCandidates.map(
+    (candidate) =>
+      db
+        .collection("profile")
+        .doc(candidate.candidateId)
+  );
+
+  const creatorIds = Array.from(
+    new Set(
+      normalizedCandidates.map(
+        (candidate) => candidate.createdBy
+      )
+    )
+  );
+
+  const creatorRefs = creatorIds.map(
+    (uid) =>
+      db
+        .collection("users")
+        .doc(uid)
+  );
+
+  const relatedSnapshots =
+    profileRefs.length + creatorRefs.length > 0
+      ? await db.getAll(
+          ...profileRefs,
+          ...creatorRefs
+        )
+      : [];
+
+  const profiles = new Map<
+    string,
+    DocumentData | undefined
+  >();
+
+  const users = new Map<
+    string,
+    DocumentData | undefined
+  >();
+
+  for (const snapshot of relatedSnapshots) {
+    if (snapshot.ref.parent.id === "profile") {
+      profiles.set(
+        snapshot.id,
+        snapshot.data()
+      );
+    }
+
+    if (snapshot.ref.parent.id === "users") {
+      users.set(
+        snapshot.id,
+        snapshot.data()
+      );
+    }
+  }
+
+  const items = normalizedCandidates.map(
+    (candidate) => {
+      const profile = profiles.get(
+        candidate.candidateId
+      );
+
+      return {
+        candidateId: candidate.candidateId,
+        organizationId,
+        name: candidate.name,
+        phone: candidate.phone,
+        email: candidate.email,
         source: "B2B_DIRECT" as const,
         accountStatus: normalizeAccountStatus(
-          data.accountStatus
+          candidate.data.accountStatus
         ),
-        createdBy,
+        createdBy: candidate.createdBy,
+        createdByName: resolveCreatorName(
+          users.get(candidate.createdBy),
+          organizationId
+        ),
         headline:
           profile && isNonEmptyString(profile.headline)
             ? profile.headline.trim()
@@ -249,29 +509,34 @@ export async function listB2BCandidatePool(
         profileCompleteness: normalizeCompleteness(
           profile?.profileCompleteness
         ),
-        createdAt: timestampToIsoString(data.createdAt),
-        updatedAt: timestampToIsoString(data.updatedAt),
+        createdAt: timestampToIsoString(
+          candidate.data.createdAt
+        ),
+        updatedAt: timestampToIsoString(
+          candidate.data.updatedAt
+        ),
       } satisfies CandidatePoolItem;
-    })
+    }
   );
 
-  return items
-    .filter(
-      (item): item is CandidatePoolItem =>
-        item !== null
-    )
-    .sort((a, b) => {
-      const aTime = a.updatedAt
-        ? Date.parse(a.updatedAt)
-        : 0;
-      const bTime = b.updatedAt
-        ? Date.parse(b.updatedAt)
-        : 0;
+  const lastDocument =
+    pageDocuments.length > 0
+      ? pageDocuments[pageDocuments.length - 1]
+      : null;
 
-      if (aTime !== bTime) {
-        return bTime - aTime;
-      }
-
-      return a.name.localeCompare(b.name, "ko");
-    });
+  return {
+    items,
+    pagination: {
+      total: countSnapshot.data().count,
+      limit: pageSize,
+      hasMore,
+      nextCursor:
+        hasMore && lastDocument
+          ? encodeCursor(
+              lastDocument.data(),
+              lastDocument.id
+            )
+          : null,
+    },
+  };
 }

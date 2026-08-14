@@ -14,9 +14,12 @@ import {
 
 import {
   CandidatePoolApiError,
-  fetchCandidatePool,
+  fetchCandidatePoolPage,
   type CandidatePoolItem,
+  type CandidatePoolPagination,
 } from "../../../lib/candidatePoolApi";
+
+const PAGE_SIZE = 20;
 
 function formatDate(
   value: string | null
@@ -50,18 +53,40 @@ export default function CandidatePoolPage() {
     useState(true);
   const [queryText, setQueryText] =
     useState("");
+  const [cursor, setCursor] =
+    useState<string | null>(null);
+  const [cursorHistory, setCursorHistory] =
+    useState<Array<string | null>>([]);
+  const [pagination, setPagination] =
+    useState<CandidatePoolPagination>({
+      total: 0,
+      limit: PAGE_SIZE,
+      hasMore: false,
+      nextCursor: null,
+    });
+
+  useEffect(() => {
+    setCursor(null);
+    setCursorHistory([]);
+    setQueryText("");
+  }, [session.organizationId]);
 
   useEffect(() => {
     let cancelled = false;
 
     setLoading(true);
 
-    fetchCandidatePool(
-      session.organizationId
+    fetchCandidatePoolPage(
+      session.organizationId,
+      {
+        cursor,
+        limit: PAGE_SIZE,
+      }
     )
-      .then((data) => {
+      .then((result) => {
         if (!cancelled) {
-          setCandidates(data);
+          setCandidates(result.items);
+          setPagination(result.pagination);
         }
       })
       .catch((error) => {
@@ -91,7 +116,7 @@ export default function CandidatePoolPage() {
     return () => {
       cancelled = true;
     };
-  }, [session.organizationId]);
+  }, [session.organizationId, cursor]);
 
   const filteredCandidates = useMemo(
     () => {
@@ -120,6 +145,46 @@ export default function CandidatePoolPage() {
     },
     [candidates, queryText]
   );
+
+  const pageNumber =
+    cursorHistory.length + 1;
+
+  const handleNextPage = () => {
+    if (
+      loading ||
+      !pagination.hasMore ||
+      !pagination.nextCursor
+    ) {
+      return;
+    }
+
+    setCursorHistory((current) => [
+      ...current,
+      cursor,
+    ]);
+    setCursor(pagination.nextCursor);
+    setQueryText("");
+  };
+
+  const handlePreviousPage = () => {
+    if (
+      loading ||
+      cursorHistory.length === 0
+    ) {
+      return;
+    }
+
+    const previousCursor =
+      cursorHistory[
+        cursorHistory.length - 1
+      ];
+
+    setCursorHistory((current) =>
+      current.slice(0, -1)
+    );
+    setCursor(previousCursor);
+    setQueryText("");
+  };
 
   return (
     <div className="space-y-6">
@@ -151,23 +216,39 @@ export default function CandidatePoolPage() {
       <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-slate-600">
-            전체 <span className="font-bold text-brand-navy">{candidates.length}명</span>
+            전체{" "}
+            <span className="font-bold text-brand-navy">
+              {pagination.total}명
+            </span>
+            {" · "}
+            {pageNumber}페이지{" "}
+            <span className="font-bold text-brand-navy">
+              {candidates.length}명
+            </span>
             {queryText.trim() ? (
               <>
-                {" · "}검색 결과 <span className="font-bold text-brand-navy">{filteredCandidates.length}명</span>
+                {" · "}페이지 검색{" "}
+                <span className="font-bold text-brand-navy">
+                  {filteredCandidates.length}명
+                </span>
               </>
             ) : null}
           </div>
 
-          <input
-            type="search"
-            value={queryText}
-            onChange={(event) =>
-              setQueryText(event.target.value)
-            }
-            placeholder="이름, 이메일, 연락처, 헤드라인, 스킬 검색"
-            className="w-full sm:w-96 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand-navy"
-          />
+          <div className="w-full sm:w-96 space-y-1">
+            <input
+              type="search"
+              value={queryText}
+              onChange={(event) =>
+                setQueryText(event.target.value)
+              }
+              placeholder="현재 페이지에서 이름, 이메일, 연락처, 헤드라인, 스킬 검색"
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand-navy"
+            />
+            <div className="text-[10px] text-slate-400 sm:text-right">
+              빠른 필터는 현재 페이지의 최대 {PAGE_SIZE}명을 대상으로 합니다.
+            </div>
+          </div>
         </div>
 
         {loading ? (
@@ -180,7 +261,9 @@ export default function CandidatePoolPage() {
               표시할 후보자가 없습니다.
             </div>
             <p className="text-xs text-slate-400">
-              후보자를 직접등록하면 이 Talent Pool에서 다시 찾을 수 있습니다.
+              {queryText.trim()
+                ? "현재 페이지에서 검색 조건에 맞는 후보자가 없습니다."
+                : "후보자를 직접등록하면 이 Talent Pool에서 다시 찾을 수 있습니다."}
             </p>
           </div>
         ) : (
@@ -255,8 +338,9 @@ export default function CandidatePoolPage() {
                         </div>
                       </td>
 
-                      <td className="py-4 pr-4 text-xs text-slate-500 font-mono whitespace-nowrap">
-                        {candidate.createdBy}
+                      <td className="py-4 pr-4 text-xs text-slate-500 whitespace-nowrap">
+                        {candidate.createdByName ||
+                          candidate.createdBy}
                       </td>
 
                       <td className="py-4 pr-4 text-xs text-slate-500 whitespace-nowrap">
@@ -283,6 +367,39 @@ export default function CandidatePoolPage() {
             </table>
           </div>
         )}
+
+        {!loading && pagination.total > 0 ? (
+          <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs text-slate-400">
+              페이지 {pageNumber}
+              {" · "}
+              페이지당 최대 {pagination.limit}명
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handlePreviousPage}
+                disabled={cursorHistory.length === 0}
+                className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-brand-navy disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+              >
+                이전
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNextPage}
+                disabled={
+                  !pagination.hasMore ||
+                  !pagination.nextCursor
+                }
+                className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-brand-navy disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+              >
+                다음
+              </button>
+            </div>
+          </div>
+        ) : null}
       </section>
     </div>
   );
