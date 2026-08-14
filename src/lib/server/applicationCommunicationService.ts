@@ -738,16 +738,41 @@ export async function sendApplicationEmail(
           );
 
     try {
-      await communicationRef.update({
-        status: "FAILED",
-        errorCode: providerError.code,
-        errorMessage:
-          providerError.message.slice(0, 500),
-        failedAt:
-          FieldValue.serverTimestamp(),
-        updatedAt:
-          FieldValue.serverTimestamp(),
-      });
+      await db.runTransaction(
+        async (transaction) => {
+          const snapshot =
+            await transaction.get(
+              communicationRef
+            );
+
+          if (!snapshot.exists) {
+            return;
+          }
+
+          const data = snapshot.data();
+
+          if (data?.status === "SENT") {
+            return;
+          }
+
+          transaction.update(
+            communicationRef,
+            {
+              status: "FAILED",
+              errorCode: providerError.code,
+              errorMessage:
+                providerError.message.slice(
+                  0,
+                  500
+                ),
+              failedAt:
+                FieldValue.serverTimestamp(),
+              updatedAt:
+                FieldValue.serverTimestamp(),
+            }
+          );
+        }
+      );
     } catch (updateError) {
       console.error(
         "Communication failure state update failed:",
