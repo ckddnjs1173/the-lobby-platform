@@ -11,9 +11,12 @@
     "check:phase5": "node tests/phase5-regression-check.cjs",
     "check:phase6:integrity": "node tests/phase6-passive-candidate-atomicity-check.cjs",
     "check:phase6:ai": "node tests/phase6-ai-intake-check.cjs",
+    "check:phase6:file-extraction": "node tests/phase6-resume-file-extraction-check.mjs",
+    "check:phase6:file-security": "node tests/phase6-resume-file-security-check.cjs",
     "check:phase6:stage": "node tests/phase6-stage-policy-check.cjs",
     "check:phase6:interview": "node tests/phase6-interview-lifecycle-check.cjs",
     "check:phase6:transition": "node tests/phase6-interview-transition-check.cjs",
+    "check:phase6:outcome": "node tests/phase6-hiring-outcome-check.cjs",
     "check:phase6": "node tests/phase6-regression-check.cjs"
   },
   "dependencies": {
