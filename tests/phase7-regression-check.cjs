@@ -31,6 +31,9 @@ run(
 run(
   "tests/phase7-communication-security-check.cjs"
 );
+run(
+  "tests/phase7-communication-template-e2e.cjs"
+);
 
 console.log(
   "PHASE7_REGRESSION_ALL_PASSED"
