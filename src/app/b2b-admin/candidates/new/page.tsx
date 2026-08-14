@@ -16,7 +16,9 @@ import {
   CandidateWorkflowApiError,
   createDirectApplicationViaApi,
   createPassiveCandidateViaApi,
+  parsePassiveCandidateResumeFileViaApi,
   parsePassiveCandidateResumeViaApi,
+  type ResumeParseResult,
 } from "../../../../lib/candidateWorkflowApi";
 
 import {
@@ -29,6 +31,26 @@ import type {
   CareerItem,
   EducationItem,
 } from "../../../../types";
+
+const MAX_RESUME_FILE_BYTES =
+  8 * 1024 * 1024;
+
+const ALLOWED_RESUME_EXTENSIONS =
+  new Set([
+    ".pdf",
+    ".docx",
+    ".txt",
+  ]);
+
+function getFileExtension(
+  fileName: string
+): string {
+  const index = fileName.lastIndexOf(".");
+
+  return index >= 0
+    ? fileName.slice(index).toLowerCase()
+    : "";
+}
 
 export default function NewPassiveCandidatePage() {
   const router = useRouter();
@@ -47,6 +69,9 @@ export default function NewPassiveCandidatePage() {
 
   const [resumeText, setResumeText] =
     useState("");
+
+  const [resumeFile, setResumeFile] =
+    useState<File | null>(null);
 
   const [aiProfileCompleteness, setAiProfileCompleteness] =
     useState<number | null>(null);
@@ -137,6 +162,59 @@ export default function NewPassiveCandidatePage() {
     [openJobs, jobId]
   );
 
+  const applyParsedResume = (
+    parsed: ResumeParseResult
+  ) => {
+    setName(parsed.name || "");
+    setPhone(parsed.phone || "");
+    setEmail(
+      (parsed.email || "")
+        .trim()
+        .toLowerCase()
+    );
+    setHeadline(parsed.headline || "");
+    setCareerSummary(
+      parsed.careerSummary || ""
+    );
+    setSkillsText(
+      Array.isArray(parsed.skills)
+        ? parsed.skills.join(", ")
+        : ""
+    );
+    setCareers(
+      Array.isArray(parsed.careers)
+        ? parsed.careers
+        : []
+    );
+    setEducation(
+      Array.isArray(parsed.education)
+        ? parsed.education
+        : []
+    );
+    setAiProfileCompleteness(
+      parsed.profileCompleteness
+    );
+  };
+
+  const showParseError = (
+    error: unknown
+  ) => {
+    console.error(
+      "Passive candidate resume parse failed:",
+      error
+    );
+
+    if (
+      error instanceof CandidateWorkflowApiError
+    ) {
+      toast.error(error.message);
+    } else {
+      toast.error(
+        "이력서 분석 중 오류가 발생했습니다."
+      );
+    }
+  };
+
   const handleAiParse = async () => {
     const normalizedResumeText =
       resumeText.trim();
@@ -156,54 +234,77 @@ export default function NewPassiveCandidatePage() {
           normalizedResumeText
         );
 
-      setName(parsed.name || "");
-      setPhone(parsed.phone || "");
-      setEmail(
-        (parsed.email || "")
-          .trim()
-          .toLowerCase()
-      );
-      setHeadline(parsed.headline || "");
-      setCareerSummary(
-        parsed.careerSummary || ""
-      );
-      setSkillsText(
-        Array.isArray(parsed.skills)
-          ? parsed.skills.join(", ")
-          : ""
-      );
-      setCareers(
-        Array.isArray(parsed.careers)
-          ? parsed.careers
-          : []
-      );
-      setEducation(
-        Array.isArray(parsed.education)
-          ? parsed.education
-          : []
-      );
-      setAiProfileCompleteness(
-        parsed.profileCompleteness
-      );
+      applyParsedResume(parsed);
 
       toast.success(
         "AI 분석이 완료되었습니다. 저장 전에 추출 내용을 확인해주세요."
       );
     } catch (error) {
-      console.error(
-        "Passive candidate resume parse failed:",
-        error
-      );
+      showParseError(error);
+    } finally {
+      setAiParsing(false);
+    }
+  };
 
-      if (
-        error instanceof CandidateWorkflowApiError
-      ) {
-        toast.error(error.message);
-      } else {
-        toast.error(
-          "이력서 분석 중 오류가 발생했습니다."
+  const handleResumeFileChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file =
+      event.target.files?.[0] || null;
+
+    if (!file) {
+      setResumeFile(null);
+      return;
+    }
+
+    if (
+      !ALLOWED_RESUME_EXTENSIONS.has(
+        getFileExtension(file.name)
+      )
+    ) {
+      toast.error(
+        "PDF, DOCX, TXT 파일만 선택할 수 있습니다."
+      );
+      event.currentTarget.value = "";
+      setResumeFile(null);
+      return;
+    }
+
+    if (file.size > MAX_RESUME_FILE_BYTES) {
+      toast.error(
+        "이력서 파일은 8MB 이하만 업로드할 수 있습니다."
+      );
+      event.currentTarget.value = "";
+      setResumeFile(null);
+      return;
+    }
+
+    setResumeFile(file);
+  };
+
+  const handleResumeFileParse = async () => {
+    if (!resumeFile) {
+      toast.error(
+        "분석할 이력서 파일을 선택해주세요."
+      );
+      return;
+    }
+
+    setAiParsing(true);
+
+    try {
+      const parsed =
+        await parsePassiveCandidateResumeFileViaApi(
+          resumeFile
         );
-      }
+
+      applyParsedResume(parsed);
+
+      toast.success(
+        `${resumeFile.name} 분석이 완료되었습니다. 저장 전에 추출 내용을 확인해주세요.`
+      );
+    } catch (error) {
+      showParseError(error);
     } finally {
       setAiParsing(false);
     }
@@ -338,7 +439,7 @@ export default function NewPassiveCandidatePage() {
                   1. AI 이력서 자동 입력
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  이력서 원문을 붙여넣으면 기본 정보와 경력·학력을 구조화합니다.
+                  PDF·DOCX·TXT 파일을 올리거나 이력서 원문을 붙여넣으면 기본 정보와 경력·학력을 구조화합니다.
                 </p>
               </div>
 
@@ -354,6 +455,59 @@ export default function NewPassiveCandidatePage() {
               ) : null}
             </div>
 
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-xs font-bold text-slate-700">
+                    이력서 파일 업로드
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    PDF / DOCX / TXT · 최대 8MB · PDF 최대 30페이지
+                  </p>
+                </div>
+
+                <input
+                  type="file"
+                  accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                  onChange={handleResumeFileChange}
+                  disabled={aiParsing || saving}
+                  className="block max-w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-xs file:font-bold file:text-brand-navy file:ring-1 file:ring-slate-200 hover:file:bg-slate-100 disabled:opacity-50"
+                />
+              </div>
+
+              {resumeFile ? (
+                <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="truncate text-xs font-semibold text-slate-700">
+                      {resumeFile.name}
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      {(resumeFile.size / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleResumeFileParse}
+                    disabled={aiParsing || saving}
+                    className="shrink-0 rounded-lg bg-brand-navy px-4 py-2 text-xs font-bold text-brand-gold disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {aiParsing
+                      ? "파일 분석 중..."
+                      : "파일 AI 분석"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-slate-100" />
+              <span className="text-[10px] font-semibold text-slate-400">
+                또는 텍스트 붙여넣기
+              </span>
+              <div className="h-px flex-1 bg-slate-100" />
+            </div>
+
             <textarea
               value={resumeText}
               onChange={(event) =>
@@ -367,7 +521,7 @@ export default function NewPassiveCandidatePage() {
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-[11px] leading-5 text-slate-400">
-                원문은 AI 구조화에만 사용하고 Firestore에는 저장하지 않습니다. AI 결과는 저장 전 반드시 검토해주세요.
+                업로드 원본 파일과 추출 원문은 AI 구조화에만 사용하고 Firestore에는 저장하지 않습니다. AI 결과는 저장 전 반드시 검토해주세요.
               </p>
 
               <button
@@ -378,7 +532,7 @@ export default function NewPassiveCandidatePage() {
               >
                 {aiParsing
                   ? "AI 분석 중..."
-                  : "AI로 구조화"}
+                  : "텍스트 AI 분석"}
               </button>
             </div>
           </section>
