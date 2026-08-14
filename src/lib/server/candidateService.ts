@@ -69,9 +69,7 @@ export interface CreatePassiveCandidateResult {
     | "ADMIN"
     | "RECRUITER";
 
-  actorOrganizationId:
-    | string
-    | null;
+  actorOrganizationId: string;
 
   profileCompleteness: number;
 }
@@ -662,9 +660,11 @@ function normalizeInput(
  * - authUid = null
  * - source = B2B_DIRECT
  * - accountStatus = ACTIVE
+ * - organizationId = actor.organizationId
+ * - createdBy = actor.uid
  * - timestamp
  *
- * Candidate + Profile은 하나의 Firestore Transaction으로
+ * Candidate + Profile + tenant provenance는 하나의 Firestore Transaction으로
  * 원자적으로 생성한다.
  */
 export async function createB2BPassiveCandidate(
@@ -675,6 +675,16 @@ export async function createB2BPassiveCandidate(
     await requireB2BActor(
       actorUid
     );
+
+  if (
+    !actor.organizationId
+  ) {
+    throw new CandidateServiceError(
+      "후보자를 생성할 조직 정보를 확인할 수 없습니다.",
+      409,
+      "CANDIDATE_ORGANIZATION_REQUIRED"
+    );
+  }
 
   const input =
     normalizeInput(
@@ -737,6 +747,12 @@ export async function createB2BPassiveCandidate(
 
           accountStatus:
             "ACTIVE",
+
+          organizationId:
+            actor.organizationId,
+
+          createdBy:
+            actor.uid,
 
           createdAt:
             serverTimestamp,

@@ -6,6 +6,8 @@ import {
 
 import type {
   ApplicationStage,
+  CareerItem,
+  EducationItem,
 } from "../types";
 
 interface ApiSuccessResponse<T> {
@@ -30,6 +32,8 @@ export interface CreatePassiveCandidateInput {
   headline?: string;
   careerSummary?: string;
   skills?: string[];
+  careers?: CareerItem[];
+  education?: EducationItem[];
 }
 
 export interface CreatePassiveCandidateResult {
@@ -39,7 +43,19 @@ export interface CreatePassiveCandidateResult {
   accountStatus: "ACTIVE";
   createdBy: string;
   actorRole: "ADMIN" | "RECRUITER";
-  actorOrganizationId: string | null;
+  actorOrganizationId: string;
+  profileCompleteness: number;
+}
+
+export interface ResumeParseResult {
+  name: string;
+  phone: string;
+  email: string;
+  headline: string;
+  careerSummary: string;
+  skills: string[];
+  careers: CareerItem[];
+  education: EducationItem[];
   profileCompleteness: number;
 }
 
@@ -96,38 +112,9 @@ async function getFirebaseIdToken(): Promise<string> {
   }
 }
 
-async function authorizedPost<T>(
-  url: string,
-  body: Record<string, unknown>
+async function parseResponse<T>(
+  response: Response
 ): Promise<T> {
-  const idToken =
-    await getFirebaseIdToken();
-
-  let response: Response;
-
-  try {
-    response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify(body),
-      cache: "no-store",
-    });
-  } catch (error) {
-    console.error(
-      "Candidate workflow API network error:",
-      error
-    );
-
-    throw new CandidateWorkflowApiError(
-      "서버에 연결할 수 없습니다.",
-      503,
-      "NETWORK_ERROR"
-    );
-  }
-
   let payload: ApiResponse<T> | null = null;
 
   try {
@@ -160,6 +147,103 @@ async function authorizedPost<T>(
   }
 
   return payload.data;
+}
+
+async function authorizedPost<T>(
+  url: string,
+  body: Record<string, unknown>
+): Promise<T> {
+  const idToken =
+    await getFirebaseIdToken();
+
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+  } catch (error) {
+    console.error(
+      "Candidate workflow API network error:",
+      error
+    );
+
+    throw new CandidateWorkflowApiError(
+      "서버에 연결할 수 없습니다.",
+      503,
+      "NETWORK_ERROR"
+    );
+  }
+
+  return parseResponse<T>(
+    response
+  );
+}
+
+async function authorizedMultipartPost<T>(
+  url: string,
+  formData: FormData
+): Promise<T> {
+  const idToken =
+    await getFirebaseIdToken();
+
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: formData,
+      cache: "no-store",
+    });
+  } catch (error) {
+    console.error(
+      "Candidate file upload network error:",
+      error
+    );
+
+    throw new CandidateWorkflowApiError(
+      "이력서 파일을 서버에 전송할 수 없습니다.",
+      503,
+      "NETWORK_ERROR"
+    );
+  }
+
+  return parseResponse<T>(
+    response
+  );
+}
+
+export async function parsePassiveCandidateResumeViaApi(
+  resumeText: string
+): Promise<ResumeParseResult> {
+  return authorizedPost<ResumeParseResult>(
+    "/api/b2b/candidates/parse-resume",
+    {
+      resumeText:
+        resumeText.trim(),
+    }
+  );
+}
+
+export async function parsePassiveCandidateResumeFileViaApi(
+  file: File
+): Promise<ResumeParseResult> {
+  const formData = new FormData();
+  formData.set("file", file);
+
+  return authorizedMultipartPost<ResumeParseResult>(
+    "/api/b2b/candidates/parse-resume",
+    formData
+  );
 }
 
 export async function createPassiveCandidateViaApi(

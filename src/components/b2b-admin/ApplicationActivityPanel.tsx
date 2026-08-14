@@ -28,7 +28,12 @@ const EVENT_LABELS: Record<
   NOTE_ADDED: "메모",
   RECRUITER_ASSIGNED: "담당자 변경",
   EMAIL_SENT: "이메일 발송",
-  INTERVIEW_SCHEDULED: "면접 일정",
+  INTERVIEW_SCHEDULED: "면접 일정 등록",
+  INTERVIEW_UPDATED: "면접 일정 수정",
+  INTERVIEW_COMPLETED: "면접 완료",
+  INTERVIEW_CANCELED: "면접 취소",
+  HIRING_OUTCOME_RECORDED: "최종 채용 결과",
+  HIRING_OUTCOME_CLEARED: "최종 결과 재오픈",
   PROFILE_UPDATED: "프로필 갱신",
 };
 
@@ -39,6 +44,24 @@ const INTERVIEW_METHOD_LABELS: Record<
   ONSITE: "대면",
   VIDEO: "화상",
   PHONE: "전화",
+};
+
+const INTERVIEW_RESULT_LABELS: Record<
+  string,
+  string
+> = {
+  PASS: "합격",
+  FAIL: "불합격",
+  HOLD: "보류",
+  NO_SHOW: "불참",
+};
+
+const HIRING_OUTCOME_LABELS: Record<
+  string,
+  string
+> = {
+  HIRED: "입사 확정",
+  REJECTED: "불합격",
 };
 
 function formatActivityTime(
@@ -76,6 +99,49 @@ function metadataString(
   return typeof value === "string" &&
     value.trim()
     ? value.trim()
+    : null;
+}
+
+function interviewScheduleSummary(
+  activity: ApplicationActivityItem
+): string | null {
+  const scheduledAt =
+    metadataString(
+      activity,
+      "scheduledAt"
+    );
+
+  const method =
+    metadataString(
+      activity,
+      "method"
+    );
+
+  const location =
+    metadataString(
+      activity,
+      "location"
+    );
+
+  const parts = [
+    scheduledAt
+      ? formatActivityTime(
+          scheduledAt
+        )
+      : null,
+    method
+      ? INTERVIEW_METHOD_LABELS[
+          method
+        ] || method
+      : null,
+    location,
+  ].filter(
+    (item): item is string =>
+      Boolean(item)
+  );
+
+  return parts.length > 0
+    ? parts.join(" · ")
     : null;
 }
 
@@ -124,45 +190,79 @@ function activitySummary(
   }
 
   if (
-    activity.type === "INTERVIEW_SCHEDULED"
+    activity.type === "INTERVIEW_SCHEDULED" ||
+    activity.type === "INTERVIEW_UPDATED"
   ) {
-    const scheduledAt =
-      metadataString(
-        activity,
-        "scheduledAt"
-      );
-
-    const method =
-      metadataString(
-        activity,
-        "method"
-      );
-
-    const location =
-      metadataString(
-        activity,
-        "location"
-      );
-
-    const parts = [
-      scheduledAt
-        ? formatActivityTime(
-            scheduledAt
-          )
-        : null,
-      method
-        ? INTERVIEW_METHOD_LABELS[
-            method
-          ] || method
-        : null,
-      location,
-    ].filter(
-      (item): item is string =>
-        Boolean(item)
+    return interviewScheduleSummary(
+      activity
     );
+  }
 
-    if (parts.length > 0) {
-      return parts.join(" · ");
+  if (
+    activity.type === "INTERVIEW_COMPLETED"
+  ) {
+    const result =
+      metadataString(
+        activity,
+        "result"
+      );
+
+    if (result) {
+      return `면접 결과: ${
+        INTERVIEW_RESULT_LABELS[result] ||
+        result
+      }`;
+    }
+  }
+
+  if (
+    activity.type === "HIRING_OUTCOME_RECORDED"
+  ) {
+    const status =
+      metadataString(
+        activity,
+        "status"
+      );
+    const plannedStartDate =
+      metadataString(
+        activity,
+        "plannedStartDate"
+      );
+
+    if (status) {
+      return [
+        `결과: ${
+          HIRING_OUTCOME_LABELS[status] ||
+          status
+        }`,
+        plannedStartDate
+          ? `입사 예정일 ${plannedStartDate}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    }
+  }
+
+  if (
+    activity.type === "HIRING_OUTCOME_CLEARED"
+  ) {
+    const previousStage =
+      metadataString(
+        activity,
+        "previousStage"
+      );
+    const reopenedStage =
+      metadataString(
+        activity,
+        "reopenedStage"
+      );
+
+    if (
+      previousStage &&
+      reopenedStage
+    ) {
+      return `${previousStage} → ${reopenedStage}`;
     }
   }
 

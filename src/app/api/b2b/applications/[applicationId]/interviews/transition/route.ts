@@ -4,18 +4,17 @@ import {
 
 import {
   B2BAuthorizationError,
-} from "../../../../../../lib/server/b2bAuthorization";
+} from "../../../../../../../lib/server/b2bAuthorization";
 
 import {
-  InterviewServiceError,
-  listApplicationInterviews,
-  scheduleApplicationInterview,
-} from "../../../../../../lib/server/interviewService";
+  InterviewTransitionServiceError,
+  scheduleInterviewAndTransitionApplication,
+} from "../../../../../../../lib/server/interviewTransitionService";
 
 import {
   ServerAuthError,
   requireFirebaseUser,
-} from "../../../../../../lib/server/serverAuth";
+} from "../../../../../../../lib/server/serverAuth";
 
 export const runtime = "nodejs";
 
@@ -31,22 +30,25 @@ function errorResponse(
   if (
     error instanceof ServerAuthError ||
     error instanceof B2BAuthorizationError ||
-    error instanceof InterviewServiceError
+    error instanceof InterviewTransitionServiceError
   ) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
-        code: error.code,
+        error:
+          error.message,
+        code:
+          error.code,
       },
       {
-        status: error.status,
+        status:
+          error.status,
       }
     );
   }
 
   console.error(
-    "Application interview API failed:",
+    "Interview transition API failed:",
     error
   );
 
@@ -54,42 +56,14 @@ function errorResponse(
     {
       success: false,
       error:
-        "면접 일정 요청 처리 중 서버 오류가 발생했습니다.",
-      code: "INTERNAL_SERVER_ERROR",
+        "면접 단계 전환 중 서버 오류가 발생했습니다.",
+      code:
+        "INTERNAL_SERVER_ERROR",
     },
     {
       status: 500,
     }
   );
-}
-
-export async function GET(
-  request: Request,
-  context: RouteContext
-) {
-  try {
-    const authenticatedUser =
-      await requireFirebaseUser(
-        request
-      );
-
-    const {
-      applicationId,
-    } = await context.params;
-
-    const interviews =
-      await listApplicationInterviews(
-        authenticatedUser.uid,
-        applicationId
-      );
-
-    return NextResponse.json({
-      success: true,
-      data: interviews,
-    });
-  } catch (error) {
-    return errorResponse(error);
-  }
 }
 
 export async function POST(
@@ -120,7 +94,8 @@ export async function POST(
           success: false,
           error:
             "요청 데이터 형식이 올바르지 않습니다.",
-          code: "INVALID_JSON_BODY",
+          code:
+            "INVALID_JSON_BODY",
         },
         {
           status: 400,
@@ -128,8 +103,8 @@ export async function POST(
       );
     }
 
-    const interview =
-      await scheduleApplicationInterview(
+    const result =
+      await scheduleInterviewAndTransitionApplication(
         authenticatedUser.uid,
         applicationId,
         body
@@ -138,13 +113,16 @@ export async function POST(
     return NextResponse.json(
       {
         success: true,
-        data: interview,
+        data:
+          result,
       },
       {
         status: 201,
       }
     );
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(
+      error
+    );
   }
 }

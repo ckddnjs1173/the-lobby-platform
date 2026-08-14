@@ -1,12 +1,15 @@
 "use client";
 
 import {
+  useEffect,
+  useMemo,
   useState,
 } from "react";
 
 import type {
   ApplicationStage,
   ApplicationView,
+  HiringOutcomeView,
 } from "../../types";
 
 import type {
@@ -14,6 +17,7 @@ import type {
 } from "../../lib/b2bApi";
 
 import ApplicationActivityPanel from "./ApplicationActivityPanel";
+import ApplicationHiringOutcomePanel from "./ApplicationHiringOutcomePanel";
 import ApplicationOperationsPanel from "./ApplicationOperationsPanel";
 
 interface ApplicationSlideOverProps {
@@ -48,6 +52,12 @@ const STAGE_OPTIONS: {
   { value: "CANCELED", label: "지원취소" },
 ];
 
+const OUTCOME_STAGES =
+  new Set<ApplicationStage>([
+    "HIRED",
+    "REJECTED",
+  ]);
+
 export default function ApplicationSlideOver({
   isOpen,
   onClose,
@@ -60,15 +70,68 @@ export default function ApplicationSlideOver({
   const [noteText, setNoteText] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [activityRevision, setActivityRevision] = useState(0);
+  const [localStage, setLocalStage] =
+    useState<ApplicationStage | null>(
+      selectedApp?.stage || null
+    );
+  const [localHiringOutcome, setLocalHiringOutcome] =
+    useState<HiringOutcomeView | null>(
+      selectedApp?.hiringOutcome || null
+    );
 
-  if (!isOpen || !selectedApp) {
+  useEffect(() => {
+    setLocalStage(
+      selectedApp?.stage || null
+    );
+    setLocalHiringOutcome(
+      selectedApp?.hiringOutcome || null
+    );
+    setNoteText("");
+  }, [
+    selectedApp?.applicationId,
+    selectedApp?.stage,
+    selectedApp?.hiringOutcome,
+  ]);
+
+  const displayApplication = useMemo<ApplicationView | null>(
+    () => {
+      if (!selectedApp) {
+        return null;
+      }
+
+      return {
+        ...selectedApp,
+        stage:
+          localStage ||
+          selectedApp.stage,
+        hiringOutcome:
+          localHiringOutcome,
+      };
+    }, [
+      selectedApp,
+      localStage,
+      localHiringOutcome,
+    ]
+  );
+
+  if (
+    !isOpen ||
+    !selectedApp ||
+    !displayApplication
+  ) {
     return null;
   }
 
   const handleStageUpdate = async (
     newStage: ApplicationStage
   ) => {
-    if (newStage === selectedApp.stage) {
+    if (
+      newStage === displayApplication.stage ||
+      newStage === "INTERVIEW" ||
+      OUTCOME_STAGES.has(
+        newStage
+      )
+    ) {
       return;
     }
 
@@ -76,18 +139,49 @@ export default function ApplicationSlideOver({
 
     try {
       await onStageChange(
-        selectedApp.applicationId,
+        displayApplication.applicationId,
         newStage,
         noteText.trim() || undefined
       );
 
+      setLocalStage(
+        newStage
+      );
+
+      if (
+        displayApplication.hiringOutcome &&
+        (displayApplication.stage === "HIRED" ||
+          displayApplication.stage === "REJECTED")
+      ) {
+        setLocalHiringOutcome(null);
+      }
+
       setNoteText("");
+      setActivityRevision(
+        (previous) =>
+          previous + 1
+      );
     } finally {
       setIsUpdating(false);
     }
   };
 
   const handleOperationsActivityChanged = () => {
+    setActivityRevision(
+      (previous) =>
+        previous + 1
+    );
+  };
+
+  const handleHiringOutcomeRecorded = (
+    outcome: HiringOutcomeView
+  ) => {
+    setLocalHiringOutcome(
+      outcome
+    );
+    setLocalStage(
+      outcome.status
+    );
     setActivityRevision(
       (previous) =>
         previous + 1
@@ -101,17 +195,17 @@ export default function ApplicationSlideOver({
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-bold">
-                {selectedApp.candidateName}
+                {displayApplication.candidateName}
               </h2>
 
               <span className="px-2.5 py-0.5 bg-brand-gold text-brand-navy text-xs font-bold rounded">
-                {selectedApp.stage}
+                {displayApplication.stage}
               </span>
             </div>
 
             <div className="text-sm text-slate-300 mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono">
-              <span>📞 {selectedApp.candidatePhone}</span>
-              <span>✉️ {selectedApp.candidateEmail}</span>
+              <span>📞 {displayApplication.candidatePhone}</span>
+              <span>✉️ {displayApplication.candidateEmail}</span>
             </div>
           </div>
 
@@ -134,13 +228,13 @@ export default function ApplicationSlideOver({
 
             <div>
               <div className="text-base font-bold text-slate-800">
-                {selectedApp.jobTitle}
+                {displayApplication.jobTitle}
               </div>
               <div className="text-sm text-slate-500">
-                {selectedApp.company}
+                {displayApplication.company}
               </div>
               <div className="text-xs text-slate-400 mt-1">
-                지원일 {selectedApp.appliedAt || "-"}
+                지원일 {displayApplication.appliedAt || "-"}
               </div>
             </div>
 
@@ -151,24 +245,58 @@ export default function ApplicationSlideOver({
 
               <div className="grid grid-cols-3 gap-2">
                 {STAGE_OPTIONS.map((option) => {
-                  const isActive = selectedApp.stage === option.value;
+                  const isActive =
+                    displayApplication.stage === option.value;
+                  const requiresInterviewSchedule =
+                    option.value === "INTERVIEW" &&
+                    !isActive;
+                  const requiresHiringOutcome =
+                    OUTCOME_STAGES.has(
+                      option.value
+                    ) &&
+                    !isActive;
 
                   return (
                     <button
                       type="button"
                       key={option.value}
-                      disabled={isUpdating || isActive}
+                      disabled={
+                        isUpdating ||
+                        isActive ||
+                        requiresInterviewSchedule ||
+                        requiresHiringOutcome
+                      }
                       onClick={() => handleStageUpdate(option.value)}
+                      title={
+                        requiresInterviewSchedule
+                          ? "면접 일정 확정과 함께 면접 단계로 이동합니다."
+                          : requiresHiringOutcome
+                            ? "최종 채용 결과 패널에서 결정 정보와 함께 처리합니다."
+                            : undefined
+                      }
                       className={`py-1.5 px-2 text-xs font-medium rounded-lg border transition-all ${
                         isActive
                           ? "bg-brand-navy text-brand-gold border-brand-navy font-bold shadow-sm"
                           : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                      } disabled:cursor-not-allowed`}
+                      } disabled:cursor-not-allowed disabled:opacity-50`}
                     >
                       {option.label}
                     </button>
                   );
                 })}
+              </div>
+
+              <div className="space-y-1 text-[11px] leading-5">
+                {displayApplication.stage !== "INTERVIEW" ? (
+                  <p className="text-indigo-600">
+                    면접 단계는 Stage 버튼으로 직접 변경하지 않습니다. 칸반에서 면접 일정을 확정하며 이동합니다.
+                  </p>
+                ) : null}
+                {!displayApplication.hiringOutcome ? (
+                  <p className="text-emerald-700">
+                    입사 확정/불합격은 아래 최종 채용 결과 패널에서 결정 정보와 함께 처리합니다.
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -192,15 +320,22 @@ export default function ApplicationSlideOver({
           </section>
 
           <ApplicationOperationsPanel
-            application={selectedApp}
+            application={displayApplication}
             onActivityChanged={
               handleOperationsActivityChanged
             }
           />
 
+          <ApplicationHiringOutcomePanel
+            application={displayApplication}
+            onRecorded={
+              handleHiringOutcomeRecorded
+            }
+          />
+
           <ApplicationActivityPanel
-            applicationId={selectedApp.applicationId}
-            refreshKey={`${selectedApp.stage}-${activityRevision}`}
+            applicationId={displayApplication.applicationId}
+            refreshKey={`${displayApplication.stage}-${activityRevision}`}
           />
 
           <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">

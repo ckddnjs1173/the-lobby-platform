@@ -28,6 +28,12 @@ export type InterviewStatus =
   | "COMPLETED"
   | "CANCELED";
 
+export type InterviewResult =
+  | "PASS"
+  | "FAIL"
+  | "HOLD"
+  | "NO_SHOW";
+
 export interface ApplicationInterviewView {
   interviewId: string;
   applicationId: string;
@@ -41,9 +47,22 @@ export interface ApplicationInterviewView {
   interviewer: string | null;
   note: string | null;
   status: InterviewStatus;
+  result: InterviewResult | null;
+  cancelReason: string | null;
   createdBy: string;
+  completedBy: string | null;
+  canceledBy: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  completedAt: string | null;
+  canceledAt: string | null;
+}
+
+export interface ScheduleInterviewTransitionResult {
+  applicationId: string;
+  interviewId: string;
+  stage: "INTERVIEW";
+  changedStage: boolean;
 }
 
 interface ApiSuccessResponse<T> {
@@ -205,6 +224,38 @@ function normalizeApplicationId(
   return normalized;
 }
 
+function normalizeInterviewId(
+  interviewId: string
+): string {
+  const normalized =
+    interviewId.trim();
+
+  if (!normalized) {
+    throw new ApplicationOperationsApiError(
+      "면접 ID가 없습니다.",
+      400,
+      "INTERVIEW_ID_REQUIRED"
+    );
+  }
+
+  return normalized;
+}
+
+function interviewLifecycleUrl(
+  applicationId: string,
+  interviewId: string
+): string {
+  return `/api/b2b/applications/${encodeURIComponent(
+    normalizeApplicationId(
+      applicationId
+    )
+  )}/interviews/${encodeURIComponent(
+    normalizeInterviewId(
+      interviewId
+    )
+  )}`;
+}
+
 export async function fetchAssignableRecruiters(
   organizationId: string
 ): Promise<AssignableRecruiter[]> {
@@ -330,6 +381,149 @@ export async function scheduleApplicationInterviewViaApi(
         ? {
             note:
               input.note.trim(),
+          }
+        : {}),
+    }
+  );
+}
+
+export async function scheduleInterviewAndTransitionViaApi(
+  applicationId: string,
+  input: {
+    scheduledAt: string;
+    method: InterviewMethod;
+    location?: string;
+    interviewer?: string;
+    note?: string;
+  }
+): Promise<ScheduleInterviewTransitionResult> {
+  const normalizedApplicationId =
+    normalizeApplicationId(
+      applicationId
+    );
+
+  return authorizedRequest<
+    ScheduleInterviewTransitionResult
+  >(
+    `/api/b2b/applications/${encodeURIComponent(
+      normalizedApplicationId
+    )}/interviews/transition`,
+    "POST",
+    {
+      scheduledAt:
+        input.scheduledAt,
+      method:
+        input.method,
+      ...(input.location?.trim()
+        ? {
+            location:
+              input.location.trim(),
+          }
+        : {}),
+      ...(input.interviewer?.trim()
+        ? {
+            interviewer:
+              input.interviewer.trim(),
+          }
+        : {}),
+      ...(input.note?.trim()
+        ? {
+            note:
+              input.note.trim(),
+          }
+        : {}),
+    }
+  );
+}
+
+export async function updateApplicationInterviewViaApi(
+  applicationId: string,
+  interviewId: string,
+  input: {
+    scheduledAt: string;
+    method: InterviewMethod;
+    location?: string;
+    interviewer?: string;
+    note?: string;
+  }
+): Promise<ApplicationInterviewView> {
+  return authorizedRequest<
+    ApplicationInterviewView
+  >(
+    interviewLifecycleUrl(
+      applicationId,
+      interviewId
+    ),
+    "PATCH",
+    {
+      action: "UPDATE",
+      scheduledAt:
+        input.scheduledAt,
+      method:
+        input.method,
+      location:
+        input.location || "",
+      interviewer:
+        input.interviewer || "",
+      note:
+        input.note || "",
+    }
+  );
+}
+
+export async function cancelApplicationInterviewViaApi(
+  applicationId: string,
+  interviewId: string,
+  reason: string
+): Promise<ApplicationInterviewView> {
+  const normalizedReason =
+    reason.trim();
+
+  if (!normalizedReason) {
+    throw new ApplicationOperationsApiError(
+      "면접 취소 사유를 입력해주세요.",
+      400,
+      "INTERVIEW_REASON_REQUIRED"
+    );
+  }
+
+  return authorizedRequest<
+    ApplicationInterviewView
+  >(
+    interviewLifecycleUrl(
+      applicationId,
+      interviewId
+    ),
+    "PATCH",
+    {
+      action: "CANCEL",
+      reason:
+        normalizedReason,
+    }
+  );
+}
+
+export async function completeApplicationInterviewViaApi(
+  applicationId: string,
+  interviewId: string,
+  result: InterviewResult,
+  note?: string
+): Promise<ApplicationInterviewView> {
+  return authorizedRequest<
+    ApplicationInterviewView
+  >(
+    interviewLifecycleUrl(
+      applicationId,
+      interviewId
+    ),
+    "PATCH",
+    {
+      action: "COMPLETE",
+      result,
+      ...(note?.trim()
+        ? {
+            note:
+              note.trim(),
           }
         : {}),
     }

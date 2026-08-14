@@ -8,13 +8,24 @@
     "start": "next start",
     "lint": "next lint",
     "check:phase4": "node tests/phase4-regression-check.cjs",
-    "check:phase5": "node tests/phase5-regression-check.cjs"
+    "check:phase5": "node tests/phase5-regression-check.cjs",
+    "check:phase6:integrity": "node tests/phase6-passive-candidate-atomicity-check.cjs",
+    "check:phase6:ai": "node tests/phase6-ai-intake-check.cjs",
+    "check:phase6:file-extraction": "node tests/phase6-resume-file-extraction-check.mjs",
+    "check:phase6:file-security": "node --env-file=.env.local tests/phase6-resume-file-security-check.cjs",
+    "check:phase6:stage": "node tests/phase6-stage-policy-check.cjs",
+    "check:phase6:interview": "node tests/phase6-interview-lifecycle-check.cjs",
+    "check:phase6:transition": "node tests/phase6-interview-transition-check.cjs",
+    "check:phase6:outcome": "node tests/phase6-hiring-outcome-check.cjs",
+    "check:phase6": "node --env-file=.env.local tests/phase6-regression-check.cjs"
   },
   "dependencies": {
     "firebase": "^12.17.1",
     "firebase-admin": "^14.2.0",
     "groq-sdk": "^1.5.0",
+    "mammoth": "1.12.0",
     "next": "^16.3.0",
+    "pdfjs-dist": "6.2.108",
     "react": "^18",
     "react-dom": "^18",
     "react-hot-toast": "^2.6.0"
