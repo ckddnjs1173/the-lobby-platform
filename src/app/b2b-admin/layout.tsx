@@ -180,10 +180,10 @@ export default function B2BAdminLayout({
             </a>
 
             <a
-              href="/b2b-admin/candidates/new"
+              href="/b2b-admin/candidates"
               className={navClass(isCandidatesPage)}
             >
-              후보자 직접등록
+              후보자 풀
             </a>
 
             <a

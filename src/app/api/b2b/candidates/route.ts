@@ -12,6 +12,11 @@ import {
 } from "../../../../lib/server/candidateService";
 
 import {
+  CandidatePoolServiceError,
+  listB2BCandidatePool,
+} from "../../../../lib/server/candidatePoolService";
+
+import {
   getFirebaseAdminDb,
 } from "../../../../lib/server/firebaseAdmin";
 
@@ -66,7 +71,9 @@ function errorResponse(
 
   if (
     error instanceof
-    CandidateServiceError
+    CandidateServiceError ||
+    error instanceof
+    CandidatePoolServiceError
   ) {
     return NextResponse.json(
       {
@@ -84,7 +91,7 @@ function errorResponse(
   }
 
   console.error(
-    "POST /api/b2b/candidates failed:",
+    "B2B candidates API failed:",
     error
   );
 
@@ -92,7 +99,7 @@ function errorResponse(
     {
       success: false,
       error:
-        "후보자 생성 중 서버 오류가 발생했습니다.",
+        "후보자 요청 처리 중 서버 오류가 발생했습니다.",
       code:
         "INTERNAL_SERVER_ERROR",
     },
@@ -100,6 +107,38 @@ function errorResponse(
       status: 500,
     }
   );
+}
+
+export async function GET(
+  request: Request
+) {
+  try {
+    const authenticatedUser =
+      await requireFirebaseUser(
+        request
+      );
+
+    const requestUrl =
+      new URL(request.url);
+
+    const organizationId =
+      requestUrl.searchParams.get(
+        "organizationId"
+      ) || undefined;
+
+    const candidates =
+      await listB2BCandidatePool(
+        authenticatedUser.uid,
+        organizationId
+      );
+
+    return NextResponse.json({
+      success: true,
+      data: candidates,
+    });
+  } catch (error) {
+    return errorResponse(error);
+  }
 }
 
 export async function POST(
