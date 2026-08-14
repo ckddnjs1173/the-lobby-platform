@@ -3,11 +3,8 @@
 import { auth } from "./firebase";
 import type {
   ApplicationStage,
+  ApplicationView,
 } from "../types";
-
-// ============================================================================
-// Types
-// ============================================================================
 
 interface ApiSuccessResponse<T> {
   success: true;
@@ -35,10 +32,6 @@ export interface UpdateApplicationStageResult {
   changed: boolean;
 }
 
-// ============================================================================
-// Error
-// ============================================================================
-
 export class ApplicationApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -49,24 +42,12 @@ export class ApplicationApiError extends Error {
     code = "APPLICATION_API_ERROR"
   ) {
     super(message);
-
     this.name = "ApplicationApiError";
     this.status = status;
     this.code = code;
   }
 }
 
-// ============================================================================
-// Authentication
-// ============================================================================
-
-/**
- * 현재 로그인한 Firebase 사용자의 ID Token을 가져온다.
- *
- * Firebase Auth UID 자체를 Backend 인증값으로 보내지 않는다.
- * 실제 Firebase ID Token을 Authorization Bearer Token으로 전송하고,
- * 서버에서 Firebase Admin SDK의 verifyIdToken()으로 검증한다.
- */
 async function getFirebaseIdToken(): Promise<string> {
   const user = auth.currentUser;
 
@@ -94,14 +75,10 @@ async function getFirebaseIdToken(): Promise<string> {
   }
 }
 
-// ============================================================================
-// HTTP Core
-// ============================================================================
-
 async function authorizedJsonRequest<T>(
   url: string,
-  method: "POST" | "PATCH",
-  body: Record<string, unknown>
+  method: "GET" | "POST" | "PATCH",
+  body?: Record<string, unknown>
 ): Promise<T> {
   const idToken =
     await getFirebaseIdToken();
@@ -111,17 +88,21 @@ async function authorizedJsonRequest<T>(
   try {
     response = await fetch(url, {
       method,
-
       headers: {
-        "Content-Type":
-          "application/json",
-
+        ...(body
+          ? {
+              "Content-Type":
+                "application/json",
+            }
+          : {}),
         Authorization:
           `Bearer ${idToken}`,
       },
-
-      body: JSON.stringify(body),
-
+      ...(body
+        ? {
+            body: JSON.stringify(body),
+          }
+        : {}),
       cache: "no-store",
     });
   } catch (error) {
@@ -151,9 +132,6 @@ async function authorizedJsonRequest<T>(
     );
   }
 
-  /**
-   * HTTP Error이거나 API success:false인 경우.
-   */
   if (
     !response.ok ||
     !payload ||
@@ -168,9 +146,7 @@ async function authorizedJsonRequest<T>(
     throw new ApplicationApiError(
       errorPayload?.error ||
         "요청 처리 중 오류가 발생했습니다.",
-
       response.status || 500,
-
       errorPayload?.code ||
         "APPLICATION_API_ERROR"
     );
@@ -179,25 +155,15 @@ async function authorizedJsonRequest<T>(
   return payload.data;
 }
 
-// ============================================================================
-// B2C Apply API
-// ============================================================================
+export async function fetchB2BApplications(): Promise<
+  ApplicationView[]
+> {
+  return authorizedJsonRequest<ApplicationView[]>(
+    "/api/b2b/applications",
+    "GET"
+  );
+}
 
-/**
- * B2C 원클릭 지원.
- *
- * 클라이언트가 서버에 전달하는 것은 jobId뿐이다.
- *
- * 다음 값은 서버가 인증/DB를 통해 직접 결정한다.
- *
- * - authUid
- * - candidateId
- * - organizationId
- * - recruiterId
- * - source
- * - changedBy
- * - timestamps
- */
 export async function applyToJob(
   jobId: string
 ): Promise<ApplyToJobResult> {
@@ -218,16 +184,6 @@ export async function applyToJob(
   );
 }
 
-// ============================================================================
-// B2B Stage API
-// ============================================================================
-
-/**
- * Recruiter Application Stage 변경.
- *
- * changedBy UID는 절대 클라이언트에서 보내지 않는다.
- * 서버에서 Firebase ID Token으로 실제 변경자를 결정한다.
- */
 export async function updateApplicationStageViaApi(
   applicationId: string,
   stage: ApplicationStage,

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -10,21 +11,11 @@ import {
   useRouter,
 } from "next/navigation";
 
-import {
-  collection,
-  onSnapshot,
-  query,
-  where,
-} from "firebase/firestore";
-
 import toast from "react-hot-toast";
 
 import {
-  db,
-} from "../../lib/firebase";
-
-import {
   ApplicationApiError,
+  fetchB2BApplications,
   updateApplicationStageViaApi,
 } from "../../lib/applicationApi";
 
@@ -45,7 +36,6 @@ import {
 } from "../../components/b2b-admin/B2BSessionContext";
 
 import type {
-  Application,
   ApplicationStage,
   ApplicationView,
 } from "../../types";
@@ -82,6 +72,7 @@ const ACTIVE_PIPELINE_STAGES = new Set<ApplicationStage>([
 
 const TERMINAL_STAGES = new Set<ApplicationStage>([
   "HIRED",
+  "HOLD",
   "REJECTED",
   "CANCELED",
 ]);
@@ -89,78 +80,8 @@ const TERMINAL_STAGES = new Set<ApplicationStage>([
 const STALE_THRESHOLD_MS =
   3 * 24 * 60 * 60 * 1000;
 
-function toIsoString(value: unknown): string {
-  if (!value) {
-    return "";
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  if (typeof value === "object" && value !== null) {
-    const timestampLike = value as {
-      toDate?: () => Date;
-    };
-
-    if (typeof timestampLike.toDate === "function") {
-      try {
-        return timestampLike.toDate().toISOString();
-      } catch {
-        return "";
-      }
-    }
-  }
-
-  return "";
-}
-
-function createApplicationView(
-  application: Application,
-  fallbackDocumentId: string
-): ApplicationView {
-  return {
-    applicationId:
-      application.applicationId || fallbackDocumentId,
-    candidateId: application.candidateId,
-    jobId: application.jobId,
-    organizationId: application.organizationId,
-    recruiterId: application.recruiterId,
-    stage: application.stage,
-    source: application.source,
-    candidateName:
-      application.candidateSnapshot?.name || "이름 없음",
-    candidatePhone:
-      application.candidateSnapshot?.phone || "-",
-    candidateEmail:
-      application.candidateSnapshot?.email || "-",
-    jobTitle:
-      application.jobSnapshot?.title || "공고명 없음",
-    company:
-      application.jobSnapshot?.company || "기업명 없음",
-    appliedAt: toIsoString(application.appliedAt),
-    updatedAt: toIsoString(application.updatedAt),
-    lastActivityAt: toIsoString(application.lastActivityAt),
-  };
-}
-
-function sortApplicationsByAppliedAt(
-  applications: ApplicationView[]
-): ApplicationView[] {
-  return [...applications].sort((a, b) => {
-    const aTime = Date.parse(a.appliedAt);
-    const bTime = Date.parse(b.appliedAt);
-
-    return (
-      (Number.isNaN(bTime) ? 0 : bTime) -
-      (Number.isNaN(aTime) ? 0 : aTime)
-    );
-  });
-}
+const APPLICATION_REFRESH_INTERVAL_MS =
+  15 * 1000;
 
 function getLastTouchTime(
   application: ApplicationView
@@ -207,6 +128,7 @@ export default function B2BAdminPage() {
   const [applications, setApplications] =
     useState<ApplicationView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] =
     useState<"TABLE" | "KANBAN">("TABLE");
   const [searchQuery, setSearchQuery] = useState("");
@@ -231,57 +153,83 @@ export default function B2BAdminPage() {
   const [isSlideOverOpen, setIsSlideOverOpen] =
     useState(false);
 
-  useEffect(() => {
-    setLoading(true);
+  const refreshApplications = useCallback(
+    async ({
+      initial = false,
+      silent = false,
+    }: {
+      initial?: boolean;
+      silent?: boolean;
+    } = {}) => {
+      if (initial) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
 
-    const applicationsReference = collection(
-      db,
-      "applications"
-    );
+      try {
+        const nextApplications =
+          await fetchB2BApplications();
 
-    const applicationsQuery =
-      session.role === "ADMIN"
-        ? query(applicationsReference)
-        : query(
-            applicationsReference,
-            where(
-              "organizationId",
-              "==",
-              session.organizationId
-            )
-          );
-
-    const unsubscribe = onSnapshot(
-      applicationsQuery,
-      (snapshot) => {
-        const views = snapshot.docs.map(
-          (applicationDocument) =>
-            createApplicationView(
-              applicationDocument.data() as Application,
-              applicationDocument.id
-            )
-        );
-
-        setApplications(
-          sortApplicationsByAppliedAt(views)
-        );
-        setLoading(false);
-      },
-      (error) => {
+        setApplications(nextApplications);
+      } catch (error) {
         console.error(
-          "Application subscription error:",
+          "B2B application list API error:",
           error
         );
-        setApplications([]);
-        setLoading(false);
-        toast.error(
-          "권한이 있는 지원 내역을 불러오지 못했습니다."
-        );
+
+        if (error instanceof ApplicationApiError) {
+          if (error.status === 401) {
+            if (!silent) {
+              toast.error(
+                "관리자 로그인 세션이 만료되었습니다."
+              );
+            }
+            router.replace("/b2b-admin/login");
+            return;
+          }
+
+          if (!silent) {
+            toast.error(error.message);
+          }
+        } else if (!silent) {
+          toast.error(
+            "권한이 있는 지원 내역을 불러오지 못했습니다."
+          );
+        }
+
+        if (initial) {
+          setApplications([]);
+        }
+      } finally {
+        if (initial) {
+          setLoading(false);
+        } else {
+          setRefreshing(false);
+        }
       }
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    void refreshApplications({ initial: true });
+
+    const intervalId = window.setInterval(
+      () => {
+        void refreshApplications({ silent: true });
+      },
+      APPLICATION_REFRESH_INTERVAL_MS
     );
 
-    return unsubscribe;
-  }, [session.role, session.organizationId]);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    refreshApplications,
+    session.role,
+    session.organizationId,
+  ]);
 
   useEffect(() => {
     setSearchQuery("");
@@ -632,6 +580,8 @@ export default function B2BAdminPage() {
             : application
         )
       );
+
+      await refreshApplications({ silent: true });
     } catch (error) {
       if (error instanceof ApplicationApiError) {
         if (error.status === 401) {
@@ -664,7 +614,7 @@ export default function B2BAdminPage() {
   if (loading) {
     return (
       <div className="h-full min-h-[500px] flex items-center justify-center text-slate-400 font-medium">
-        권한이 있는 지원 내역을 불러오는 중입니다...
+        서버 권한 기준으로 지원 내역을 불러오는 중입니다...
       </div>
     );
   }
@@ -687,7 +637,7 @@ export default function B2BAdminPage() {
             <span className="font-semibold text-brand-navy">
               {applications.length}건
             </span>
-            의 지원 내역이 실시간 연동되어 있습니다.
+            의 지원 내역을 서버 권한 기준으로 15초마다 자동 갱신합니다.
             {hasActiveFilters && (
               <>
                 {" "}현재 필터 결과{" "}
@@ -700,29 +650,42 @@ export default function B2BAdminPage() {
           </p>
         </div>
 
-        <div className="bg-slate-200 p-1 rounded-xl flex gap-1">
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setViewMode("TABLE")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-              viewMode === "TABLE"
-                ? "bg-white text-brand-navy shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+            onClick={() =>
+              void refreshApplications()
+            }
+            disabled={refreshing}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-50"
           >
-            📋 테이블 뷰
+            {refreshing ? "갱신 중..." : "↻ 새로고침"}
           </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("KANBAN")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-              viewMode === "KANBAN"
-                ? "bg-white text-brand-navy shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            📊 칸반 보드 뷰
-          </button>
+
+          <div className="bg-slate-200 p-1 rounded-xl flex gap-1">
+            <button
+              type="button"
+              onClick={() => setViewMode("TABLE")}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                viewMode === "TABLE"
+                  ? "bg-white text-brand-navy shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              📋 테이블 뷰
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("KANBAN")}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                viewMode === "KANBAN"
+                  ? "bg-white text-brand-navy shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              📊 칸반 보드 뷰
+            </button>
+          </div>
         </div>
       </div>
 
