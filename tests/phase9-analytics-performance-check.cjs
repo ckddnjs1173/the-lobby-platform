@@ -42,6 +42,9 @@ const layout = read(
 const indexes = read(
   "firestore.indexes.json"
 );
+const packageJson = JSON.parse(
+  read("package.json")
+);
 
 console.log(
   "STEP_1: BOUNDED_TENANT_ANALYTICS"
@@ -151,6 +154,12 @@ assert(
       '"fieldPath": "appliedAt"'
     ),
   "APPLICATION_ANALYTICS_INDEX_MISSING"
+);
+
+assert(
+  packageJson.scripts?.["deploy:firestore:indexes"] ===
+    "firebase deploy --only firestore:indexes --project the-lobby-platform",
+  "FIRESTORE_INDEX_DEPLOYMENT_MUST_TARGET_PROJECT_EXPLICITLY"
 );
 
 console.log(
