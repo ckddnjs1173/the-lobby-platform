@@ -55,7 +55,7 @@ assert(
       ".limit(MAX_ANALYTICS_DOCUMENTS + 1)"
     ) &&
     analyticsService.includes(
-      'query.where(\n      "organizationId"'
+      'query = query.where(\n      "organizationId"'
     ) &&
     analyticsService.includes(
       "ANALYTICS_TENANT_ACCESS_DENIED"
