@@ -17,6 +17,7 @@ import type {
 } from "../../lib/b2bApi";
 
 import ApplicationActivityPanel from "./ApplicationActivityPanel";
+import ApplicationCommunicationPanel from "./ApplicationCommunicationPanel";
 import ApplicationHiringOutcomePanel from "./ApplicationHiringOutcomePanel";
 import ApplicationOperationsPanel from "./ApplicationOperationsPanel";
 
@@ -330,6 +331,14 @@ export default function ApplicationSlideOver({
             application={displayApplication}
             onRecorded={
               handleHiringOutcomeRecorded
+            }
+          />
+
+          <ApplicationCommunicationPanel
+            application={displayApplication}
+            refreshKey={activityRevision}
+            onActivityChanged={
+              handleOperationsActivityChanged
             }
           />
 
