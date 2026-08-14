@@ -20,7 +20,10 @@
     "check:phase6": "node --env-file=.env.local tests/phase6-regression-check.cjs",
     "check:phase7:communication": "node tests/phase7-communication-check.cjs",
     "check:phase7:security": "node --env-file=.env.local tests/phase7-communication-security-check.cjs",
-    "check:phase7": "node --env-file=.env.local tests/phase7-regression-check.cjs"
+    "check:phase7": "node --env-file=.env.local tests/phase7-regression-check.cjs",
+    "check:phase8:portal": "node tests/phase8-candidate-portal-check.cjs",
+    "check:phase8:e2e": "node --env-file=.env.local tests/phase8-candidate-portal-e2e.cjs",
+    "check:phase8": "node --env-file=.env.local tests/phase8-regression-check.cjs"
   },
   "dependencies": {
     "firebase": "^12.17.1",
