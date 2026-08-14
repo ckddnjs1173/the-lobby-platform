@@ -27,7 +27,14 @@
     "check:phase9:analytics": "node tests/phase9-analytics-performance-check.cjs",
     "check:phase9:e2e": "node --env-file=.env.local tests/phase9-analytics-performance-e2e.cjs",
     "check:phase9": "node --env-file=.env.local tests/phase9-regression-check.cjs",
-    "deploy:firestore:indexes": "firebase deploy --only firestore:indexes --project the-lobby-platform"
+    "check:production-env": "node scripts/validate-production-env.cjs",
+    "check:production-env:local": "node --env-file=.env.local scripts/validate-production-env.cjs",
+    "check:phase10:static": "node tests/phase10-production-readiness-check.cjs",
+    "check:phase10:smoke": "node tests/phase10-production-smoke.cjs",
+    "check:phase10": "node --env-file=.env.local tests/phase10-regression-check.cjs",
+    "deploy:firestore:indexes": "firebase deploy --only firestore:indexes --project the-lobby-platform",
+    "deploy:firestore:rules": "firebase deploy --only firestore:rules --project the-lobby-platform",
+    "deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes --project the-lobby-platform"
   },
   "dependencies": {
     "firebase": "^12.17.1",
