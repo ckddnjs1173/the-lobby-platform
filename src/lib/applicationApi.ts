@@ -5,6 +5,9 @@ import type {
   ApplicationStage,
   ApplicationView,
 } from "../types";
+import type {
+  B2BApplicationPage,
+} from "./applicationPageTypes";
 
 interface ApiSuccessResponse<T> {
   success: true;
@@ -47,6 +50,9 @@ export class ApplicationApiError extends Error {
     this.code = code;
   }
 }
+
+const WORKSPACE_APPLICATION_PAGE_SIZE = 100;
+const MAX_WORKSPACE_APPLICATIONS = 500;
 
 async function getFirebaseIdToken(): Promise<string> {
   const user = auth.currentUser;
@@ -155,12 +161,57 @@ async function authorizedJsonRequest<T>(
   return payload.data;
 }
 
+/**
+ * B2B workspace는 더 이상 `/api/b2b/applications` 전체 조회를 사용하지 않는다.
+ *
+ * 화면 계약(ApplicationView[])은 유지하되 서버 cursor page를 순차 조회하고
+ * 한 번의 refresh에서 최대 500건으로 hard cap을 둔다. 전체 KPI/퍼널은
+ * `/api/b2b/analytics`에서 별도로 계산한다.
+ */
 export async function fetchB2BApplications(): Promise<
   ApplicationView[]
 > {
-  return authorizedJsonRequest<ApplicationView[]>(
-    "/api/b2b/applications",
-    "GET"
+  const applications: ApplicationView[] = [];
+  let cursor: string | null = null;
+  let hasMore = true;
+
+  while (
+    hasMore &&
+    applications.length < MAX_WORKSPACE_APPLICATIONS
+  ) {
+    const params = new URLSearchParams();
+    params.set(
+      "limit",
+      String(WORKSPACE_APPLICATION_PAGE_SIZE)
+    );
+
+    if (cursor) {
+      params.set("cursor", cursor);
+    }
+
+    const page =
+      await authorizedJsonRequest<B2BApplicationPage>(
+        `/api/b2b/applications/page?${params.toString()}`,
+        "GET"
+      );
+
+    applications.push(...page.items);
+    cursor = page.nextCursor;
+    hasMore = page.hasMore && Boolean(cursor);
+  }
+
+  if (
+    hasMore &&
+    applications.length >= MAX_WORKSPACE_APPLICATIONS
+  ) {
+    console.warn(
+      `B2B workspace application load capped at ${MAX_WORKSPACE_APPLICATIONS}. Use recruiting analytics for full-period KPIs.`
+    );
+  }
+
+  return applications.slice(
+    0,
+    MAX_WORKSPACE_APPLICATIONS
   );
 }
 
