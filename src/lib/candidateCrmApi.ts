@@ -20,6 +20,7 @@ export interface CandidateCrmDetail {
   source: "B2B_DIRECT";
   accountStatus: "ACTIVE" | "INACTIVE" | "SUSPENDED";
   createdBy: string;
+  createdByName: string | null;
   headline: string;
   careerSummary: string;
   skills: string[];
@@ -53,6 +54,8 @@ export interface UpdateCandidateCrmInput {
   headline: string;
   careerSummary: string;
   skills: string[];
+  careers: CareerItem[];
+  education: EducationItem[];
 }
 
 export interface UpdateCandidateCrmResult {
@@ -255,6 +258,8 @@ export async function updateCandidateCrmDetail(
       headline: input.headline,
       careerSummary: input.careerSummary,
       skills: input.skills,
+      careers: input.careers,
+      education: input.education,
     }
   );
 }

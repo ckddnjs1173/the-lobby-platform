@@ -13,6 +13,7 @@ export interface CandidatePoolItem {
   source: "B2B_DIRECT";
   accountStatus: "ACTIVE" | "INACTIVE" | "SUSPENDED";
   createdBy: string;
+  createdByName: string | null;
   headline: string;
   skills: string[];
   profileCompleteness: number;
@@ -20,9 +21,27 @@ export interface CandidatePoolItem {
   updatedAt: string | null;
 }
 
-interface ApiSuccessResponse<T> {
+export interface CandidatePoolPagination {
+  total: number;
+  limit: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
+export interface CandidatePoolPageResult {
+  items: CandidatePoolItem[];
+  pagination: CandidatePoolPagination;
+}
+
+export interface CandidatePoolPageOptions {
+  cursor?: string | null;
+  limit?: number;
+}
+
+interface CandidatePoolSuccessResponse {
   success: true;
-  data: T;
+  data: CandidatePoolItem[];
+  pagination: CandidatePoolPagination;
 }
 
 interface ApiErrorResponse {
@@ -31,8 +50,8 @@ interface ApiErrorResponse {
   code?: string;
 }
 
-type ApiResponse<T> =
-  | ApiSuccessResponse<T>
+type CandidatePoolResponse =
+  | CandidatePoolSuccessResponse
   | ApiErrorResponse;
 
 export class CandidatePoolApiError extends Error {
@@ -78,9 +97,10 @@ async function getFirebaseIdToken(): Promise<string> {
   }
 }
 
-export async function fetchCandidatePool(
-  organizationId?: string | null
-): Promise<CandidatePoolItem[]> {
+export async function fetchCandidatePoolPage(
+  organizationId?: string | null,
+  options: CandidatePoolPageOptions = {}
+): Promise<CandidatePoolPageResult> {
   const idToken =
     await getFirebaseIdToken();
 
@@ -91,6 +111,20 @@ export async function fetchCandidatePool(
     params.set(
       "organizationId",
       organizationId.trim()
+    );
+  }
+
+  if (options.cursor?.trim()) {
+    params.set(
+      "cursor",
+      options.cursor.trim()
+    );
+  }
+
+  if (options.limit !== undefined) {
+    params.set(
+      "limit",
+      String(options.limit)
     );
   }
 
@@ -127,13 +161,13 @@ export async function fetchCandidatePool(
   }
 
   let payload:
-    | ApiResponse<CandidatePoolItem[]>
+    | CandidatePoolResponse
     | null = null;
 
   try {
     payload =
       (await response.json()) as
-        ApiResponse<CandidatePoolItem[]>;
+        CandidatePoolResponse;
   } catch (error) {
     console.error(
       "Candidate pool response parse error:",
@@ -161,5 +195,22 @@ export async function fetchCandidatePool(
     );
   }
 
-  return payload.data;
+  return {
+    items: payload.data,
+    pagination: payload.pagination,
+  };
+}
+
+/**
+ * 기존 호출부 호환용. 첫 페이지의 items만 반환한다.
+ */
+export async function fetchCandidatePool(
+  organizationId?: string | null
+): Promise<CandidatePoolItem[]> {
+  const result =
+    await fetchCandidatePoolPage(
+      organizationId
+    );
+
+  return result.items;
 }
