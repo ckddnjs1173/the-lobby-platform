@@ -43,7 +43,6 @@ const TERMINAL_STAGES =
 const EXCEPTION_STAGES =
   new Set<ApplicationStage>([
     "HOLD",
-    "REJECTED",
     "CANCELED",
   ]);
 
@@ -56,9 +55,6 @@ const GUARDED_ENTRY_STAGES:
   > = {
     OFFER: [
       "INTERVIEW",
-    ],
-    HIRED: [
-      "OFFER",
     ],
   };
 
@@ -89,11 +85,10 @@ function denied(
  * 설계 원칙:
  * - 일반적인 전진 흐름은 유연하게 유지한다.
  * - INTERVIEW 진입은 면접 일정 생성과 같은 transaction에서만 허용한다.
- * - OFFER / HIRED 같은 고위험 단계는 선행 단계가 필요하다.
+ * - HIRED / REJECTED 진입은 Hiring Outcome 기록과 같은 transaction에서만 허용한다.
+ * - OFFER는 INTERVIEW 단계에서만 진입한다.
  * - 종료 상태를 다시 여는 작업은 ADMIN + 사유가 필요하다.
  * - 역방향 이동과 HOLD 복귀는 사유를 Audit Trail에 남긴다.
- * - ADMIN은 사유를 남긴 경우 일반 고위험 전이를 예외 처리할 수 있지만,
- *   INTERVIEW 일정 invariant는 우회할 수 없다.
  */
 export function evaluateApplicationStageTransition(
   fromStage: ApplicationStage,
@@ -118,6 +113,16 @@ export function evaluateApplicationStageTransition(
     return denied(
       "INTERVIEW_SCHEDULE_REQUIRED",
       "면접 단계는 면접 일정을 확정하면서 이동해야 합니다. 면접 일정 등록 기능을 사용해주세요."
+    );
+  }
+
+  if (
+    toStage === "HIRED" ||
+    toStage === "REJECTED"
+  ) {
+    return denied(
+      "HIRING_OUTCOME_REQUIRED",
+      "입사 확정과 불합격은 최종 채용 결과 기능에서 결정 정보와 함께 처리해주세요."
     );
   }
 
