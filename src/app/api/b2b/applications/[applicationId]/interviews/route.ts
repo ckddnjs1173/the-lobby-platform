@@ -7,10 +7,10 @@ import {
 } from "../../../../../../lib/server/b2bAuthorization";
 
 import {
-  ApplicationOperationsServiceError,
+  InterviewServiceError,
   listApplicationInterviews,
   scheduleApplicationInterview,
-} from "../../../../../../lib/server/applicationOperationsService";
+} from "../../../../../../lib/server/interviewService";
 
 import {
   ServerAuthError,
@@ -31,7 +31,7 @@ function errorResponse(
   if (
     error instanceof ServerAuthError ||
     error instanceof B2BAuthorizationError ||
-    error instanceof ApplicationOperationsServiceError
+    error instanceof InterviewServiceError
   ) {
     return NextResponse.json(
       {
