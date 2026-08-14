@@ -8,6 +8,10 @@ import {
 } from "../../types";
 
 import {
+  evaluateApplicationStageTransition,
+} from "./applicationStagePolicy";
+
+import {
   requireB2BActor,
 } from "./b2bAuthorization";
 
@@ -70,7 +74,6 @@ const APPLICATION_STAGES: readonly ApplicationStage[] =
     "REJECTED",
     "CANCELED",
   ];
-
 
 // ============================================================================
 // Helpers
@@ -429,9 +432,6 @@ export async function createB2CApplication(
           toStage:
             "NEW" satisfies ApplicationStage,
 
-          /**
-           * 서버가 검증한 Firebase UID.
-           */
           changedBy: authUid,
 
           note:
@@ -460,6 +460,8 @@ export async function createB2CApplication(
  *
  * 클라이언트가 보내는 changedBy 값을 사용하지 않는다.
  * 서버에서 검증된 Firebase UID로 강제한다.
+ *
+ * Phase 6부터 서버가 Stage transition policy의 source of truth다.
  */
 export async function updateApplicationStage(
   actorUid: string,
@@ -546,9 +548,7 @@ export async function updateApplicationStage(
 
       /**
        * ADMIN은 전체 조직 접근 가능.
-       *
-       * RECRUITER는 자신의 organizationId와
-       * Application.organizationId가 일치해야 한다.
+       * RECRUITER는 같은 tenant의 Application만 변경 가능.
        */
       if (
         actor.role === "RECRUITER" &&
@@ -583,12 +583,29 @@ export async function updateApplicationStage(
         };
       }
 
+      const transitionDecision =
+        evaluateApplicationStageTransition(
+          oldStage,
+          newStage,
+          actor.role,
+          note
+        );
+
+      if (
+        !transitionDecision.allowed
+      ) {
+        throw new ApplicationServiceError(
+          transitionDecision.message ||
+            "허용되지 않은 지원 단계 변경입니다.",
+          transitionDecision.status || 409,
+          transitionDecision.code ||
+            "INVALID_STAGE_TRANSITION"
+        );
+      }
+
       const serverTimestamp =
         FieldValue.serverTimestamp();
 
-      /**
-       * Stage 변경 시 다른 핵심 필드는 건드리지 않는다.
-       */
       transaction.update(
         applicationRef,
         {
@@ -617,14 +634,17 @@ export async function updateApplicationStage(
 
           toStage: newStage,
 
-          /**
-           * Firebase Admin이 검증한 실제 요청자 UID.
-           */
           changedBy: actor.uid,
 
           note:
             note ||
             `단계를 ${oldStage}에서 ${newStage}(으)로 변경했습니다.`,
+
+          metadata: {
+            transitionKind:
+              transitionDecision.kind ||
+              "STANDARD",
+          },
 
           createdAt:
             serverTimestamp,
