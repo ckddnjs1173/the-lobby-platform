@@ -12,6 +12,11 @@ import {
 } from "../../../../lib/server/b2bDirectApplicationService";
 
 import {
+  ApplicationListServiceError,
+  listB2BApplications,
+} from "../../../../lib/server/applicationListService";
+
+import {
   ServerAuthError,
   requireFirebaseUser,
 } from "../../../../lib/server/serverAuth";
@@ -70,8 +75,23 @@ function errorResponse(
     );
   }
 
+  if (
+    error instanceof ApplicationListServiceError
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+        code: error.code,
+      },
+      {
+        status: error.status,
+      }
+    );
+  }
+
   console.error(
-    "POST /api/b2b/applications failed:",
+    "B2B applications API failed:",
     error
   );
 
@@ -79,13 +99,34 @@ function errorResponse(
     {
       success: false,
       error:
-        "B2B 직접 지원 생성 중 서버 오류가 발생했습니다.",
+        "B2B 지원 내역 요청 처리 중 서버 오류가 발생했습니다.",
       code: "INTERNAL_SERVER_ERROR",
     },
     {
       status: 500,
     }
   );
+}
+
+export async function GET(
+  request: Request
+) {
+  try {
+    const authenticatedUser =
+      await requireFirebaseUser(request);
+
+    const applications =
+      await listB2BApplications(
+        authenticatedUser.uid
+      );
+
+    return NextResponse.json({
+      success: true,
+      data: applications,
+    });
+  } catch (error) {
+    return errorResponse(error);
+  }
 }
 
 export async function POST(

@@ -7,11 +7,11 @@ import {
 
 interface ApplicationTableProps {
   applications: ApplicationView[];
-
+  recruiterNames?: Record<string, string>;
+  staleApplicationIds?: ReadonlySet<string>;
   onSelectApplication: (
     application: ApplicationView
   ) => void;
-
   onStageChange: (
     applicationId: string,
     newStage: ApplicationStage
@@ -58,6 +58,8 @@ function formatAppliedDate(
 
 export default function ApplicationTable({
   applications,
+  recruiterNames = {},
+  staleApplicationIds,
   onSelectApplication,
   onStageChange,
 }: ApplicationTableProps) {
@@ -70,19 +72,15 @@ export default function ApplicationTable({
               <th className="py-4 px-6">
                 지원자 정보
               </th>
-
               <th className="py-4 px-6">
                 지원 공고 / 기업
               </th>
-
               <th className="py-4 px-6">
                 현재 단계
               </th>
-
               <th className="py-4 px-6">
                 지원 일시
               </th>
-
               <th className="py-4 px-6 text-right">
                 관리
               </th>
@@ -91,39 +89,40 @@ export default function ApplicationTable({
 
           <tbody className="divide-y divide-slate-100 text-sm">
             {applications.length > 0 ? (
-              applications.map(
-                (application) => (
+              applications.map((application) => {
+                const recruiterName =
+                  recruiterNames[
+                    application.recruiterId
+                  ] || application.recruiterId;
+                const isStale =
+                  staleApplicationIds?.has(
+                    application.applicationId
+                  ) || false;
+
+                return (
                   <tr
-                    key={
-                      application.applicationId
-                    }
+                    key={application.applicationId}
                     onClick={() =>
-                      onSelectApplication(
-                        application
-                      )
+                      onSelectApplication(application)
                     }
                     className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                   >
-                    {/* Candidate */}
                     <td className="py-4 px-6">
                       <div className="font-bold text-slate-900 group-hover:text-brand-navy transition-colors">
-                        {
-                          application.candidateName
-                        }
+                        {application.candidateName}
                       </div>
 
                       <div className="text-xs text-slate-400 font-mono mt-0.5">
-                        {
-                          application.candidatePhone
-                        }{" "}
+                        {application.candidatePhone}{" "}
                         |{" "}
-                        {
-                          application.candidateEmail
-                        }
+                        {application.candidateEmail}
+                      </div>
+
+                      <div className="mt-1 text-[11px] text-slate-500">
+                        담당 · {recruiterName}
                       </div>
                     </td>
 
-                    {/* Job */}
                     <td className="py-4 px-6">
                       <div className="font-semibold text-slate-800">
                         {application.jobTitle}
@@ -134,25 +133,28 @@ export default function ApplicationTable({
                       </div>
                     </td>
 
-                    {/* Stage */}
                     <td className="py-4 px-6">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                        {
-                          STAGE_LABELS[
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                          {STAGE_LABELS[
                             application.stage
-                          ]
-                        }
-                      </span>
+                          ]}
+                        </span>
+
+                        {isStale && (
+                          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200">
+                            3일+ 미처리
+                          </span>
+                        )}
+                      </div>
                     </td>
 
-                    {/* Applied At */}
                     <td className="py-4 px-6 text-xs text-slate-500 font-mono">
                       {formatAppliedDate(
                         application.appliedAt
                       )}
                     </td>
 
-                    {/* Action */}
                     <td
                       className="py-4 px-6 text-right"
                       onClick={(event) =>
@@ -160,9 +162,7 @@ export default function ApplicationTable({
                       }
                     >
                       <select
-                        value={
-                          application.stage
-                        }
+                        value={application.stage}
                         onChange={(event) =>
                           onStageChange(
                             application.applicationId,
@@ -174,29 +174,26 @@ export default function ApplicationTable({
                       >
                         {Object.entries(
                           STAGE_LABELS
-                        ).map(
-                          ([stage, label]) => (
-                            <option
-                              key={stage}
-                              value={stage}
-                            >
-                              {label}
-                            </option>
-                          )
-                        )}
+                        ).map(([stage, label]) => (
+                          <option
+                            key={stage}
+                            value={stage}
+                          >
+                            {label}
+                          </option>
+                        ))}
                       </select>
                     </td>
                   </tr>
-                )
-              )
+                );
+              })
             ) : (
               <tr>
                 <td
                   colSpan={5}
                   className="py-16 text-center text-slate-400 font-medium"
                 >
-                  등록된 지원 내역이
-                  없습니다.
+                  조건에 맞는 지원 내역이 없습니다.
                 </td>
               </tr>
             )}
