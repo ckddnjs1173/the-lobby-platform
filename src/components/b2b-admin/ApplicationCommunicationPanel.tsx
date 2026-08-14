@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -14,12 +13,15 @@ import type {
 import {
   ApplicationCommunicationApiError,
   listApplicationCommunicationsViaApi,
+  listApplicationCommunicationTemplatesViaApi,
   sendApplicationEmailViaApi,
+  type ApplicationCommunicationTemplateView,
   type ApplicationCommunicationView,
 } from "../../lib/applicationCommunicationApi";
 
 interface ApplicationCommunicationPanelProps {
   application: ApplicationView;
+  refreshKey?: number | string;
   onActivityChanged?: () => void;
 }
 
@@ -74,10 +76,13 @@ function statusLabel(
 
 export default function ApplicationCommunicationPanel({
   application,
+  refreshKey = 0,
   onActivityChanged,
 }: ApplicationCommunicationPanelProps) {
   const [communications, setCommunications] =
     useState<ApplicationCommunicationView[]>([]);
+  const [templates, setTemplates] =
+    useState<ApplicationCommunicationTemplateView[]>([]);
   const [subject, setSubject] =
     useState("");
   const [body, setBody] =
@@ -85,6 +90,8 @@ export default function ApplicationCommunicationPanel({
   const [requestId, setRequestId] =
     useState(createRequestId);
   const [loading, setLoading] =
+    useState(false);
+  const [templatesLoading, setTemplatesLoading] =
     useState(false);
   const [sending, setSending] =
     useState(false);
@@ -116,50 +123,62 @@ export default function ApplicationCommunicationPanel({
       }
     }, [application.applicationId]);
 
+  const loadTemplates =
+    useCallback(async () => {
+      setTemplatesLoading(true);
+
+      try {
+        const items =
+          await listApplicationCommunicationTemplatesViaApi(
+            application.applicationId
+          );
+
+        setTemplates(items);
+      } catch (loadError) {
+        const message =
+          loadError instanceof ApplicationCommunicationApiError
+            ? loadError.message
+            : "자동 이메일 초안을 불러오지 못했습니다.";
+
+        setError(message);
+      } finally {
+        setTemplatesLoading(false);
+      }
+    }, [application.applicationId]);
+
   useEffect(() => {
     setCommunications([]);
+    setTemplates([]);
     setSubject("");
     setBody("");
     setRequestId(createRequestId());
     setError(null);
     setNotice(null);
 
-    void loadCommunications();
-  }, [loadCommunications]);
+    void Promise.all([
+      loadCommunications(),
+      loadTemplates(),
+    ]);
+  }, [
+    application.applicationId,
+    loadCommunications,
+    loadTemplates,
+  ]);
 
-  const templates = useMemo(
-    () => [
-      {
-        key: "FIRST_CONTACT",
-        label: "첫 연락",
-        subject:
-          `[${application.company}] ${application.jobTitle} 채용 관련 연락드립니다`,
-        body:
-          `${application.candidateName}님, 안녕하세요.\n\n${application.company} ${application.jobTitle} 채용 관련하여 연락드립니다.\n지원 가능 여부와 간단한 통화 가능 시간을 회신해주시면 확인 후 안내드리겠습니다.\n\n감사합니다.`,
-      },
-      {
-        key: "INTERVIEW_GUIDE",
-        label: "면접 안내",
-        subject:
-          `[${application.company}] ${application.jobTitle} 면접 안내`,
-        body:
-          `${application.candidateName}님, 안녕하세요.\n\n${application.company} ${application.jobTitle} 면접 관련 안내드립니다.\n확정된 면접 일정과 장소/접속 정보를 확인 부탁드리며, 변경이 필요한 경우 회신해주세요.\n\n감사합니다.`,
-      },
-      {
-        key: "FOLLOW_UP",
-        label: "진행 확인",
-        subject:
-          `[${application.company}] ${application.jobTitle} 채용 진행 관련 안내`,
-        body:
-          `${application.candidateName}님, 안녕하세요.\n\n${application.company} ${application.jobTitle} 채용 진행 관련하여 연락드립니다.\n추가로 확인이 필요한 사항이 있어 회신 부탁드립니다.\n\n감사합니다.`,
-      },
-    ],
-    [
-      application.candidateName,
-      application.company,
-      application.jobTitle,
-    ]
-  );
+  useEffect(() => {
+    if (refreshKey === 0) {
+      return;
+    }
+
+    void Promise.all([
+      loadCommunications(),
+      loadTemplates(),
+    ]);
+  }, [
+    refreshKey,
+    loadCommunications,
+    loadTemplates,
+  ]);
 
   const updateSubject = (
     value: string
@@ -180,13 +199,17 @@ export default function ApplicationCommunicationPanel({
   };
 
   const applyTemplate = (
-    template: (typeof templates)[number]
+    template: ApplicationCommunicationTemplateView
   ) => {
     setSubject(template.subject);
     setBody(template.body);
     setRequestId(createRequestId());
     setError(null);
-    setNotice(null);
+    setNotice(
+      template.recommended
+        ? `현재 지원 단계에 추천되는 초안을 적용했습니다. ${template.reason}`
+        : `${template.label} 초안을 적용했습니다. 발송 전 내용을 확인해주세요.`
+    );
   };
 
   const handleSend = async () => {
@@ -259,21 +282,48 @@ export default function ApplicationCommunicationPanel({
         </span>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex flex-wrap gap-2">
-          {templates.map((template) => (
-            <button
-              type="button"
-              key={template.key}
-              onClick={() =>
-                applyTemplate(template)
-              }
-              disabled={sending}
-              className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 disabled:opacity-50"
-            >
-              {template.label}
-            </button>
-          ))}
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-bold text-slate-700">
+              워크플로우 자동 초안
+            </span>
+            {templatesLoading ? (
+              <span className="text-[10px] text-slate-400">
+                최신 전형 정보 반영 중...
+              </span>
+            ) : null}
+          </div>
+
+          {templates.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {templates.map((template) => (
+                <button
+                  type="button"
+                  key={template.key}
+                  onClick={() =>
+                    applyTemplate(template)
+                  }
+                  disabled={sending}
+                  title={template.reason}
+                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border disabled:opacity-50 ${
+                    template.recommended
+                      ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  {template.recommended
+                    ? "추천 · "
+                    : ""}
+                  {template.label}
+                </button>
+              ))}
+            </div>
+          ) : !templatesLoading ? (
+            <p className="text-[11px] text-slate-400">
+              현재 전형 정보로 생성할 수 있는 자동 초안이 없습니다. 직접 작성할 수 있습니다.
+            </p>
+          ) : null}
         </div>
 
         <input
@@ -302,7 +352,7 @@ export default function ApplicationCommunicationPanel({
 
         <div className="flex items-center justify-between gap-3">
           <p className="text-[11px] text-slate-400 leading-4">
-            수신자는 지원서에 저장된 이메일로 서버가 고정합니다. 발송 성공 시 Audit Trail에 자동 기록됩니다.
+            초안은 최신 지원·면접·채용 결과를 서버에서 읽어 생성합니다. 자동 발송하지 않으며 Recruiter가 최종 확인 후 발송합니다. 수신자는 지원서 이메일로 서버가 고정합니다.
           </p>
 
           <button
