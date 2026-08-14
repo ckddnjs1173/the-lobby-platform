@@ -190,6 +190,26 @@ export type ApplicationSource =
   | "HEADHUNTING"
   | "REFERRAL";
 
+export type HiringOutcomeStatus =
+  | "HIRED"
+  | "REJECTED";
+
+export interface HiringOutcome {
+  status: HiringOutcomeStatus;
+  decidedAt: DbTimestamp;
+  decidedBy: string;
+  note: string;
+  plannedStartDate?: string | null;
+}
+
+export interface HiringOutcomeView {
+  status: HiringOutcomeStatus;
+  decidedAt: string;
+  decidedBy: string;
+  note: string;
+  plannedStartDate: string | null;
+}
+
 export interface ApplicationSnapshotCandidate {
   name: string;
   phone: string;
@@ -211,6 +231,7 @@ export interface Application {
   source: ApplicationSource;
   candidateSnapshot: ApplicationSnapshotCandidate;
   jobSnapshot: ApplicationSnapshotJob;
+  hiringOutcome?: HiringOutcome;
   appliedAt: DbTimestamp;
   updatedAt: DbTimestamp;
   lastActivityAt: DbTimestamp;
@@ -230,6 +251,8 @@ export type EventType =
   | "INTERVIEW_UPDATED"
   | "INTERVIEW_COMPLETED"
   | "INTERVIEW_CANCELED"
+  | "HIRING_OUTCOME_RECORDED"
+  | "HIRING_OUTCOME_CLEARED"
   | "PROFILE_UPDATED";
 
 export interface AppEvent {
@@ -262,6 +285,7 @@ export interface ApplicationView {
   candidateEmail: string;
   jobTitle: string;
   company: string;
+  hiringOutcome?: HiringOutcomeView | null;
   appliedAt: string;
   updatedAt?: string;
   lastActivityAt?: string;
