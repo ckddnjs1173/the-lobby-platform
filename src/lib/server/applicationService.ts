@@ -88,6 +88,16 @@ function isNonEmptyString(
   );
 }
 
+function isRecord(
+  value: unknown
+): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
 function requireString(
   data: DocumentData,
   key: string,
@@ -142,12 +152,6 @@ function sanitizeNote(
 // Candidate Resolver
 // ============================================================================
 
-/**
- * Firebase Auth UID로 The Lobby Candidate를 찾는다.
- *
- * B2C 가입 사용자는 authUid가 정확히 하나의 Candidate와
- * 연결되어 있어야 한다.
- */
 async function resolveCandidateIdByAuthUid(
   authUid: string
 ): Promise<string> {
@@ -182,20 +186,6 @@ async function resolveCandidateIdByAuthUid(
 // Create Application
 // ============================================================================
 
-/**
- * B2C 원클릭 지원
- *
- * 서버가 직접 다음을 결정한다.
- *
- * - candidateId
- * - source = B2C_WEB
- * - organizationId
- * - recruiterId
- * - changedBy
- * - timestamp
- *
- * 클라이언트는 jobId만 전달한다.
- */
 export async function createB2CApplication(
   authUid: string,
   jobIdInput: string
@@ -238,9 +228,6 @@ export async function createB2CApplication(
 
   return db.runTransaction(
     async (transaction) => {
-      /**
-       * 모든 Read를 Write보다 먼저 수행한다.
-       */
       const applicationSnapshot =
         await transaction.get(
           applicationRef
@@ -293,9 +280,6 @@ export async function createB2CApplication(
         );
       }
 
-      /**
-       * Candidate 소유권을 서버에서 다시 검증한다.
-       */
       if (
         candidateData.authUid !== authUid
       ) {
@@ -381,37 +365,26 @@ export async function createB2CApplication(
         applicationRef,
         {
           applicationId,
-
           candidateId,
-
           jobId,
-
           organizationId,
-
           recruiterId,
-
           stage:
             "NEW" satisfies ApplicationStage,
-
           source: "B2C_WEB",
-
           candidateSnapshot: {
             name: candidateName,
             phone: candidatePhone,
             email: candidateEmail,
           },
-
           jobSnapshot: {
             title: jobTitle,
             company: jobCompany,
           },
-
           appliedAt:
             serverTimestamp,
-
           updatedAt:
             serverTimestamp,
-
           lastActivityAt:
             serverTimestamp,
         }
@@ -421,22 +394,15 @@ export async function createB2CApplication(
         eventRef,
         {
           eventId: eventRef.id,
-
           applicationId,
-
           organizationId,
-
           type:
             "APPLICATION_CREATED",
-
           toStage:
             "NEW" satisfies ApplicationStage,
-
           changedBy: authUid,
-
           note:
             "공고 원클릭 지원 완료",
-
           createdAt:
             serverTimestamp,
         }
@@ -455,14 +421,6 @@ export async function createB2CApplication(
 // Update Application Stage
 // ============================================================================
 
-/**
- * B2B 지원 단계 변경.
- *
- * 클라이언트가 보내는 changedBy 값을 사용하지 않는다.
- * 서버에서 검증된 Firebase UID로 강제한다.
- *
- * Phase 6부터 서버가 Stage transition policy의 source of truth다.
- */
 export async function updateApplicationStage(
   actorUid: string,
   applicationIdInput: string,
@@ -512,6 +470,9 @@ export async function updateApplicationStage(
   const eventRef = db
     .collection("appEvents")
     .doc();
+  const outcomeClearedEventRef = db
+    .collection("appEvents")
+    .doc();
 
   return db.runTransaction(
     async (transaction) => {
@@ -546,10 +507,6 @@ export async function updateApplicationStage(
           "APPLICATION_ORGANIZATION_MISSING"
         );
 
-      /**
-       * ADMIN은 전체 조직 접근 가능.
-       * RECRUITER는 같은 tenant의 Application만 변경 가능.
-       */
       if (
         actor.role === "RECRUITER" &&
         actor.organizationId !==
@@ -603,6 +560,13 @@ export async function updateApplicationStage(
         );
       }
 
+      const shouldClearHiringOutcome =
+        (oldStage === "HIRED" ||
+          oldStage === "REJECTED") &&
+        isRecord(
+          applicationData.hiringOutcome
+        );
+
       const serverTimestamp =
         FieldValue.serverTimestamp();
 
@@ -610,6 +574,12 @@ export async function updateApplicationStage(
         applicationRef,
         {
           stage: newStage,
+          ...(shouldClearHiringOutcome
+            ? {
+                hiringOutcome:
+                  FieldValue.delete(),
+              }
+            : {}),
           updatedAt:
             serverTimestamp,
           lastActivityAt:
@@ -621,35 +591,56 @@ export async function updateApplicationStage(
         eventRef,
         {
           eventId: eventRef.id,
-
           applicationId,
-
           organizationId:
             applicationOrganizationId,
-
           type:
             "STAGE_CHANGED",
-
           fromStage: oldStage,
-
           toStage: newStage,
-
           changedBy: actor.uid,
-
           note:
             note ||
             `단계를 ${oldStage}에서 ${newStage}(으)로 변경했습니다.`,
-
           metadata: {
             transitionKind:
               transitionDecision.kind ||
               "STANDARD",
+            clearedHiringOutcome:
+              shouldClearHiringOutcome,
           },
-
           createdAt:
             serverTimestamp,
         }
       );
+
+      if (shouldClearHiringOutcome) {
+        transaction.set(
+          outcomeClearedEventRef,
+          {
+            eventId:
+              outcomeClearedEventRef.id,
+            applicationId,
+            organizationId:
+              applicationOrganizationId,
+            type:
+              "HIRING_OUTCOME_CLEARED",
+            changedBy:
+              actor.uid,
+            note:
+              note ||
+              "종료된 지원 건을 재오픈하면서 기존 최종 채용 결과를 정리했습니다.",
+            metadata: {
+              previousStage:
+                oldStage,
+              reopenedStage:
+                newStage,
+            },
+            createdAt:
+              serverTimestamp,
+          }
+        );
+      }
 
       return {
         applicationId,
