@@ -7,6 +7,8 @@ const checks = [
   "tests/phase5-regression-check.cjs",
   "tests/phase6-passive-candidate-atomicity-check.cjs",
   "tests/phase6-ai-intake-check.cjs",
+  "tests/phase6-resume-file-extraction-check.mjs",
+  "tests/phase6-resume-file-security-check.cjs",
   "tests/phase6-stage-policy-check.cjs",
   "tests/phase6-interview-lifecycle-check.cjs",
   "tests/phase6-interview-transition-check.cjs",
