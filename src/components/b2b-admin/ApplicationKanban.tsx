@@ -1,6 +1,11 @@
 "use client";
 
 import {
+  useState,
+  type DragEvent,
+} from "react";
+
+import {
   ApplicationStage,
   ApplicationView,
 } from "../../types";
@@ -11,7 +16,7 @@ interface ApplicationKanbanProps {
   onStageChange: (
     applicationId: string,
     newStage: ApplicationStage
-  ) => void;
+  ) => Promise<void> | void;
 
   onSelectApplication: (
     application: ApplicationView
@@ -24,12 +29,6 @@ interface KanbanColumn {
   className: string;
 }
 
-/**
- * Phase 4에서 실제 Drag & Drop Pipeline으로 확장한다.
- *
- * 현재 Phase 1에서는 데이터 모델 및 타입 안정성 확보가 목적이므로
- * 주요 Stage에 대한 Read-only Pipeline View 역할만 담당한다.
- */
 const KANBAN_COLUMNS: KanbanColumn[] = [
   {
     stage: "NEW",
@@ -122,14 +121,20 @@ export default function ApplicationKanban({
   onStageChange,
   onSelectApplication,
 }: ApplicationKanbanProps) {
-  /**
-   * Phase 4 Drag & Drop 구현 전까지는
-   * stage 변경 함수를 의도적으로 실행하지 않는다.
-   *
-   * 부모와의 인터페이스 호환성을 유지하되,
-   * 현재 Kanban이 상태 변경 기능을 가진 것처럼 보이지 않게 한다.
-   */
-  void onStageChange;
+  const [
+    draggingApplicationId,
+    setDraggingApplicationId,
+  ] = useState<string | null>(null);
+
+  const [
+    dropTargetStage,
+    setDropTargetStage,
+  ] = useState<ApplicationStage | null>(null);
+
+  const [
+    movingApplicationId,
+    setMovingApplicationId,
+  ] = useState<string | null>(null);
 
   const terminalApplications =
     applications.filter((application) =>
@@ -138,9 +143,103 @@ export default function ApplicationKanban({
       )
     );
 
+  const handleDragStart = (
+    event: DragEvent<HTMLButtonElement>,
+    application: ApplicationView
+  ) => {
+    if (movingApplicationId) {
+      event.preventDefault();
+      return;
+    }
+
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(
+      "text/plain",
+      application.applicationId
+    );
+
+    setDraggingApplicationId(
+      application.applicationId
+    );
+  };
+
+  const handleDragEnd = () => {
+    setDraggingApplicationId(null);
+    setDropTargetStage(null);
+  };
+
+  const handleDragOver = (
+    event: DragEvent<HTMLDivElement>,
+    stage: ApplicationStage
+  ) => {
+    if (!draggingApplicationId) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDropTargetStage(stage);
+  };
+
+  const handleDrop = async (
+    event: DragEvent<HTMLDivElement>,
+    stage: ApplicationStage
+  ) => {
+    event.preventDefault();
+
+    const applicationId =
+      event.dataTransfer.getData("text/plain") ||
+      draggingApplicationId;
+
+    setDraggingApplicationId(null);
+    setDropTargetStage(null);
+
+    if (!applicationId || movingApplicationId) {
+      return;
+    }
+
+    const application =
+      applications.find(
+        (item) =>
+          item.applicationId === applicationId
+      );
+
+    if (!application || application.stage === stage) {
+      return;
+    }
+
+    setMovingApplicationId(applicationId);
+
+    try {
+      await onStageChange(
+        applicationId,
+        stage
+      );
+    } finally {
+      setMovingApplicationId(null);
+    }
+  };
+
   return (
     <div className="space-y-4 h-full">
-      {/* Active Pipeline */}
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <div>
+          <p className="text-xs font-bold text-slate-700">
+            드래그해서 지원 단계를 이동할 수 있습니다.
+          </p>
+
+          <p className="mt-0.5 text-[11px] text-slate-400">
+            단계 변경은 서버 권한 검증과 활동 로그 기록을 그대로 거칩니다.
+          </p>
+        </div>
+
+        {movingApplicationId && (
+          <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
+            단계 변경 중...
+          </span>
+        )}
+      </div>
+
       <div className="flex gap-4 h-full overflow-x-auto pb-4">
         {KANBAN_COLUMNS.map((column) => {
           const columnApplications =
@@ -150,12 +249,30 @@ export default function ApplicationKanban({
                 column.stage
             );
 
+          const isDropTarget =
+            dropTargetStage === column.stage;
+
           return (
             <div
               key={column.stage}
-              className="bg-slate-100/80 rounded-2xl p-4 flex flex-col min-w-[260px] w-[260px] h-full border border-slate-200/60 shrink-0"
+              onDragOver={(event) =>
+                handleDragOver(
+                  event,
+                  column.stage
+                )
+              }
+              onDrop={(event) =>
+                void handleDrop(
+                  event,
+                  column.stage
+                )
+              }
+              className={`bg-slate-100/80 rounded-2xl p-4 flex flex-col min-w-[260px] w-[260px] h-full border shrink-0 transition-all ${
+                isDropTarget
+                  ? "border-brand-navy ring-2 ring-brand-navy/10 bg-brand-navy/[0.03]"
+                  : "border-slate-200/60"
+              }`}
             >
-              {/* Column Header */}
               <div
                 className={`flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-bold mb-3 ${column.className}`}
               >
@@ -168,61 +285,94 @@ export default function ApplicationKanban({
                 </span>
               </div>
 
-              {/* Cards */}
               <div className="flex-1 space-y-3 overflow-y-auto pr-1">
                 {columnApplications.length >
                 0 ? (
                   columnApplications.map(
-                    (application) => (
-                      <button
-                        type="button"
-                        key={
-                          application.applicationId
-                        }
-                        onClick={() =>
-                          onSelectApplication(
-                            application
-                          )
-                        }
-                        className="w-full text-left bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer space-y-2 group"
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <h3 className="font-bold text-slate-900 text-sm group-hover:text-brand-navy transition-colors truncate">
+                    (application) => {
+                      const isDragging =
+                        draggingApplicationId ===
+                        application.applicationId;
+
+                      const isMoving =
+                        movingApplicationId ===
+                        application.applicationId;
+
+                      return (
+                        <button
+                          type="button"
+                          draggable={
+                            !movingApplicationId
+                          }
+                          key={
+                            application.applicationId
+                          }
+                          onDragStart={(event) =>
+                            handleDragStart(
+                              event,
+                              application
+                            )
+                          }
+                          onDragEnd={handleDragEnd}
+                          onClick={() =>
+                            onSelectApplication(
+                              application
+                            )
+                          }
+                          className={`w-full text-left bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all space-y-2 group ${
+                            isDragging
+                              ? "opacity-40 cursor-grabbing"
+                              : isMoving
+                                ? "opacity-60 cursor-wait"
+                                : "cursor-grab active:cursor-grabbing"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start gap-2">
+                            <h3 className="font-bold text-slate-900 text-sm group-hover:text-brand-navy transition-colors truncate">
+                              {
+                                application.candidateName
+                              }
+                            </h3>
+
+                            <span className="text-[10px] text-slate-400 font-mono shrink-0">
+                              {formatCompactDate(
+                                application.appliedAt
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="text-xs font-medium text-brand-navy bg-brand-gold/10 px-2 py-1 rounded truncate">
                             {
-                              application.candidateName
+                              application.jobTitle
                             }
-                          </h3>
+                          </div>
 
-                          <span className="text-[10px] text-slate-400 font-mono shrink-0">
-                            {formatCompactDate(
-                              application.appliedAt
-                            )}
-                          </span>
-                        </div>
+                          <div className="text-[11px] text-slate-500 truncate">
+                            🏢{" "}
+                            {application.company}
+                          </div>
 
-                        <div className="text-xs font-medium text-brand-navy bg-brand-gold/10 px-2 py-1 rounded truncate">
-                          {
-                            application.jobTitle
-                          }
-                        </div>
-
-                        <div className="text-[11px] text-slate-500 truncate">
-                          🏢{" "}
-                          {application.company}
-                        </div>
-
-                        <div className="text-[10px] text-slate-400 truncate">
-                          📞{" "}
-                          {
-                            application.candidatePhone
-                          }
-                        </div>
-                      </button>
-                    )
+                          <div className="text-[10px] text-slate-400 truncate">
+                            📞{" "}
+                            {
+                              application.candidatePhone
+                            }
+                          </div>
+                        </button>
+                      );
+                    })
                   )
                 ) : (
-                  <div className="h-32 flex items-center justify-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
-                    지원자 없음
+                  <div
+                    className={`h-32 flex items-center justify-center text-xs border border-dashed rounded-xl transition-colors ${
+                      isDropTarget
+                        ? "border-brand-navy text-brand-navy bg-white"
+                        : "border-slate-200 text-slate-400"
+                    }`}
+                  >
+                    {isDropTarget
+                      ? "여기에 놓아 단계 이동"
+                      : "지원자 없음"}
                   </div>
                 )}
               </div>
@@ -231,7 +381,6 @@ export default function ApplicationKanban({
         })}
       </div>
 
-      {/* Terminal Status Summary */}
       {terminalApplications.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
           <div className="flex flex-wrap items-center gap-3">
