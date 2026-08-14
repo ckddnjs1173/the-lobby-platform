@@ -2,6 +2,7 @@ import type {
   ApplicationSource,
   ApplicationStage,
   ApplicationView,
+  HiringOutcomeView,
 } from "../../types";
 
 import {
@@ -56,6 +57,16 @@ function isNonEmptyString(
   return (
     typeof value === "string" &&
     value.trim().length > 0
+  );
+}
+
+function isRecord(
+  value: unknown
+): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
   );
 }
 
@@ -130,6 +141,53 @@ function nestedString(
   return isNonEmptyString(nestedValue)
     ? nestedValue.trim()
     : fallback;
+}
+
+function normalizeHiringOutcome(
+  value: unknown
+): HiringOutcomeView | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (
+    value.status !== "HIRED" &&
+    value.status !== "REJECTED"
+  ) {
+    return null;
+  }
+
+  if (!isNonEmptyString(value.decidedBy)) {
+    return null;
+  }
+
+  const decidedAt =
+    timestampToIsoString(
+      value.decidedAt
+    );
+
+  if (!decidedAt) {
+    return null;
+  }
+
+  return {
+    status:
+      value.status,
+    decidedAt,
+    decidedBy:
+      value.decidedBy.trim(),
+    note:
+      typeof value.note === "string"
+        ? value.note.trim()
+        : "",
+    plannedStartDate:
+      typeof value.plannedStartDate === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(
+        value.plannedStartDate
+      )
+        ? value.plannedStartDate
+        : null,
+  };
 }
 
 function normalizeStage(
@@ -218,6 +276,10 @@ function toApplicationView(
         data.jobSnapshot,
         "company",
         "기업명 없음"
+      ),
+    hiringOutcome:
+      normalizeHiringOutcome(
+        data.hiringOutcome
       ),
     appliedAt:
       timestampToIsoString(data.appliedAt),
