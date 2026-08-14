@@ -23,10 +23,7 @@ export interface ResumeUploadFile {
   arrayBuffer(): Promise<ArrayBuffer>;
 }
 
-export type ResumeFileKind =
-  | "PDF"
-  | "DOCX"
-  | "TEXT";
+export type ResumeFileKind = "PDF" | "DOCX" | "TEXT";
 
 export interface ResumeFileExtractionResult {
   fileName: string;
@@ -35,96 +32,64 @@ export interface ResumeFileExtractionResult {
   extractedCharacters: number;
 }
 
-export const MAX_RESUME_FILE_BYTES =
-  8 * 1024 * 1024;
-
+export const MAX_RESUME_FILE_BYTES = 8 * 1024 * 1024;
 export const MAX_RESUME_PDF_PAGES = 30;
+export const MAX_EXTRACTED_RESUME_LENGTH = 40_000;
 
-export const MAX_EXTRACTED_RESUME_LENGTH =
-  40_000;
-
-const PDF_MIME_TYPES = new Set([
-  "application/pdf",
-]);
-
+const PDF_MIME_TYPES = new Set(["application/pdf"]);
 const DOCX_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/octet-stream",
 ]);
-
 const TEXT_MIME_TYPES = new Set([
   "text/plain",
   "application/octet-stream",
 ]);
 
-function normalizeFileName(
-  value: string
-): string {
+function normalizeFileName(value: string): string {
   return value
     .replace(/[\u0000-\u001f\u007f]/g, "")
     .trim()
     .slice(0, 255);
 }
 
-function getExtension(
-  fileName: string
-): string {
-  const index = fileName.lastIndexOf(".");
-
-  return index >= 0
-    ? fileName.slice(index).toLowerCase()
-    : "";
-}
-
 function resolveFileKind(
   fileName: string,
   mimeType: string
 ): ResumeFileKind {
-  const extension = getExtension(fileName);
-  const normalizedMime = mimeType.trim().toLowerCase();
+  const extension = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
+  const mime = mimeType.trim().toLowerCase();
 
   if (extension === ".pdf") {
-    if (
-      normalizedMime &&
-      !PDF_MIME_TYPES.has(normalizedMime)
-    ) {
+    if (mime && !PDF_MIME_TYPES.has(mime)) {
       throw new ResumeFileExtractionError(
         "PDF 파일의 콘텐츠 형식이 올바르지 않습니다.",
         400,
         "RESUME_FILE_MIME_MISMATCH"
       );
     }
-
     return "PDF";
   }
 
   if (extension === ".docx") {
-    if (
-      normalizedMime &&
-      !DOCX_MIME_TYPES.has(normalizedMime)
-    ) {
+    if (mime && !DOCX_MIME_TYPES.has(mime)) {
       throw new ResumeFileExtractionError(
         "DOCX 파일의 콘텐츠 형식이 올바르지 않습니다.",
         400,
         "RESUME_FILE_MIME_MISMATCH"
       );
     }
-
     return "DOCX";
   }
 
   if (extension === ".txt") {
-    if (
-      normalizedMime &&
-      !TEXT_MIME_TYPES.has(normalizedMime)
-    ) {
+    if (mime && !TEXT_MIME_TYPES.has(mime)) {
       throw new ResumeFileExtractionError(
         "텍스트 파일의 콘텐츠 형식이 올바르지 않습니다.",
         400,
         "RESUME_FILE_MIME_MISMATCH"
       );
     }
-
     return "TEXT";
   }
 
@@ -135,13 +100,8 @@ function resolveFileKind(
   );
 }
 
-function assertPdfSignature(
-  bytes: Uint8Array
-): void {
-  const signature =
-    Buffer.from(bytes.subarray(0, 5)).toString("ascii");
-
-  if (signature !== "%PDF-") {
+function assertPdfSignature(bytes: Uint8Array): void {
+  if (Buffer.from(bytes.subarray(0, 5)).toString("ascii") !== "%PDF-") {
     throw new ResumeFileExtractionError(
       "PDF 파일 시그니처를 확인할 수 없습니다.",
       400,
@@ -150,9 +110,7 @@ function assertPdfSignature(
   }
 }
 
-function assertDocxSignature(
-  bytes: Uint8Array
-): void {
+function assertDocxSignature(bytes: Uint8Array): void {
   const valid =
     bytes.length >= 4 &&
     bytes[0] === 0x50 &&
@@ -169,21 +127,13 @@ function assertDocxSignature(
   }
 }
 
-function normalizeExtractedText(
-  value: string
-): string {
-  return value
+function validateExtractedText(value: string): string {
+  const text = value
     .replace(/\u0000/g, "")
     .replace(/\r\n?/g, "\n")
     .replace(/[\t ]+\n/g, "\n")
     .replace(/\n{4,}/g, "\n\n\n")
     .trim();
-}
-
-function validateExtractedText(
-  value: string
-): string {
-  const text = normalizeExtractedText(value);
 
   if (!text) {
     throw new ResumeFileExtractionError(
@@ -204,20 +154,15 @@ function validateExtractedText(
   return text;
 }
 
-async function extractPdfText(
-  bytes: Uint8Array
-): Promise<string> {
+async function extractPdfText(bytes: Uint8Array): Promise<string> {
   assertPdfSignature(bytes);
 
-  const {
-    getDocument,
-  } = await import(
+  const { getDocument } = await import(
     "pdfjs-dist/legacy/build/pdf.mjs"
   );
 
   const loadingTask = getDocument({
     data: bytes,
-    isEvalSupported: false,
     useSystemFonts: false,
     verbosity: 0,
   });
@@ -235,52 +180,38 @@ async function extractPdfText(
 
     const pageTexts: string[] = [];
 
-    for (
-      let pageNumber = 1;
-      pageNumber <= document.numPages;
-      pageNumber += 1
-    ) {
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
       const page = await document.getPage(pageNumber);
       const content = await page.getTextContent();
-
       const text = content.items
-        .map((item) => {
-          if (
-            typeof item === "object" &&
-            item !== null &&
-            "str" in item &&
-            typeof item.str === "string"
-          ) {
-            return item.str;
-          }
-
-          return "";
-        })
+        .map((item) =>
+          typeof item === "object" &&
+          item !== null &&
+          "str" in item &&
+          typeof item.str === "string"
+            ? item.str
+            : ""
+        )
         .filter(Boolean)
-        .join(" ");
+        .join(" ")
+        .trim();
 
-      if (text.trim()) {
-        pageTexts.push(text.trim());
+      if (text) {
+        pageTexts.push(text);
       }
     }
 
     return pageTexts.join("\n\n");
   } finally {
-    await document.destroy();
+    await loadingTask.destroy();
   }
 }
 
-async function extractDocxText(
-  bytes: Uint8Array
-): Promise<string> {
+async function extractDocxText(bytes: Uint8Array): Promise<string> {
   assertDocxSignature(bytes);
 
-  const mammothModule =
-    await import("mammoth");
-
-  const mammoth =
-    mammothModule.default ?? mammothModule;
-
+  const mammothModule = await import("mammoth");
+  const mammoth = mammothModule.default ?? mammothModule;
   const result = await mammoth.extractRawText({
     buffer: Buffer.from(bytes),
   });
@@ -288,12 +219,8 @@ async function extractDocxText(
   return result.value;
 }
 
-function extractPlainText(
-  bytes: Uint8Array
-): string {
-  return new TextDecoder("utf-8", {
-    fatal: false,
-  }).decode(bytes);
+function extractPlainText(bytes: Uint8Array): string {
+  return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
 }
 
 export async function extractResumeTextFromFile(
@@ -309,10 +236,7 @@ export async function extractResumeTextFromFile(
     );
   }
 
-  if (
-    !Number.isFinite(file.size) ||
-    file.size <= 0
-  ) {
+  if (!Number.isFinite(file.size) || file.size <= 0) {
     throw new ResumeFileExtractionError(
       "비어 있는 파일은 업로드할 수 없습니다.",
       400,
@@ -328,23 +252,13 @@ export async function extractResumeTextFromFile(
     );
   }
 
-  const kind = resolveFileKind(
-    fileName,
-    file.type || ""
-  );
-
+  const kind = resolveFileKind(fileName, file.type || "");
   let bytes: Uint8Array;
 
   try {
-    bytes = new Uint8Array(
-      await file.arrayBuffer()
-    );
+    bytes = new Uint8Array(await file.arrayBuffer());
   } catch (error) {
-    console.error(
-      "Resume file read failed:",
-      error
-    );
-
+    console.error("Resume file read failed:", error);
     throw new ResumeFileExtractionError(
       "이력서 파일을 읽을 수 없습니다.",
       400,
@@ -363,23 +277,18 @@ export async function extractResumeTextFromFile(
   let extractedText: string;
 
   try {
-    if (kind === "PDF") {
-      extractedText = await extractPdfText(bytes);
-    } else if (kind === "DOCX") {
-      extractedText = await extractDocxText(bytes);
-    } else {
-      extractedText = extractPlainText(bytes);
-    }
+    extractedText =
+      kind === "PDF"
+        ? await extractPdfText(bytes)
+        : kind === "DOCX"
+          ? await extractDocxText(bytes)
+          : extractPlainText(bytes);
   } catch (error) {
     if (error instanceof ResumeFileExtractionError) {
       throw error;
     }
 
-    console.error(
-      "Resume file extraction failed:",
-      error
-    );
-
+    console.error("Resume file extraction failed:", error);
     throw new ResumeFileExtractionError(
       "이력서 파일에서 텍스트를 추출하지 못했습니다.",
       422,
@@ -387,9 +296,7 @@ export async function extractResumeTextFromFile(
     );
   }
 
-  const text = validateExtractedText(
-    extractedText
-  );
+  const text = validateExtractedText(extractedText);
 
   return {
     fileName,
