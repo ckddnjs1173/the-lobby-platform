@@ -54,6 +54,9 @@ export default function B2BAdminLayout({
   const isJobsPage =
     pathname.startsWith("/b2b-admin/jobs");
 
+  const isAnalyticsPage =
+    pathname.startsWith("/b2b-admin/analytics");
+
   useEffect(() => {
     if (isLoginPage) {
       setCheckingAuth(false);
@@ -191,6 +194,13 @@ export default function B2BAdminLayout({
               className={navClass(isJobsPage)}
             >
               공고 관리
+            </a>
+
+            <a
+              href="/b2b-admin/analytics"
+              className={navClass(isAnalyticsPage)}
+            >
+              채용 분석
             </a>
           </nav>
 
