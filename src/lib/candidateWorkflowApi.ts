@@ -6,6 +6,8 @@ import {
 
 import type {
   ApplicationStage,
+  CareerItem,
+  EducationItem,
 } from "../types";
 
 interface ApiSuccessResponse<T> {
@@ -30,6 +32,8 @@ export interface CreatePassiveCandidateInput {
   headline?: string;
   careerSummary?: string;
   skills?: string[];
+  careers?: CareerItem[];
+  education?: EducationItem[];
 }
 
 export interface CreatePassiveCandidateResult {
@@ -39,7 +43,19 @@ export interface CreatePassiveCandidateResult {
   accountStatus: "ACTIVE";
   createdBy: string;
   actorRole: "ADMIN" | "RECRUITER";
-  actorOrganizationId: string | null;
+  actorOrganizationId: string;
+  profileCompleteness: number;
+}
+
+export interface ResumeParseResult {
+  name: string;
+  phone: string;
+  email: string;
+  headline: string;
+  careerSummary: string;
+  skills: string[];
+  careers: CareerItem[];
+  education: EducationItem[];
   profileCompleteness: number;
 }
 
@@ -160,6 +176,18 @@ async function authorizedPost<T>(
   }
 
   return payload.data;
+}
+
+export async function parsePassiveCandidateResumeViaApi(
+  resumeText: string
+): Promise<ResumeParseResult> {
+  return authorizedPost<ResumeParseResult>(
+    "/api/b2b/candidates/parse-resume",
+    {
+      resumeText:
+        resumeText.trim(),
+    }
+  );
 }
 
 export async function createPassiveCandidateViaApi(
