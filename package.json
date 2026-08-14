@@ -17,7 +17,9 @@
     "check:phase6:interview": "node tests/phase6-interview-lifecycle-check.cjs",
     "check:phase6:transition": "node tests/phase6-interview-transition-check.cjs",
     "check:phase6:outcome": "node tests/phase6-hiring-outcome-check.cjs",
-    "check:phase6": "node --env-file=.env.local tests/phase6-regression-check.cjs"
+    "check:phase6": "node --env-file=.env.local tests/phase6-regression-check.cjs",
+    "check:phase7:communication": "node tests/phase7-communication-check.cjs",
+    "check:phase7": "node --env-file=.env.local tests/phase7-regression-check.cjs"
   },
   "dependencies": {
     "firebase": "^12.17.1",
