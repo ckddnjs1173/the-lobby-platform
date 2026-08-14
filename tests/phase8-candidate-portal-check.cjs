@@ -225,6 +225,22 @@ assert(
 );
 
 assert(
+  applicationsRoute.includes(
+    "enforcePublicCompanyNames"
+  ) &&
+    applicationsRoute.includes(
+      "displayCompany"
+    ) &&
+    applicationsRoute.includes(
+      '"채용 고객사"'
+    ) &&
+    !applicationsRoute.includes(
+      "data()?.company"
+    ),
+  "CANDIDATE_COMPANY_FALLBACK_MUST_NOT_EXPOSE_INTERNAL_COMPANY"
+);
+
+assert(
   service.includes(
     '"PROFILE_UPDATED" satisfies EventType'
   ) &&
