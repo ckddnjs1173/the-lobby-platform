@@ -11,7 +11,8 @@
     "check:phase5": "node tests/phase5-regression-check.cjs",
     "check:phase6:integrity": "node tests/phase6-passive-candidate-atomicity-check.cjs",
     "check:phase6:ai": "node tests/phase6-ai-intake-check.cjs",
-    "check:phase6:stage": "node tests/phase6-stage-policy-check.cjs"
+    "check:phase6:stage": "node tests/phase6-stage-policy-check.cjs",
+    "check:phase6:interview": "node tests/phase6-interview-lifecycle-check.cjs"
   },
   "dependencies": {
     "firebase": "^12.17.1",
