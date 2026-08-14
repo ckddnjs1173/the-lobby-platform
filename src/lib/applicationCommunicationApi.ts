@@ -31,6 +31,23 @@ export interface ApplicationCommunicationView {
   failedAt: string | null;
 }
 
+export type ApplicationCommunicationTemplateKey =
+  | "FIRST_CONTACT"
+  | "FOLLOW_UP"
+  | "INTERVIEW_SCHEDULED"
+  | "OFFER_FOLLOW_UP"
+  | "HIRED_CONFIRMATION"
+  | "REJECTION_NOTICE";
+
+export interface ApplicationCommunicationTemplateView {
+  key: ApplicationCommunicationTemplateKey;
+  label: string;
+  subject: string;
+  body: string;
+  recommended: boolean;
+  reason: string;
+}
+
 interface ApiSuccessResponse<T> {
   success: true;
   data: T;
@@ -176,6 +193,21 @@ export async function listApplicationCommunicationsViaApi(
     applicationCommunicationUrl(
       applicationId
     ),
+    {
+      method: "GET",
+    }
+  );
+}
+
+export async function listApplicationCommunicationTemplatesViaApi(
+  applicationId: string
+): Promise<ApplicationCommunicationTemplateView[]> {
+  return authorizedRequest<
+    ApplicationCommunicationTemplateView[]
+  >(
+    `${applicationCommunicationUrl(
+      applicationId
+    )}/templates`,
     {
       method: "GET",
     }
