@@ -37,14 +37,15 @@ assert(
   "DIRECT_INTERVIEW_ENTRY_GUARD_MISSING"
 );
 assert(
+  policy.includes("HIRING_OUTCOME_REQUIRED") &&
+    policy.includes('toStage === "HIRED"') &&
+    policy.includes('toStage === "REJECTED"'),
+  "DIRECT_FINAL_OUTCOME_GUARD_MISSING"
+);
+assert(
   policy.includes("OFFER:") &&
     policy.includes('"INTERVIEW"'),
   "OFFER_ENTRY_POLICY_MISSING"
-);
-assert(
-  policy.includes("HIRED:") &&
-    policy.includes('"OFFER"'),
-  "HIRED_ENTRY_POLICY_MISSING"
 );
 
 console.log("STEP_2: REOPEN_AND_BACKWARD_GUARDS");
@@ -60,6 +61,11 @@ assert(
 assert(
   policy.includes("ADMIN_OVERRIDE"),
   "ADMIN_OVERRIDE_POLICY_MISSING"
+);
+assert(
+  service.includes("HIRING_OUTCOME_CLEARED") &&
+    service.includes("FieldValue.delete()"),
+  "FINAL_OUTCOME_REOPEN_CLEANUP_MISSING"
 );
 
 console.log("STEP_3: POLICY_ENFORCED_INSIDE_STAGE_TRANSACTION");
@@ -83,7 +89,7 @@ assert(
   "STAGE_TRANSITION_AUDIT_METADATA_MISSING"
 );
 
-console.log("STEP_4: UI_PREVENTS_DIRECT_INTERVIEW_ENTRY");
+console.log("STEP_4: UI_PREVENTS_WORKFLOW_BYPASS");
 
 assert(
   slideOver.includes("단계 변경 메모") &&
@@ -92,13 +98,14 @@ assert(
 );
 assert(
   slideOver.includes('newStage === "INTERVIEW"') &&
-    slideOver.includes("면접 단계는 Stage 버튼으로 직접 변경하지 않습니다"),
-  "DETAIL_DIRECT_INTERVIEW_GUARD_MISSING"
+    slideOver.includes("OUTCOME_STAGES") &&
+    slideOver.includes("최종 채용 결과 패널"),
+  "DETAIL_WORKFLOW_STAGE_GUARD_MISSING"
 );
 assert(
-  table.includes('stage === "INTERVIEW"') &&
-    table.includes("일정 확정 필요"),
-  "TABLE_DIRECT_INTERVIEW_GUARD_MISSING"
+  table.includes("WORKFLOW_ONLY_STAGES") &&
+    table.includes("전용 처리 필요"),
+  "TABLE_WORKFLOW_STAGE_GUARD_MISSING"
 );
 
 console.log("PHASE6_STAGE_POLICY_CHECK_PASSED");
