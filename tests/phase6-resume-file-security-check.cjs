@@ -203,7 +203,7 @@ async function run() {
   assertApiError(
     unauthenticated,
     401,
-    "AUTHORIZATION_HEADER_MISSING",
+    "AUTH_TOKEN_MISSING",
     "UNAUTHENTICATED_UPLOAD"
   );
 
