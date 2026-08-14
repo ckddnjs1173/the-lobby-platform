@@ -32,6 +32,8 @@ const EVENT_LABELS: Record<
   INTERVIEW_UPDATED: "면접 일정 수정",
   INTERVIEW_COMPLETED: "면접 완료",
   INTERVIEW_CANCELED: "면접 취소",
+  HIRING_OUTCOME_RECORDED: "최종 채용 결과",
+  HIRING_OUTCOME_CLEARED: "최종 결과 재오픈",
   PROFILE_UPDATED: "프로필 갱신",
 };
 
@@ -52,6 +54,14 @@ const INTERVIEW_RESULT_LABELS: Record<
   FAIL: "불합격",
   HOLD: "보류",
   NO_SHOW: "불참",
+};
+
+const HIRING_OUTCOME_LABELS: Record<
+  string,
+  string
+> = {
+  HIRED: "입사 확정",
+  REJECTED: "불합격",
 };
 
 function formatActivityTime(
@@ -202,6 +212,57 @@ function activitySummary(
         INTERVIEW_RESULT_LABELS[result] ||
         result
       }`;
+    }
+  }
+
+  if (
+    activity.type === "HIRING_OUTCOME_RECORDED"
+  ) {
+    const status =
+      metadataString(
+        activity,
+        "status"
+      );
+    const plannedStartDate =
+      metadataString(
+        activity,
+        "plannedStartDate"
+      );
+
+    if (status) {
+      return [
+        `결과: ${
+          HIRING_OUTCOME_LABELS[status] ||
+          status
+        }`,
+        plannedStartDate
+          ? `입사 예정일 ${plannedStartDate}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    }
+  }
+
+  if (
+    activity.type === "HIRING_OUTCOME_CLEARED"
+  ) {
+    const previousStage =
+      metadataString(
+        activity,
+        "previousStage"
+      );
+    const reopenedStage =
+      metadataString(
+        activity,
+        "reopenedStage"
+      );
+
+    if (
+      previousStage &&
+      reopenedStage
+    ) {
+      return `${previousStage} → ${reopenedStage}`;
     }
   }
 
