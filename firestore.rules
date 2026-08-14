@@ -329,7 +329,23 @@ service cloud.firestore {
       /**
        * Audit Trail은 Client SDK에서 직접 접근하지 않는다.
        *
-       * 향후 Activity Timeline API를 통해 Tenant 검증 후 제공한다.
+       * Activity Timeline API를 통해 Tenant 검증 후 제공한다.
+       */
+      allow read, create, update, delete: if false;
+    }
+
+    // ========================================================================
+    // communications
+    // ========================================================================
+
+    match /communications/{communicationId} {
+
+      /**
+       * 이메일 수신자, 본문, provider message id와 실패 원인은
+       * 서버 소유 Outbox/Audit 데이터다.
+       *
+       * Client SDK 직접 접근은 모두 차단하고
+       * B2B Communication API가 Firebase Admin으로만 처리한다.
        */
       allow read, create, update, delete: if false;
     }
