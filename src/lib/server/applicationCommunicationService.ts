@@ -85,6 +85,16 @@ interface AuthorizedApplicationContext {
   company: string;
 }
 
+type CommunicationClaim =
+  | {
+      kind: "ALREADY_SENT";
+      communication: ApplicationCommunicationView;
+    }
+  | {
+      kind: "DELIVER";
+      context: AuthorizedApplicationContext;
+    };
+
 const REQUEST_ID_PATTERN =
   /^[A-Za-z0-9_-]{8,100}$/;
 
@@ -547,12 +557,7 @@ export async function sendApplicationEmail(
       .update(communicationId)
       .digest("hex")}`;
 
-  let deliveryContext:
-    AuthorizedApplicationContext | null = null;
-  let alreadySent:
-    ApplicationCommunicationView | null = null;
-
-  await db.runTransaction(
+  const claim = await db.runTransaction<CommunicationClaim>(
     async (transaction) => {
       const [
         applicationSnapshot,
@@ -588,8 +593,6 @@ export async function sendApplicationEmail(
           applicationData
         );
 
-      deliveryContext = context;
-
       if (existingSnapshot.exists) {
         const existingData =
           existingSnapshot.data();
@@ -623,8 +626,10 @@ export async function sendApplicationEmail(
         }
 
         if (existingView.status === "SENT") {
-          alreadySent = existingView;
-          return;
+          return {
+            kind: "ALREADY_SENT",
+            communication: existingView,
+          };
         }
 
         if (existingView.status === "PENDING") {
@@ -659,7 +664,10 @@ export async function sendApplicationEmail(
           }
         );
 
-        return;
+        return {
+          kind: "DELIVER",
+          context,
+        };
       }
 
       const serverTimestamp =
@@ -693,22 +701,19 @@ export async function sendApplicationEmail(
           failedAt: null,
         }
       );
+
+      return {
+        kind: "DELIVER",
+        context,
+      };
     }
   );
 
-  if (alreadySent) {
-    return alreadySent;
+  if (claim.kind === "ALREADY_SENT") {
+    return claim.communication;
   }
 
-  if (!deliveryContext) {
-    throw new ApplicationCommunicationServiceError(
-      "이메일 발송 대상 정보를 확인할 수 없습니다.",
-      500,
-      "COMMUNICATION_CONTEXT_MISSING"
-    );
-  }
-
-  const context = deliveryContext;
+  const context = claim.context;
 
   let providerResult:
     Awaited<ReturnType<typeof sendEmailWithProvider>>;
