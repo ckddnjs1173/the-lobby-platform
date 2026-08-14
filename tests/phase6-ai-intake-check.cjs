@@ -92,6 +92,11 @@ assert(
   "RESUME_FILE_TEXT_EXTRACTOR_MISSING"
 );
 assert(
+  fileService.includes("loadingTask.destroy()") &&
+    !fileService.includes("isEvalSupported"),
+  "PDFJS_LOADING_TASK_API_GUARD_MISSING"
+);
+assert(
   !fileService.includes("firebase-admin/firestore"),
   "RESUME_FILE_SERVICE_MUST_NOT_WRITE_FIRESTORE"
 );
