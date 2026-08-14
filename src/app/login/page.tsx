@@ -13,7 +13,6 @@ import {
 import Link from "next/link";
 import {
   useRouter,
-  useSearchParams,
 } from "next/navigation";
 
 import toast from "react-hot-toast";
@@ -35,15 +34,9 @@ interface FirebaseLikeError {
 
 export default function CandidateLoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const nextPath =
-    searchParams.get("next") === "/jobs"
-      ? "/jobs"
-      : "/candidate";
 
   useEffect(() => {
     return onAuthStateChanged(
@@ -55,7 +48,7 @@ export default function CandidateLoginPage() {
 
         try {
           await fetchCandidatePortalProfile();
-          router.replace(nextPath);
+          router.replace("/candidate");
         } catch (error) {
           if (
             error instanceof CandidatePortalApiError &&
@@ -66,7 +59,7 @@ export default function CandidateLoginPage() {
         }
       }
     );
-  }, [nextPath, router]);
+  }, [router]);
 
   const handleLogin = async () => {
     const normalizedEmail =
@@ -91,7 +84,7 @@ export default function CandidateLoginPage() {
       try {
         await fetchCandidatePortalProfile();
         toast.success("로그인했습니다.");
-        router.replace(nextPath);
+        router.replace("/candidate");
       } catch (profileError) {
         if (
           profileError instanceof CandidatePortalApiError &&
