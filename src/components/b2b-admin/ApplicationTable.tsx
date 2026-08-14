@@ -170,6 +170,7 @@ export default function ApplicationTable({
                               .value as ApplicationStage
                           )
                         }
+                        title="면접 단계 이동은 칸반에서 면접 일정을 확정하며 처리합니다."
                         className="text-xs bg-white border border-slate-200 rounded-lg px-3 py-1.5 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-navy/20"
                       >
                         {Object.entries(
@@ -178,8 +179,15 @@ export default function ApplicationTable({
                           <option
                             key={stage}
                             value={stage}
+                            disabled={
+                              stage === "INTERVIEW" &&
+                              application.stage !== "INTERVIEW"
+                            }
                           >
-                            {label}
+                            {stage === "INTERVIEW" &&
+                            application.stage !== "INTERVIEW"
+                              ? `${label} · 일정 확정 필요`
+                              : label}
                           </option>
                         ))}
                       </select>
