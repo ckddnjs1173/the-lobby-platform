@@ -101,12 +101,36 @@ assert(
 );
 assert(
   service.includes(
+    "transaction.get(applicationRef)"
+  ) &&
+    service.includes(
+      "transaction.get(communicationRef)"
+    ) &&
+    service.includes(
+      "buildAuthorizedApplicationContext"
+    ),
+  "COMMUNICATION_AUTHORIZATION_MUST_BE_TRANSACTIONAL"
+);
+assert(
+  service.includes(
     "COMMUNICATION_REQUEST_ID_REUSED"
   ) &&
     service.includes(
-      "COMMUNICATION_IN_PROGRESS"
+      "COMMUNICATION_DELIVERY_STATE_UNKNOWN"
+    ) &&
+    service.includes(
+      "SAFE_PENDING_RETRY_WINDOW_MS"
     ),
   "COMMUNICATION_REQUEST_ID_GUARDS_MISSING"
+);
+assert(
+  service.includes(
+    'createHash("sha256")'
+  ) &&
+    service.includes(
+      "providerIdempotencyKey"
+    ),
+  "COMMUNICATION_PROVIDER_IDEMPOTENCY_KEY_MISSING"
 );
 assert(
   service.includes(
