@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -46,6 +47,35 @@ import type {
 import ApplicationTable from "../../components/b2b-admin/ApplicationTable";
 import ApplicationKanban from "../../components/b2b-admin/ApplicationKanban";
 import ApplicationSlideOver from "../../components/b2b-admin/ApplicationSlideOver";
+
+const STAGE_LABELS: Record<
+  ApplicationStage,
+  string
+> = {
+  NEW: "신규지원",
+  REVIEWING: "검토중",
+  CONTACTED: "연락완료",
+  RECOMMEND_PENDING: "추천예정",
+  RECOMMENDED: "추천완료",
+  DOCUMENT_SCREEN: "서류전형",
+  INTERVIEW: "면접진행",
+  OFFER: "처우협의",
+  HIRED: "합격입사",
+  HOLD: "보류",
+  REJECTED: "불합격",
+  CANCELED: "지원취소",
+};
+
+const ACTIVE_PIPELINE_STAGES = new Set<ApplicationStage>([
+  "NEW",
+  "REVIEWING",
+  "CONTACTED",
+  "RECOMMEND_PENDING",
+  "RECOMMENDED",
+  "DOCUMENT_SCREEN",
+  "INTERVIEW",
+  "OFFER",
+]);
 
 // ============================================================================
 // View Helpers
@@ -236,6 +266,23 @@ export default function B2BAdminPage() {
   >("TABLE");
 
   const [
+    searchQuery,
+    setSearchQuery,
+  ] = useState("");
+
+  const [
+    stageFilter,
+    setStageFilter,
+  ] = useState<
+    ApplicationStage | "ALL"
+  >("ALL");
+
+  const [
+    jobFilter,
+    setJobFilter,
+  ] = useState("ALL");
+
+  const [
     selectedApp,
     setSelectedApp,
   ] =
@@ -353,6 +400,150 @@ export default function B2BAdminPage() {
     session.role,
     session.organizationId,
   ]);
+
+  useEffect(() => {
+    setSearchQuery("");
+    setStageFilter("ALL");
+    setJobFilter("ALL");
+  }, [
+    session.role,
+    session.organizationId,
+  ]);
+
+  // ==========================================================================
+  // Pipeline Filters / Summary
+  // ==========================================================================
+
+  const jobOptions = useMemo(() => {
+    const jobs = new Map<
+      string,
+      {
+        jobId: string;
+        label: string;
+      }
+    >();
+
+    for (const application of applications) {
+      if (jobs.has(application.jobId)) {
+        continue;
+      }
+
+      jobs.set(
+        application.jobId,
+        {
+          jobId: application.jobId,
+          label:
+            `${application.jobTitle} · ${application.company}`,
+        }
+      );
+    }
+
+    return Array.from(jobs.values()).sort(
+      (a, b) =>
+        a.label.localeCompare(
+          b.label,
+          "ko"
+        )
+    );
+  }, [applications]);
+
+  const filteredApplications = useMemo(() => {
+    const normalizedQuery =
+      searchQuery
+        .trim()
+        .toLocaleLowerCase("ko-KR");
+
+    return applications.filter(
+      (application) => {
+        if (
+          stageFilter !== "ALL" &&
+          application.stage !== stageFilter
+        ) {
+          return false;
+        }
+
+        if (
+          jobFilter !== "ALL" &&
+          application.jobId !== jobFilter
+        ) {
+          return false;
+        }
+
+        if (!normalizedQuery) {
+          return true;
+        }
+
+        const searchableText = [
+          application.candidateName,
+          application.candidatePhone,
+          application.candidateEmail,
+          application.jobTitle,
+          application.company,
+        ]
+          .join(" ")
+          .toLocaleLowerCase("ko-KR");
+
+        return searchableText.includes(
+          normalizedQuery
+        );
+      }
+    );
+  }, [
+    applications,
+    jobFilter,
+    searchQuery,
+    stageFilter,
+  ]);
+
+  const activeCount = useMemo(
+    () =>
+      applications.filter(
+        (application) =>
+          ACTIVE_PIPELINE_STAGES.has(
+            application.stage
+          )
+      ).length,
+    [applications]
+  );
+
+  const attentionCount = useMemo(
+    () =>
+      applications.filter(
+        (application) =>
+          application.stage === "NEW" ||
+          application.stage === "REVIEWING"
+      ).length,
+    [applications]
+  );
+
+  const interviewCount = useMemo(
+    () =>
+      applications.filter(
+        (application) =>
+          application.stage === "INTERVIEW"
+      ).length,
+    [applications]
+  );
+
+  const hiredCount = useMemo(
+    () =>
+      applications.filter(
+        (application) =>
+          application.stage === "HIRED"
+      ).length,
+    [applications]
+  );
+
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 ||
+    stageFilter !== "ALL" ||
+    jobFilter !== "ALL";
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setStageFilter("ALL");
+    setJobFilter("ALL");
+  };
 
   // ==========================================================================
   // Application Detail
@@ -633,6 +824,15 @@ export default function B2BAdminPage() {
               {applications.length}건
             </span>
             의 지원 내역이 실시간 연동되어 있습니다.
+            {hasActiveFilters && (
+              <>
+                {" "}현재 필터 결과{" "}
+                <span className="font-semibold text-brand-navy">
+                  {filteredApplications.length}건
+                </span>
+                입니다.
+              </>
+            )}
           </p>
         </div>
 
@@ -673,12 +873,124 @@ export default function B2BAdminPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <p className="text-[11px] font-bold text-slate-400">
+            진행중
+          </p>
+          <p className="mt-1 text-xl font-bold text-slate-900">
+            {activeCount}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <p className="text-[11px] font-bold text-slate-400">
+            신규 · 검토 필요
+          </p>
+          <p className="mt-1 text-xl font-bold text-slate-900">
+            {attentionCount}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <p className="text-[11px] font-bold text-slate-400">
+            면접 진행
+          </p>
+          <p className="mt-1 text-xl font-bold text-slate-900">
+            {interviewCount}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <p className="text-[11px] font-bold text-slate-400">
+            합격 · 입사
+          </p>
+          <p className="mt-1 text-xl font-bold text-slate-900">
+            {hiredCount}
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_220px_minmax(260px,1fr)_auto]">
+          <input
+            value={searchQuery}
+            onChange={(event) =>
+              setSearchQuery(
+                event.target.value
+              )
+            }
+            placeholder="지원자 이름, 연락처, 이메일, 공고, 기업 검색"
+            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-brand-navy"
+          />
+
+          <select
+            value={stageFilter}
+            onChange={(event) =>
+              setStageFilter(
+                event.target.value as
+                  | ApplicationStage
+                  | "ALL"
+              )
+            }
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-brand-navy"
+          >
+            <option value="ALL">
+              모든 단계
+            </option>
+
+            {Object.entries(
+              STAGE_LABELS
+            ).map(([stage, label]) => (
+              <option
+                key={stage}
+                value={stage}
+              >
+                {label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={jobFilter}
+            onChange={(event) =>
+              setJobFilter(
+                event.target.value
+              )
+            }
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-brand-navy"
+          >
+            <option value="ALL">
+              모든 공고
+            </option>
+
+            {jobOptions.map((job) => (
+              <option
+                key={job.jobId}
+                value={job.jobId}
+              >
+                {job.label}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={resetFilters}
+            disabled={!hasActiveFilters}
+            className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            필터 초기화
+          </button>
+        </div>
+      </div>
+
       <div className="flex-1 min-h-[500px]">
         {viewMode ===
         "TABLE" ? (
           <ApplicationTable
             applications={
-              applications
+              filteredApplications
             }
             onSelectApplication={
               handleSelectApplication
@@ -696,7 +1008,7 @@ export default function B2BAdminPage() {
         ) : (
           <ApplicationKanban
             applications={
-              applications
+              filteredApplications
             }
             onStageChange={(
               id,
