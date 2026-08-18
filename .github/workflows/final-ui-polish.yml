@@ -1,0 +1,69 @@
+name: Final UI Polish
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_FIREBASE_API_KEY: ci-placeholder
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ci.example.invalid
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: the-lobby-platform
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ci.example.invalid
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+      NEXT_PUBLIC_FIREBASE_APP_ID: 1:000000000000:web:ci
+      GROQ_API_KEY: ci-placeholder
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - name: Apply final upload UI polish
+        run: python scripts/apply-final-ui-polish.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Frontend/backend contract gate
+        run: npm run check:final:integration
+
+      - name: Dependency security gate
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Production readiness static gate
+        run: npm run check:phase10:static
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit validated source polish
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/register/page.tsx
+          if git diff --cached --quiet; then
+            echo "No source polish to commit"
+            exit 0
+          fi
+          git commit -m "Polish Candidate resume file picker"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
