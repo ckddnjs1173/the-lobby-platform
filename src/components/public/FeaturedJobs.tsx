@@ -2,18 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
 
-import { db } from "../../lib/firebase";
 import {
   formatJobEmploymentType,
   formatJobLocation,
   formatJobSalary,
   getJobDisplayCompany,
   getJobImage,
-  getJobTimestampMillis,
 } from "../../lib/jobPresentation";
-import type { Job } from "../../types";
+import { fetchPublicJobs } from "../../lib/publicJobApi";
+import type { PublicJobView } from "../../lib/publicJobTypes";
 
 function gridClass(count: number): string {
   if (count === 1) return "grid max-w-[430px] gap-4";
@@ -31,30 +29,27 @@ function ArrowIcon() {
 }
 
 export default function FeaturedJobs() {
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<PublicJobView[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const jobsQuery = query(collection(db, "jobs"), where("status", "==", "OPEN"));
+    let cancelled = false;
 
-    return onSnapshot(
-      jobsQuery,
-      (snapshot) => {
-        const items = snapshot.docs
-          .map((document) => ({ jobId: document.id, ...document.data() }) as Job)
-          .sort(
-            (a, b) =>
-              getJobTimestampMillis(b.createdAt) - getJobTimestampMillis(a.createdAt)
-          );
+    fetchPublicJobs()
+      .then((items) => {
+        if (!cancelled) setJobs(items);
+      })
+      .catch((error) => {
+        console.error("Featured public jobs load failed:", error);
+        if (!cancelled) setJobs([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-        setJobs(items);
-        setLoading(false);
-      },
-      () => {
-        setJobs([]);
-        setLoading(false);
-      }
-    );
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const featuredJobs = useMemo(() => jobs.slice(0, 4), [jobs]);
