@@ -39,6 +39,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Core launch workflows gate
+        run: npm run check:core-workflows
+
       - name: Frontend/backend contract gate
         run: npm run check:final:integration
 
