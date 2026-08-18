@@ -1,4 +1,4 @@
-name: Read Production Runtime Diagnostic
+name: Production Post-Deploy Smoke
 
 on:
   pull_request:
@@ -9,18 +9,51 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Read sanitized production diagnostic
+      - name: Verify production endpoints
         env:
           PRODUCTION_BASE_URL: https://the-lobby-platform-ten.vercel.app
         shell: bash
         run: |
           set -euo pipefail
-          status="$(curl -sS -L -o /tmp/diagnostic -w '%{http_code}' "$PRODUCTION_BASE_URL/api/runtime-diagnostic")"
-          echo "PRODUCTION_DIAGNOSTIC_STATUS:$status"
-          cat /tmp/diagnostic
-          echo
-          test "$status" = "200"
+          failures=0
+          check_status() {
+            path="$1"
+            expected="$2"
+            rm -f /tmp/body
+            status="$(curl -sS -L -o /tmp/body -w '%{http_code}' "$PRODUCTION_BASE_URL$path")"
+            echo "$path STATUS:$status EXPECTED:$expected"
+            if [ "$status" != "$expected" ]; then
+              echo "BODY_BEGIN"
+              head -c 1200 /tmp/body || true
+              echo
+              echo "BODY_END"
+              failures=$((failures + 1))
+            fi
+          }
+
+          check_status /api/health 200
+          check_status /api/readiness 200
+          check_status /api/public/jobs 200
+          check_status /api/candidate/me 401
+          check_status /api/b2b/session 401
+          check_status / 200
+          check_status /jobs 200
+          check_status /login 200
+          check_status /register 200
+          check_status /b2b-admin/login 200
+
+          diagnostic="$(curl -sS -L "$PRODUCTION_BASE_URL/api/runtime-diagnostic")"
+          echo "RUNTIME_DIAGNOSTIC:$diagnostic"
+          if ! printf '%s' "$diagnostic" | grep -q '"authImport":"ok"'; then failures=$((failures + 1)); fi
+          if ! printf '%s' "$diagnostic" | grep -q '"firestoreRead":"ok"'; then failures=$((failures + 1)); fi
+
+          readiness="$(curl -sS -L "$PRODUCTION_BASE_URL/api/readiness")"
+          echo "READINESS_BODY:$readiness"
+          if ! printf '%s' "$readiness" | grep -q '"ready":true'; then failures=$((failures + 1)); fi
+
+          echo "PRODUCTION_SMOKE_FAILURES:$failures"
+          exit "$failures"
