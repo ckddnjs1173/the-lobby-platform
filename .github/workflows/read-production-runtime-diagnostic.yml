@@ -1,0 +1,26 @@
+name: Read Production Runtime Diagnostic
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read sanitized production diagnostic
+        env:
+          PRODUCTION_BASE_URL: https://the-lobby-platform-ten.vercel.app
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl -sS -L -o /tmp/diagnostic -w '%{http_code}' "$PRODUCTION_BASE_URL/api/runtime-diagnostic")"
+          echo "PRODUCTION_DIAGNOSTIC_STATUS:$status"
+          cat /tmp/diagnostic
+          echo
+          test "$status" = "200"
