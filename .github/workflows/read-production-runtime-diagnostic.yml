@@ -1,4 +1,4 @@
-name: Production Post-Deploy Smoke
+name: Final Production Smoke
 
 on:
   pull_request:
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify production endpoints
+      - name: Verify final production endpoints
         env:
           PRODUCTION_BASE_URL: https://the-lobby-platform-ten.vercel.app
         shell: bash
@@ -45,18 +45,17 @@ jobs:
           check_status /login 200
           check_status /register 200
           check_status /b2b-admin/login 200
-
-          diagnostic="$(curl -sS -L "$PRODUCTION_BASE_URL/api/runtime-diagnostic")"
-          echo "RUNTIME_DIAGNOSTIC:$diagnostic"
-          if ! printf '%s' "$diagnostic" | grep -q '"authImport":"ok"'; then failures=$((failures + 1)); fi
-          if ! printf '%s' "$diagnostic" | grep -q '"firestoreRead":"ok"'; then failures=$((failures + 1)); fi
+          check_status /api/runtime-diagnostic 404
 
           readiness="$(curl -sS -L "$PRODUCTION_BASE_URL/api/readiness")"
           echo "READINESS_BODY:$readiness"
           if ! printf '%s' "$readiness" | grep -q '"status":"ready"'; then failures=$((failures + 1)); fi
           if ! printf '%s' "$readiness" | grep -q '"environment":true'; then failures=$((failures + 1)); fi
           if ! printf '%s' "$readiness" | grep -q '"firestore":true'; then failures=$((failures + 1)); fi
+          if ! printf '%s' "$readiness" | grep -q '"candidateAuth":true'; then failures=$((failures + 1)); fi
+          if ! printf '%s' "$readiness" | grep -q '"aiResumeAndJobParsing":true'; then failures=$((failures + 1)); fi
           if ! printf '%s' "$readiness" | grep -q '"communicationMode":"MANUAL"'; then failures=$((failures + 1)); fi
+          if ! printf '%s' "$readiness" | grep -q '"revision":"038f5a37e29027ddd6db3c94f6e03c836c9270f0"'; then failures=$((failures + 1)); fi
 
-          echo "PRODUCTION_SMOKE_FAILURES:$failures"
+          echo "FINAL_PRODUCTION_SMOKE_FAILURES:$failures"
           exit "$failures"
