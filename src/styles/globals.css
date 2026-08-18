@@ -90,13 +90,9 @@ body {
 .focus\:border-brand-gold:focus { border-color: #98642f !important; }
 
 .bg-brand-navy.text-brand-gold,
-.bg-brand-gold.text-brand-navy {
-  color: #fffdfa !important;
-}
+.bg-brand-gold.text-brand-navy { color: #fffdfa !important; }
 
-.hover\:bg-yellow-400:hover {
-  background-color: #815326 !important;
-}
+.hover\:bg-yellow-400:hover { background-color: #815326 !important; }
 
 .shadow-xl,
 .shadow-lg,
@@ -120,28 +116,47 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* Candidate surfaces */
 .candidate-surface .rounded-3xl,
 .candidate-surface .rounded-2xl { border-radius: 14px !important; }
 
-.candidate-surface .bg-white { background-color: rgba(255, 253, 250, 0.96) !important; }
+.candidate-surface .bg-white { background-color: rgba(255, 253, 250, 0.97) !important; }
 
 .candidate-surface input,
 .candidate-surface textarea,
 .candidate-surface select { background-color: #fffdfa; }
 
+body:has(a[href="/candidate"]) main {
+  background-image: radial-gradient(circle at 90% 0%, rgba(152, 100, 47, 0.045), transparent 28rem);
+}
+
+/* Recruiting OS */
 .b2b-workspace {
   background:
     radial-gradient(circle at 100% 0%, rgba(152, 100, 47, 0.055), transparent 34rem),
     #f8f3eb;
 }
 
-.b2b-workspace .bg-white { background-color: rgba(255, 253, 250, 0.98) !important; }
+.b2b-workspace .bg-white { background-color: rgba(255, 253, 250, 0.99) !important; }
 
 .b2b-workspace .rounded-3xl,
 .b2b-workspace .rounded-2xl { border-radius: 12px !important; }
 
+.b2b-workspace table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
 .b2b-workspace table thead tr { background-color: #f8f3eb !important; }
+.b2b-workspace table tbody tr { transition: background-color 140ms ease; }
 .b2b-workspace table tbody tr:hover { background-color: rgba(248, 243, 235, 0.78) !important; }
+
+.b2b-workspace th {
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+
+.b2b-workspace td { vertical-align: middle; }
 
 .b2b-workspace input,
 .b2b-workspace textarea,
@@ -156,6 +171,40 @@ a:focus-visible {
 .b2b-workspace .font-mono {
   font-family: inherit !important;
   letter-spacing: -0.01em;
+}
+
+.b2b-workspace .shadow-sm,
+.b2b-workspace .shadow-md,
+.b2b-workspace .shadow-lg {
+  box-shadow: 0 7px 24px rgba(84, 55, 31, 0.055) !important;
+}
+
+.b2b-workspace section.rounded-2xl,
+.b2b-workspace section.rounded-xl {
+  border-color: #e3d8cb !important;
+}
+
+.b2b-workspace [class*="bg-amber-50"] { background-color: #fff7ea !important; }
+.b2b-workspace [class*="bg-indigo-50"] { background-color: #f5f1eb !important; }
+.b2b-workspace [class*="bg-emerald-50"] { background-color: #f1f6ef !important; }
+
+/* Analytics: calmer dashboard density and stronger data hierarchy. */
+.b2b-workspace .grid > .rounded-2xl.border.bg-white.p-5 {
+  min-height: 116px;
+  padding: 18px !important;
+}
+
+.b2b-workspace .grid > .rounded-2xl.border.bg-white.p-5 > div:nth-child(2) {
+  font-family: "Gowun Batang", "Noto Serif KR", serif;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.b2b-workspace [class*="bg-brand-gold"] { background-color: #98642f !important; }
+.b2b-workspace [class*="bg-slate-800"] { background-color: #4b3322 !important; }
+
+@media (max-width: 1023px) {
+  .b2b-workspace { padding-bottom: 40px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
