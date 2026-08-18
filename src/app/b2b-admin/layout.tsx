@@ -67,12 +67,17 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
   const pathname = usePathname();
   const [session, setSession] = useState<B2BSession | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const isLoginPage = pathname === "/b2b-admin/login";
   const isApplicationsPage = pathname === "/b2b-admin";
   const isCandidatesPage = pathname.startsWith("/b2b-admin/candidates");
   const isJobsPage = pathname.startsWith("/b2b-admin/jobs");
   const isAnalyticsPage = pathname.startsWith("/b2b-admin/analytics");
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (isLoginPage) {
@@ -161,9 +166,33 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
         : "지원자 진행 상황을 빠르게 파악하고 다음 액션을 관리합니다.";
 
   const handleSignOut = async () => {
+    setMobileOpen(false);
     await signOut(auth);
     router.replace("/b2b-admin/login");
   };
+
+  const NavLinks = ({ mobile = false }: { mobile?: boolean }) => (
+    <>
+      {navItems.map((item) => (
+        <Link
+          key={`${mobile ? "mobile-" : ""}${item.href}`}
+          href={item.href}
+          onClick={() => mobile && setMobileOpen(false)}
+          className={`flex items-center gap-3 rounded-lg px-3 py-3 transition ${
+            item.active
+              ? "bg-brand-bronze text-white shadow-card"
+              : "text-brand-ink/75 hover:bg-white hover:text-brand-bronze"
+          }`}
+        >
+          <NavIcon type={item.icon} />
+          <div className="min-w-0">
+            <div className="text-[13px] font-bold">{item.label}</div>
+            <div className={`mt-0.5 truncate text-[9px] ${item.active ? "text-white/65" : "text-brand-muted"}`}>{item.caption}</div>
+          </div>
+        </Link>
+      ))}
+    </>
+  );
 
   return (
     <B2BSessionProvider session={session}>
@@ -179,75 +208,62 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
 
           <nav className="flex-1 space-y-1.5 px-3 py-6">
             <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-[0.22em] text-brand-muted">Workspace</p>
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-3 transition ${
-                  item.active
-                    ? "bg-brand-bronze text-white shadow-card"
-                    : "text-brand-ink/75 hover:bg-white hover:text-brand-bronze"
-                }`}
-              >
-                <NavIcon type={item.icon} />
-                <div className="min-w-0">
-                  <div className="text-[13px] font-bold">{item.label}</div>
-                  <div className={`mt-0.5 truncate text-[9px] ${item.active ? "text-white/65" : "text-brand-muted"}`}>{item.caption}</div>
-                </div>
-              </Link>
-            ))}
-
+            <NavLinks />
             <div className="my-5 border-t border-brand-line" />
             <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-[0.22em] text-brand-muted">Quick Action</p>
-            <Link
-              href="/b2b-admin/candidates/new"
-              className="flex items-center justify-between rounded-lg border border-brand-gold/30 bg-white px-3 py-3 text-[12px] font-bold text-brand-bronze transition hover:border-brand-gold/55 hover:shadow-card"
-            >
-              신규 후보자 등록
-              <span aria-hidden="true">＋</span>
+            <Link href="/b2b-admin/candidates/new" className="flex items-center justify-between rounded-lg border border-brand-gold/30 bg-white px-3 py-3 text-[12px] font-bold text-brand-bronze transition hover:shadow-card">
+              신규 후보자 등록 <span aria-hidden="true">＋</span>
             </Link>
           </nav>
 
           <div className="border-t border-brand-line p-3">
             <div className="rounded-xl border border-brand-line bg-white p-3.5">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-ivory text-xs font-bold text-brand-bronze">
-                  {session.name.slice(0, 1)}
-                </div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-ivory text-xs font-bold text-brand-bronze">{session.name.slice(0, 1)}</div>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-bold text-brand-espresso">{session.name}</div>
                   <div className="mt-0.5 truncate text-[9px] text-brand-muted">{session.role} · {session.organizationId || "전체 조직"}</div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => void handleSignOut()}
-                className="mt-3 w-full rounded-lg border border-brand-line px-3 py-2 text-[10px] font-semibold text-brand-muted transition hover:bg-brand-ivory hover:text-brand-bronze"
-              >
-                로그아웃
-              </button>
+              <button type="button" onClick={() => void handleSignOut()} className="mt-3 w-full rounded-lg border border-brand-line px-3 py-2 text-[10px] font-semibold text-brand-muted hover:bg-brand-ivory">로그아웃</button>
             </div>
-            <p className="mt-3 text-center text-[8px] text-brand-muted">© 2026 The Lobby by J&C</p>
           </div>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex min-h-[88px] shrink-0 items-center justify-between gap-5 border-b border-brand-line bg-brand-light/95 px-5 backdrop-blur sm:px-7 lg:px-8">
+          <header className="relative flex min-h-[88px] shrink-0 items-center justify-between gap-4 border-b border-brand-line bg-brand-light/95 px-4 backdrop-blur sm:px-7 lg:px-8">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-brand-bronze">
-                J&C Recruiting OS
-                <span className="h-px w-5 bg-brand-gold/45" />
-              </div>
-              <h1 className="font-editorial mt-1 truncate text-[24px] tracking-[-0.04em] text-brand-espresso">{pageTitle}</h1>
+              <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-brand-bronze">J&C Recruiting OS <span className="h-px w-5 bg-brand-gold/45" /></div>
+              <h1 className="font-editorial mt-1 truncate text-[22px] tracking-[-0.04em] text-brand-espresso sm:text-[24px]">{pageTitle}</h1>
               <p className="mt-0.5 hidden text-[10px] text-brand-muted sm:block">{pageCaption}</p>
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <div className="rounded-lg border border-brand-line bg-white px-4 py-2.5 text-[10px] font-semibold text-brand-espresso shadow-card">
-                {session.name}
-                <span className="ml-2 text-brand-muted">{session.role}</span>
+              <div className="hidden rounded-lg border border-brand-line bg-white px-4 py-2.5 text-[10px] font-semibold text-brand-espresso shadow-card sm:block">
+                {session.name}<span className="ml-2 text-brand-muted">{session.role}</span>
               </div>
+              <button
+                type="button"
+                aria-label={mobileOpen ? "관리자 메뉴 닫기" : "관리자 메뉴 열기"}
+                aria-expanded={mobileOpen}
+                onClick={() => setMobileOpen((value) => !value)}
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-brand-line bg-white text-brand-espresso lg:hidden"
+              >
+                <span aria-hidden="true" className="text-lg leading-none">{mobileOpen ? "×" : "☰"}</span>
+              </button>
             </div>
+
+            {mobileOpen ? (
+              <div className="absolute left-0 right-0 top-full z-40 border-b border-brand-line bg-brand-light p-4 shadow-soft lg:hidden">
+                <div className="mb-3 rounded-lg border border-brand-line bg-white p-3 text-xs">
+                  <div className="font-bold text-brand-espresso">{session.name}</div>
+                  <div className="mt-1 text-[10px] text-brand-muted">{session.role} · {session.organizationId || "전체 조직"}</div>
+                </div>
+                <nav className="space-y-1"><NavLinks mobile /></nav>
+                <Link href="/b2b-admin/candidates/new" onClick={() => setMobileOpen(false)} className="mt-3 flex items-center justify-between rounded-lg border border-brand-gold/30 bg-white px-3 py-3 text-xs font-bold text-brand-bronze">신규 후보자 등록 <span>＋</span></Link>
+                <button type="button" onClick={() => void handleSignOut()} className="mt-3 w-full rounded-lg bg-brand-espresso px-3 py-3 text-xs font-bold text-white">로그아웃</button>
+              </div>
+            ) : null}
           </header>
 
           <main className="b2b-workspace flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7">
