@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { onAuthStateChanged, signInWithEmailAndPassword } from "firebase/auth";
+import { useCallback, useEffect, useState } from "react";
+import {
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -23,10 +27,11 @@ export default function CandidateLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
-  const returnAfterAuthentication = () => {
+  const returnAfterAuthentication = useCallback(() => {
     router.replace(consumeCandidateReturnPath() || "/candidate");
-  };
+  }, [router]);
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (user) => {
@@ -44,7 +49,7 @@ export default function CandidateLoginPage() {
         }
       }
     });
-  }, [router]);
+  }, [returnAfterAuthentication, router]);
 
   const handleLogin = async () => {
     const normalizedEmail = email.trim().toLowerCase();
@@ -91,6 +96,33 @@ export default function CandidateLoginPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      toast.error("비밀번호 재설정 메일을 받을 이메일을 입력해주세요.");
+      return;
+    }
+
+    setResettingPassword(true);
+
+    try {
+      await sendPasswordResetEmail(auth, normalizedEmail);
+      toast.success("비밀번호 재설정 메일을 보냈습니다. 받은편지함을 확인해주세요.");
+    } catch (error) {
+      console.error("Candidate password reset failed:", error);
+      const firebaseError = error as FirebaseLikeError;
+
+      if (firebaseError.code === "auth/invalid-email") {
+        toast.error("이메일 형식을 확인해주세요.");
+      } else {
+        toast.error("비밀번호 재설정 메일을 보내지 못했습니다.");
+      }
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -163,11 +195,22 @@ export default function CandidateLoginPage() {
               </label>
             </div>
 
+            <div className="mt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => void handlePasswordReset()}
+                disabled={resettingPassword || loading}
+                className="text-[11px] font-bold text-brand-bronze hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {resettingPassword ? "재설정 메일 발송 중..." : "비밀번호를 잊으셨나요?"}
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={() => void handleLogin()}
-              disabled={loading}
-              className="mt-6 w-full rounded-lg bg-brand-bronze py-3.5 text-sm font-bold text-white shadow-card transition hover:bg-brand-espresso disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={loading || resettingPassword}
+              className="mt-5 w-full rounded-lg bg-brand-bronze py-3.5 text-sm font-bold text-white shadow-card transition hover:bg-brand-espresso disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "로그인 중..." : "로그인"}
             </button>
