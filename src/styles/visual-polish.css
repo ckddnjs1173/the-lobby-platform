@@ -1,0 +1,26 @@
+@import url("https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap");
+
+body {
+  font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.font-editorial {
+  font-family: "Gowun Batang", "Noto Serif KR", "AppleMyungjo", "Batang", serif;
+  letter-spacing: -0.025em;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+@media (min-width: 1024px) {
+  .public-shell {
+    --public-container: 1440px;
+    --public-content: 1320px;
+  }
+}
