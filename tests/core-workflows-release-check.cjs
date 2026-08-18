@@ -75,9 +75,12 @@ assert(
 );
 
 console.log("STEP_4: MANUAL_COMMUNICATION_RELEASE_MODE");
+const requiredKeysBlock = envValidator.match(/const requiredKeys = \[[\s\S]*?\];/)?.[0] || "";
 assert(
   envValidator.includes("COMMUNICATION_MODE=MANUAL") &&
-    !envValidator.match(/requiredKeys[\s\S]*?"RESEND_API_KEY"/) &&
+    !requiredKeysBlock.includes("RESEND_API_KEY") &&
+    !requiredKeysBlock.includes("COMMUNICATION_FROM_EMAIL") &&
+    !requiredKeysBlock.includes("COMMUNICATION_EMAIL_PROVIDER") &&
     readinessRoute.includes('communicationMode: emailAutomation ? "RESEND" : "MANUAL"') &&
     readinessRoute.includes("aiResumeAndJobParsing"),
   "MANUAL_COMMUNICATION_RELEASE_MODE_INCOMPLETE"
