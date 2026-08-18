@@ -146,10 +146,13 @@ assert(
 
 assert(
   registerPage.includes(
-    "이력서 없이 직접 입력"
+    "이름, 연락처, 이메일은 필수 입력 항목입니다"
   ) &&
     registerPage.includes(
       "hasAuthenticatedAccount"
+    ) &&
+    registerPage.includes(
+      "직접 검토해 저장하세요"
     ),
   "REGISTRATION_RECOVERY_OR_MANUAL_PATH_MISSING"
 );
@@ -163,7 +166,13 @@ assert(
     "signInWithEmailAndPassword"
   ) &&
     loginPage.includes(
-      'router.replace("/candidate")'
+      "consumeCandidateReturnPath"
+    ) &&
+    loginPage.includes(
+      '|| "/candidate"'
+    ) &&
+    loginPage.includes(
+      "fetchCandidatePortalProfile"
     ),
   "CANDIDATE_LOGIN_FLOW_MISSING"
 );
