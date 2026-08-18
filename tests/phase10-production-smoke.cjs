@@ -23,6 +23,19 @@ const checks = [
       );
     },
   },
+  {
+    path: "/api/readiness",
+    validate: async (response) => {
+      const body = await response.json();
+      return (
+        response.status === 200 &&
+        body?.status === "ready" &&
+        body?.service === "the-lobby-platform" &&
+        body?.checks?.environment === true &&
+        body?.checks?.firestore === true
+      );
+    },
+  },
   { path: "/", expectedStatus: 200 },
   { path: "/jobs", expectedStatus: 200 },
   { path: "/login", expectedStatus: 200 },
