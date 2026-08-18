@@ -21,30 +21,40 @@ jobs:
         with:
           node-version: 22
 
-      - name: Run production smoke
-        env:
-          PRODUCTION_BASE_URL: https://the-lobby-platform-ten.vercel.app
-        run: node tests/phase10-production-smoke.cjs
-
-      - name: Verify additional public/auth boundaries
+      - name: Diagnose production endpoints
         env:
           PRODUCTION_BASE_URL: https://the-lobby-platform-ten.vercel.app
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
+          failures=0
           check_status() {
             path="$1"
             expected="$2"
-            status="$(curl -sS -L -o /tmp/response-body -w '%{http_code}' "$PRODUCTION_BASE_URL$path")"
-            echo "$path: $status (expected $expected)"
+            rm -f /tmp/headers /tmp/body
+            status="$(curl -sS -L -D /tmp/headers -o /tmp/body -w '%{http_code}' "$PRODUCTION_BASE_URL$path" || echo CURL_FAILED)"
+            echo "===== $path ====="
+            echo "STATUS:$status EXPECTED:$expected"
+            grep -Ei '^(content-type|content-length|x-vercel-error|server|cache-control):' /tmp/headers 2>/dev/null || true
+            echo "BODY_BEGIN"
+            head -c 2000 /tmp/body 2>/dev/null || true
+            echo
+            echo "BODY_END"
             if [ "$status" != "$expected" ]; then
-              echo "Unexpected response body:"
-              head -c 1000 /tmp/response-body || true
-              exit 1
+              failures=$((failures + 1))
             fi
           }
+
+          check_status /api/health 200
+          check_status /api/readiness 200
+          check_status / 200
+          check_status /jobs 200
+          check_status /login 200
           check_status /register 200
+          check_status /b2b-admin/login 200
           check_status /api/public/jobs 200
           check_status /api/candidate/me 401
           check_status /api/b2b/session 401
-          echo "ADDITIONAL_PRODUCTION_BOUNDARY_CHECKS_PASSED"
+
+          echo "PRODUCTION_SMOKE_FAILURES:$failures"
+          exit "$failures"
