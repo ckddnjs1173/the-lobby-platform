@@ -1,0 +1,73 @@
+name: Production Firestore Deploy
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-firestore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FIREBASE_ADMIN_PROJECT_ID: ${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}
+      FIREBASE_ADMIN_CLIENT_EMAIL: ${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}
+      FIREBASE_ADMIN_PRIVATE_KEY: ${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
+
+    steps:
+      - name: Checkout exact release tree
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify deployment credentials
+        shell: bash
+        run: |
+          missing=0
+          for key in FIREBASE_ADMIN_PROJECT_ID FIREBASE_ADMIN_CLIENT_EMAIL FIREBASE_ADMIN_PRIVATE_KEY; do
+            if [ -z "${!key}" ]; then
+              echo "MISSING_FIREBASE_DEPLOY_SECRET:$key"
+              missing=1
+            else
+              echo "FIREBASE_DEPLOY_SECRET_PRESENT:$key"
+            fi
+          done
+          exit "$missing"
+
+      - name: Materialize ephemeral Google credential
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          credential = {
+              "type": "service_account",
+              "project_id": os.environ["FIREBASE_ADMIN_PROJECT_ID"],
+              "private_key": os.environ["FIREBASE_ADMIN_PRIVATE_KEY"].replace("\\n", "\n"),
+              "client_email": os.environ["FIREBASE_ADMIN_CLIENT_EMAIL"],
+              "token_uri": "https://oauth2.googleapis.com/token",
+          }
+          path = Path("/tmp/the-lobby-firestore-deploy.json")
+          path.write_text(json.dumps(credential), encoding="utf-8")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              env_file.write(f"GOOGLE_APPLICATION_CREDENTIALS={path}\n")
+          PY
+
+      - name: Deploy Firestore rules and indexes
+        run: npx --yes firebase-tools@latest deploy --only firestore:rules,firestore:indexes --project "$FIREBASE_ADMIN_PROJECT_ID" --non-interactive
+
+      - name: Cleanup credential
+        if: always()
+        run: rm -f /tmp/the-lobby-firestore-deploy.json
