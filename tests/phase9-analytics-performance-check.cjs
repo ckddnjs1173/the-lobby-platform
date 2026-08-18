@@ -82,8 +82,11 @@ console.log(
 
 assert(
   analyticsRoute.includes(
-    "requireFirebaseUser(request)"
+    "requireFirebaseUser"
   ) &&
+    analyticsRoute.includes(
+      "await requireFirebaseUser"
+    ) &&
     analyticsRoute.includes(
       "getRecruitingAnalytics("
     ) &&
@@ -94,7 +97,10 @@ assert(
       "채용 운영 분석"
     ) &&
     layout.includes(
-      'href="/b2b-admin/analytics"'
+      'href: "/b2b-admin/analytics"'
+    ) &&
+    layout.includes(
+      'label: "채용 분석"'
     ),
   "ANALYTICS_API_OR_UI_INTEGRATION_MISSING"
 );
