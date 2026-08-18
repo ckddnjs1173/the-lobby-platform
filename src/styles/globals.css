@@ -14,9 +14,7 @@
   --lobby-deep: #24180f;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 html {
   background: var(--lobby-bg);
@@ -34,9 +32,7 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-::selection {
-  background: rgba(152, 100, 47, 0.18);
-}
+::selection { background: rgba(152, 100, 47, 0.18); }
 
 .font-editorial {
   font-family: "Gowun Batang", "Noto Serif KR", "AppleMyungjo", "Batang", serif;
@@ -44,9 +40,7 @@ body {
   word-break: keep-all;
 }
 
-.lobby-hairline {
-  border-color: rgba(92, 66, 42, 0.14);
-}
+.lobby-hairline { border-color: rgba(92, 66, 42, 0.14); }
 
 .lobby-glass {
   background: rgba(255, 253, 250, 0.92);
@@ -60,23 +54,12 @@ body {
   background-size: 32px 32px;
 }
 
-/*
- * Compatibility layer for the pre-redesign Candidate/B2B screens.
- * Existing workflow logic keeps its Tailwind classes while the shared
- * palette is normalized to the same warm The Lobby product language.
- */
+/* Legacy Candidate/B2B palette normalization. */
 .bg-slate-50,
-.bg-slate-100 {
-  background-color: #f8f3eb !important;
-}
+.bg-slate-100 { background-color: #f8f3eb !important; }
 
-.bg-slate-900 {
-  background-color: #24180f !important;
-}
-
-.bg-slate-800 {
-  background-color: #3a281b !important;
-}
+.bg-slate-900 { background-color: #24180f !important; }
+.bg-slate-800 { background-color: #3a281b !important; }
 
 .border-slate-100,
 .border-slate-200,
@@ -87,49 +70,46 @@ body {
 }
 
 .text-slate-900,
-.text-slate-800 {
-  color: #2f2924 !important;
-}
+.text-slate-800 { color: #2f2924 !important; }
 
 .text-slate-700,
-.text-slate-600 {
-  color: #62584f !important;
-}
+.text-slate-600 { color: #62584f !important; }
 
 .text-slate-500,
-.text-slate-400 {
-  color: #887c71 !important;
-}
+.text-slate-400 { color: #887c71 !important; }
+
+.text-slate-300 { color: #d8cdbf !important; }
 
 .hover\:bg-slate-50:hover,
-.hover\:bg-slate-100:hover {
-  background-color: #f8f3eb !important;
-}
+.hover\:bg-slate-100:hover { background-color: #f8f3eb !important; }
 
 .hover\:bg-slate-900:hover,
-.hover\:bg-slate-800:hover {
-  background-color: #24180f !important;
-}
+.hover\:bg-slate-800:hover { background-color: #24180f !important; }
 
 .focus\:border-brand-navy:focus,
-.focus\:border-brand-gold:focus {
-  border-color: #98642f !important;
+.focus\:border-brand-gold:focus { border-color: #98642f !important; }
+
+.bg-brand-navy.text-brand-gold,
+.bg-brand-gold.text-brand-navy {
+  color: #fffdfa !important;
+}
+
+.hover\:bg-yellow-400:hover {
+  background-color: #815326 !important;
 }
 
 .shadow-xl,
 .shadow-lg,
 .shadow-md,
-.shadow-sm {
-  --tw-shadow-color: rgba(84, 55, 31, 0.08) !important;
-}
+.shadow-sm { --tw-shadow-color: rgba(84, 55, 31, 0.08) !important; }
+
+.rounded-3xl { border-radius: 14px !important; }
 
 input,
 select,
 textarea,
 button,
-a {
-  -webkit-tap-highlight-color: transparent;
-}
+a { -webkit-tap-highlight-color: transparent; }
 
 input:focus-visible,
 select:focus-visible,
@@ -141,19 +121,13 @@ a:focus-visible {
 }
 
 .candidate-surface .rounded-3xl,
-.candidate-surface .rounded-2xl {
-  border-radius: 14px !important;
-}
+.candidate-surface .rounded-2xl { border-radius: 14px !important; }
 
-.candidate-surface .bg-white {
-  background-color: rgba(255, 253, 250, 0.96) !important;
-}
+.candidate-surface .bg-white { background-color: rgba(255, 253, 250, 0.96) !important; }
 
 .candidate-surface input,
 .candidate-surface textarea,
-.candidate-surface select {
-  background-color: #fffdfa;
-}
+.candidate-surface select { background-color: #fffdfa; }
 
 .b2b-workspace {
   background:
@@ -161,22 +135,13 @@ a:focus-visible {
     #f8f3eb;
 }
 
-.b2b-workspace .bg-white {
-  background-color: rgba(255, 253, 250, 0.98) !important;
-}
+.b2b-workspace .bg-white { background-color: rgba(255, 253, 250, 0.98) !important; }
 
 .b2b-workspace .rounded-3xl,
-.b2b-workspace .rounded-2xl {
-  border-radius: 12px !important;
-}
+.b2b-workspace .rounded-2xl { border-radius: 12px !important; }
 
-.b2b-workspace table thead tr {
-  background-color: #f8f3eb !important;
-}
-
-.b2b-workspace table tbody tr:hover {
-  background-color: rgba(248, 243, 235, 0.78) !important;
-}
+.b2b-workspace table thead tr { background-color: #f8f3eb !important; }
+.b2b-workspace table tbody tr:hover { background-color: rgba(248, 243, 235, 0.78) !important; }
 
 .b2b-workspace input,
 .b2b-workspace textarea,
@@ -186,9 +151,7 @@ a:focus-visible {
 }
 
 .b2b-workspace h1,
-.b2b-workspace h2 {
-  letter-spacing: -0.025em;
-}
+.b2b-workspace h2 { letter-spacing: -0.025em; }
 
 .b2b-workspace .font-mono {
   font-family: inherit !important;
