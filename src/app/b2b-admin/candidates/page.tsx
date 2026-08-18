@@ -1,17 +1,9 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-import {
-  useB2BSession,
-} from "../../../components/b2b-admin/B2BSessionContext";
-
+import { useB2BSession } from "../../../components/b2b-admin/B2BSessionContext";
 import {
   CandidatePoolApiError,
   fetchCandidatePoolPage,
@@ -21,169 +13,120 @@ import {
 
 const PAGE_SIZE = 20;
 
-function formatDate(
-  value: string | null
-): string {
-  if (!value) {
-    return "-";
-  }
-
+function formatDate(value: string | null): string {
+  if (!value) return "-";
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat(
-    "ko-KR",
-    {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }
-  ).format(date);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 export default function CandidatePoolPage() {
   const session = useB2BSession();
-
-  const [candidates, setCandidates] =
-    useState<CandidatePoolItem[]>([]);
-  const [loading, setLoading] =
-    useState(true);
-  const [queryText, setQueryText] =
-    useState("");
-  const [cursor, setCursor] =
-    useState<string | null>(null);
-  const [cursorHistory, setCursorHistory] =
-    useState<Array<string | null>>([]);
-  const [pagination, setPagination] =
-    useState<CandidatePoolPagination>({
-      total: 0,
-      limit: PAGE_SIZE,
-      hasMore: false,
-      nextCursor: null,
-    });
+  const [candidates, setCandidates] = useState<CandidatePoolItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [queryText, setQueryText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([]);
+  const [pagination, setPagination] = useState<CandidatePoolPagination>({
+    total: 0,
+    limit: PAGE_SIZE,
+    hasMore: false,
+    nextCursor: null,
+  });
 
   useEffect(() => {
     setCursor(null);
     setCursorHistory([]);
     setQueryText("");
+    setSearchQuery("");
   }, [session.organizationId]);
 
   useEffect(() => {
     let cancelled = false;
-
     setLoading(true);
 
-    fetchCandidatePoolPage(
-      session.organizationId,
-      {
-        cursor,
-        limit: PAGE_SIZE,
-      }
-    )
+    fetchCandidatePoolPage(session.organizationId, {
+      cursor: searchQuery ? null : cursor,
+      limit: PAGE_SIZE,
+      query: searchQuery || null,
+    })
       .then((result) => {
-        if (!cancelled) {
-          setCandidates(result.items);
-          setPagination(result.pagination);
-        }
+        if (cancelled) return;
+        setCandidates(result.items);
+        setPagination(result.pagination);
       })
       .catch((error) => {
-        if (cancelled) {
-          return;
-        }
-
-        console.error(
-          "Candidate pool load failed:",
-          error
+        if (cancelled) return;
+        console.error("Candidate pool load failed:", error);
+        toast.error(
+          error instanceof CandidatePoolApiError
+            ? error.message
+            : "후보자 풀을 불러오지 못했습니다."
         );
-
-        if (error instanceof CandidatePoolApiError) {
-          toast.error(error.message);
-        } else {
-          toast.error(
-            "후보자 풀을 불러오지 못했습니다."
-          );
-        }
       })
       .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [session.organizationId, cursor]);
+  }, [session.organizationId, cursor, searchQuery]);
 
-  const filteredCandidates = useMemo(
-    () => {
-      const normalized =
-        queryText.trim().toLowerCase();
+  const pageNumber = cursorHistory.length + 1;
+  const searching = Boolean(searchQuery);
 
-      if (!normalized) {
-        return candidates;
-      }
+  const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalized = queryText.trim();
 
-      return candidates.filter(
-        (candidate) => {
-          const searchTarget = [
-            candidate.name,
-            candidate.email,
-            candidate.phone,
-            candidate.headline,
-            ...candidate.skills,
-          ]
-            .join(" ")
-            .toLowerCase();
+    if (!normalized) {
+      setSearchQuery("");
+      setCursor(null);
+      setCursorHistory([]);
+      return;
+    }
 
-          return searchTarget.includes(normalized);
-        }
-      );
-    },
-    [candidates, queryText]
-  );
+    if (normalized.length < 2) {
+      toast.error("후보자 검색어는 2자 이상 입력해주세요.");
+      return;
+    }
 
-  const pageNumber =
-    cursorHistory.length + 1;
+    setCursor(null);
+    setCursorHistory([]);
+    setSearchQuery(normalized);
+  };
+
+  const clearSearch = () => {
+    setQueryText("");
+    setSearchQuery("");
+    setCursor(null);
+    setCursorHistory([]);
+  };
 
   const handleNextPage = () => {
     if (
       loading ||
+      searching ||
       !pagination.hasMore ||
       !pagination.nextCursor
-    ) {
-      return;
-    }
+    ) return;
 
-    setCursorHistory((current) => [
-      ...current,
-      cursor,
-    ]);
+    setCursorHistory((current) => [...current, cursor]);
     setCursor(pagination.nextCursor);
-    setQueryText("");
   };
 
   const handlePreviousPage = () => {
-    if (
-      loading ||
-      cursorHistory.length === 0
-    ) {
-      return;
-    }
+    if (loading || searching || cursorHistory.length === 0) return;
 
-    const previousCursor =
-      cursorHistory[
-        cursorHistory.length - 1
-      ];
-
-    setCursorHistory((current) =>
-      current.slice(0, -1)
-    );
+    const previousCursor = cursorHistory[cursorHistory.length - 1];
+    setCursorHistory((current) => current.slice(0, -1));
     setCursor(previousCursor);
-    setQueryText("");
   };
 
   return (
@@ -191,78 +134,80 @@ export default function CandidatePoolPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-slate-900">
-              후보자 풀
-            </h1>
-
-            <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-bold text-slate-500">
+            <h1 className="text-2xl font-bold text-slate-900">후보자 풀</h1>
+            <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
               {session.organizationId || session.role}
             </span>
           </div>
-
-          <p className="text-sm text-slate-500 mt-1">
-            직접 발굴한 후보자를 검색하고 재활용할 수 있는 Talent Pool입니다.
+          <p className="mt-1 text-sm text-slate-500">
+            직접 발굴한 후보자를 조직 전체 Talent Pool에서 검색하고 다시 활용합니다.
           </p>
         </div>
 
         <a
           href="/b2b-admin/candidates/new"
-          className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-brand-navy text-brand-gold text-sm font-bold shadow-sm hover:opacity-90"
+          className="inline-flex items-center justify-center rounded-lg bg-brand-navy px-4 py-2 text-sm font-bold text-brand-gold shadow-sm hover:opacity-90"
         >
           + 후보자 직접등록
         </a>
       </div>
 
-      <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="text-sm text-slate-600">
-            전체{" "}
-            <span className="font-bold text-brand-navy">
-              {pagination.total}명
-            </span>
-            {" · "}
-            {pageNumber}페이지{" "}
-            <span className="font-bold text-brand-navy">
-              {candidates.length}명
-            </span>
-            {queryText.trim() ? (
+            {searching ? (
               <>
-                {" · "}페이지 검색{" "}
-                <span className="font-bold text-brand-navy">
-                  {filteredCandidates.length}명
-                </span>
+                조직 전체 검색 <span className="font-bold text-brand-navy">{pagination.total}명</span>
+                <span className="ml-2 text-xs text-slate-400">“{searchQuery}”</span>
               </>
-            ) : null}
+            ) : (
+              <>
+                전체 <span className="font-bold text-brand-navy">{pagination.total}명</span>
+                {" · "}{pageNumber}페이지 <span className="font-bold text-brand-navy">{candidates.length}명</span>
+              </>
+            )}
           </div>
 
-          <div className="w-full sm:w-96 space-y-1">
+          <form onSubmit={handleSearch} className="flex w-full gap-2 lg:w-[520px]">
             <input
               type="search"
               value={queryText}
-              onChange={(event) =>
-                setQueryText(event.target.value)
-              }
-              placeholder="현재 페이지에서 이름, 이메일, 연락처, 헤드라인, 스킬 검색"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand-navy"
+              onChange={(event) => setQueryText(event.target.value)}
+              placeholder="이름, 이메일, 연락처, 헤드라인, 스킬 검색"
+              className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-brand-navy"
             />
-            <div className="text-[10px] text-slate-400 sm:text-right">
-              빠른 필터는 현재 페이지의 최대 {PAGE_SIZE}명을 대상으로 합니다.
-            </div>
-          </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white disabled:opacity-40"
+            >
+              검색
+            </button>
+            {searching ? (
+              <button
+                type="button"
+                onClick={clearSearch}
+                disabled={loading}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 disabled:opacity-40"
+              >
+                초기화
+              </button>
+            ) : null}
+          </form>
         </div>
 
+        <p className="text-[10px] leading-5 text-slate-400">
+          검색은 현재 페이지가 아니라 조직의 최신 후보자 최대 500명을 서버에서 조회해 최대 50건을 반환합니다. 대규모 Talent Pool 전환 시 전용 검색 인덱스로 교체할 수 있도록 검색 경계는 서버에 유지합니다.
+        </p>
+
         {loading ? (
-          <div className="py-16 text-center text-sm text-slate-400">
-            후보자 풀을 불러오는 중입니다...
-          </div>
-        ) : filteredCandidates.length === 0 ? (
-          <div className="py-16 text-center space-y-2">
-            <div className="text-sm font-semibold text-slate-500">
-              표시할 후보자가 없습니다.
-            </div>
+          <div className="py-16 text-center text-sm text-slate-400">후보자 풀을 불러오는 중입니다...</div>
+        ) : candidates.length === 0 ? (
+          <div className="space-y-2 py-16 text-center">
+            <div className="text-sm font-semibold text-slate-500">표시할 후보자가 없습니다.</div>
             <p className="text-xs text-slate-400">
-              {queryText.trim()
-                ? "현재 페이지에서 검색 조건에 맞는 후보자가 없습니다."
+              {searching
+                ? "조직 Talent Pool에서 검색 조건에 맞는 후보자를 찾지 못했습니다."
                 : "후보자를 직접등록하면 이 Talent Pool에서 다시 찾을 수 있습니다."}
             </p>
           </div>
@@ -279,126 +224,88 @@ export default function CandidatePoolPage() {
                   <th className="py-3 font-semibold">관리</th>
                 </tr>
               </thead>
-
               <tbody>
-                {filteredCandidates.map(
-                  (candidate) => (
-                    <tr
-                      key={candidate.candidateId}
-                      className="border-b border-slate-100 last:border-0 align-top"
-                    >
-                      <td className="py-4 pr-4 min-w-52">
-                        <a
-                          href={`/b2b-admin/candidates/${encodeURIComponent(
-                            candidate.candidateId
-                          )}`}
-                          className="font-bold text-slate-900 hover:text-brand-navy hover:underline"
-                        >
-                          {candidate.name}
-                        </a>
-                        <div className="text-xs text-slate-500 mt-1">
-                          {candidate.phone}
-                        </div>
-                        <div className="text-xs text-slate-400 mt-0.5">
-                          {candidate.email}
-                        </div>
-                      </td>
-
-                      <td className="py-4 pr-4 min-w-64">
-                        <div className="text-xs font-semibold text-slate-700">
-                          {candidate.headline || "등록된 헤드라인 없음"}
-                        </div>
-
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {candidate.skills.length > 0 ? (
-                            candidate.skills.slice(0, 5).map(
-                              (skill) => (
-                                <span
-                                  key={`${candidate.candidateId}-${skill}`}
-                                  className="px-2 py-0.5 rounded bg-slate-100 text-[11px] text-slate-600"
-                                >
-                                  {skill}
-                                </span>
-                              )
-                            )
-                          ) : (
-                            <span className="text-[11px] text-slate-400">
-                              등록된 스킬 없음
+                {candidates.map((candidate) => (
+                  <tr key={candidate.candidateId} className="border-b border-slate-100 align-top last:border-0">
+                    <td className="min-w-52 py-4 pr-4">
+                      <a
+                        href={`/b2b-admin/candidates/${encodeURIComponent(candidate.candidateId)}`}
+                        className="font-bold text-slate-900 hover:text-brand-navy hover:underline"
+                      >
+                        {candidate.name}
+                      </a>
+                      <div className="mt-1 text-xs text-slate-500">{candidate.phone}</div>
+                      <div className="mt-0.5 text-xs text-slate-400">{candidate.email}</div>
+                    </td>
+                    <td className="min-w-64 py-4 pr-4">
+                      <div className="text-xs font-semibold text-slate-700">
+                        {candidate.headline || "등록된 헤드라인 없음"}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {candidate.skills.length > 0 ? (
+                          candidate.skills.slice(0, 5).map((skill) => (
+                            <span key={`${candidate.candidateId}-${skill}`} className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                              {skill}
                             </span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="py-4 pr-4 whitespace-nowrap">
-                        <div className="font-bold text-brand-navy">
-                          {candidate.profileCompleteness}%
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-1">
-                          {candidate.accountStatus}
-                        </div>
-                      </td>
-
-                      <td className="py-4 pr-4 text-xs text-slate-500 whitespace-nowrap">
-                        {candidate.createdByName ||
-                          candidate.createdBy}
-                      </td>
-
-                      <td className="py-4 pr-4 text-xs text-slate-500 whitespace-nowrap">
-                        {formatDate(
-                          candidate.updatedAt ||
-                          candidate.createdAt
+                          ))
+                        ) : (
+                          <span className="text-[11px] text-slate-400">등록된 스킬 없음</span>
                         )}
-                      </td>
-
-                      <td className="py-4 whitespace-nowrap">
-                        <a
-                          href={`/b2b-admin/candidates/${encodeURIComponent(
-                            candidate.candidateId
-                          )}`}
-                          className="inline-flex px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-brand-navy hover:bg-slate-50"
-                        >
-                          상세 / 수정
-                        </a>
-                      </td>
-                    </tr>
-                  )
-                )}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap py-4 pr-4">
+                      <div className="font-bold text-brand-navy">{candidate.profileCompleteness}%</div>
+                      <div className="mt-1 text-[11px] text-slate-400">{candidate.accountStatus}</div>
+                    </td>
+                    <td className="whitespace-nowrap py-4 pr-4 text-xs text-slate-500">
+                      {candidate.createdByName || candidate.createdBy}
+                    </td>
+                    <td className="whitespace-nowrap py-4 pr-4 text-xs text-slate-500">
+                      {formatDate(candidate.updatedAt || candidate.createdAt)}
+                    </td>
+                    <td className="whitespace-nowrap py-4">
+                      <a
+                        href={`/b2b-admin/candidates/${encodeURIComponent(candidate.candidateId)}`}
+                        className="inline-flex rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-brand-navy hover:bg-slate-50"
+                      >
+                        상세 / 수정
+                      </a>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         )}
 
-        {!loading && pagination.total > 0 ? (
+        {!loading && !searching && pagination.total > 0 ? (
           <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs text-slate-400">
-              페이지 {pageNumber}
-              {" · "}
-              페이지당 최대 {pagination.limit}명
-            </div>
-
+            <div className="text-xs text-slate-400">페이지 {pageNumber} · 페이지당 최대 {pagination.limit}명</div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handlePreviousPage}
                 disabled={cursorHistory.length === 0}
-                className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-brand-navy disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-brand-navy disabled:cursor-not-allowed disabled:opacity-40 hover:bg-slate-50"
               >
                 이전
               </button>
-
               <button
                 type="button"
                 onClick={handleNextPage}
-                disabled={
-                  !pagination.hasMore ||
-                  !pagination.nextCursor
-                }
-                className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-brand-navy disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+                disabled={!pagination.hasMore || !pagination.nextCursor}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-brand-navy disabled:cursor-not-allowed disabled:opacity-40 hover:bg-slate-50"
               >
                 다음
               </button>
             </div>
           </div>
+        ) : null}
+
+        {!loading && searching && pagination.hasMore ? (
+          <p className="border-t border-slate-100 pt-4 text-xs text-amber-700">
+            검색 결과가 50건을 초과했습니다. 검색어를 더 구체적으로 입력해주세요.
+          </p>
         ) : null}
       </section>
     </div>
