@@ -27,7 +27,7 @@ body {
   margin: 0;
   background:
     radial-gradient(circle at 18% 0%, rgba(190, 150, 109, 0.07), transparent 28rem),
-    linear-gradient(180deg, rgba(255,255,255,0.18), transparent 24rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 24rem),
     var(--lobby-bg);
   color: var(--lobby-ink);
   -webkit-font-smoothing: antialiased;
@@ -58,6 +58,141 @@ body {
     linear-gradient(rgba(123, 86, 53, 0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(123, 86, 53, 0.035) 1px, transparent 1px);
   background-size: 32px 32px;
+}
+
+/*
+ * Compatibility layer for the pre-redesign Candidate/B2B screens.
+ * Existing workflow logic keeps its Tailwind classes while the shared
+ * palette is normalized to the same warm The Lobby product language.
+ */
+.bg-slate-50,
+.bg-slate-100 {
+  background-color: #f8f3eb !important;
+}
+
+.bg-slate-900 {
+  background-color: #24180f !important;
+}
+
+.bg-slate-800 {
+  background-color: #3a281b !important;
+}
+
+.border-slate-100,
+.border-slate-200,
+.border-slate-300,
+.divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e6ddd2 !important;
+}
+
+.text-slate-900,
+.text-slate-800 {
+  color: #2f2924 !important;
+}
+
+.text-slate-700,
+.text-slate-600 {
+  color: #62584f !important;
+}
+
+.text-slate-500,
+.text-slate-400 {
+  color: #887c71 !important;
+}
+
+.hover\:bg-slate-50:hover,
+.hover\:bg-slate-100:hover {
+  background-color: #f8f3eb !important;
+}
+
+.hover\:bg-slate-900:hover,
+.hover\:bg-slate-800:hover {
+  background-color: #24180f !important;
+}
+
+.focus\:border-brand-navy:focus,
+.focus\:border-brand-gold:focus {
+  border-color: #98642f !important;
+}
+
+.shadow-xl,
+.shadow-lg,
+.shadow-md,
+.shadow-sm {
+  --tw-shadow-color: rgba(84, 55, 31, 0.08) !important;
+}
+
+input,
+select,
+textarea,
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid rgba(152, 100, 47, 0.32);
+  outline-offset: 2px;
+}
+
+.candidate-surface .rounded-3xl,
+.candidate-surface .rounded-2xl {
+  border-radius: 14px !important;
+}
+
+.candidate-surface .bg-white {
+  background-color: rgba(255, 253, 250, 0.96) !important;
+}
+
+.candidate-surface input,
+.candidate-surface textarea,
+.candidate-surface select {
+  background-color: #fffdfa;
+}
+
+.b2b-workspace {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(152, 100, 47, 0.055), transparent 34rem),
+    #f8f3eb;
+}
+
+.b2b-workspace .bg-white {
+  background-color: rgba(255, 253, 250, 0.98) !important;
+}
+
+.b2b-workspace .rounded-3xl,
+.b2b-workspace .rounded-2xl {
+  border-radius: 12px !important;
+}
+
+.b2b-workspace table thead tr {
+  background-color: #f8f3eb !important;
+}
+
+.b2b-workspace table tbody tr:hover {
+  background-color: rgba(248, 243, 235, 0.78) !important;
+}
+
+.b2b-workspace input,
+.b2b-workspace textarea,
+.b2b-workspace select {
+  border-color: #e6ddd2;
+  background-color: #fffdfa;
+}
+
+.b2b-workspace h1,
+.b2b-workspace h2 {
+  letter-spacing: -0.025em;
+}
+
+.b2b-workspace .font-mono {
+  font-family: inherit !important;
+  letter-spacing: -0.01em;
 }
 
 @media (prefers-reduced-motion: reduce) {
