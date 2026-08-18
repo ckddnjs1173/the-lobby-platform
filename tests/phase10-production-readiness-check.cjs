@@ -69,6 +69,8 @@ assert(
   workflow.includes("actions/checkout@v4") &&
     workflow.includes("actions/setup-node@v4") &&
     workflow.includes("npm ci") &&
+    workflow.includes("npm run check:final:integration") &&
+    workflow.includes("npm audit --omit=dev --audit-level=high") &&
     workflow.includes("npm run check:phase10:static") &&
     workflow.includes("npm run build") &&
     workflow.includes("contents: read"),

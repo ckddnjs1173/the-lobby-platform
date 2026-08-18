@@ -13,6 +13,12 @@ const checks = [
     ],
   },
   {
+    name: "Final Frontend Backend Contract",
+    args: [
+      "tests/final-frontend-backend-contract-check.cjs",
+    ],
+  },
+  {
     name: "Phase 10 Production Readiness Static",
     args: [
       "tests/phase10-production-readiness-check.cjs",
