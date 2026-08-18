@@ -5,10 +5,52 @@ export const dynamic = "force-dynamic";
 
 type DiagnosticStatus = "ok" | "missing" | "invalid" | "failed" | "not-run";
 
-function errorCode(error: unknown): string | null {
-  if (!error || typeof error !== "object") return null;
-  const value = (error as { code?: unknown }).code;
-  return typeof value === "string" || typeof value === "number" ? String(value).slice(0, 120) : null;
+function diagnosticError(error: unknown) {
+  const object = error && typeof error === "object" ? (error as Record<string, unknown>) : null;
+  const cause = object?.cause && typeof object.cause === "object"
+    ? (object.cause as Record<string, unknown>)
+    : null;
+  const message = error instanceof Error ? error.message : "";
+  const causeMessage = cause?.message instanceof String
+    ? String(cause.message)
+    : typeof cause?.message === "string"
+      ? cause.message
+      : "";
+  const combined = `${message}\n${causeMessage}`;
+  const directCode = object?.code;
+  const causeCode = cause?.code;
+  const code =
+    typeof directCode === "string" || typeof directCode === "number"
+      ? String(directCode).slice(0, 120)
+      : typeof causeCode === "string" || typeof causeCode === "number"
+        ? String(causeCode).slice(0, 120)
+        : null;
+
+  let category = "unknown";
+  if (/Cannot find module|MODULE_NOT_FOUND/i.test(combined)) category = "module-not-found";
+  else if (/ERR_REQUIRE_ESM|require\(\).*ES Module/i.test(combined)) category = "require-esm";
+  else if (/Package subpath|ERR_PACKAGE_PATH_NOT_EXPORTED/i.test(combined)) category = "package-export";
+  else if (/SyntaxError|Unexpected token/i.test(combined)) category = "syntax";
+  else if (/ReferenceError/i.test(combined)) category = "reference";
+
+  const knownDependencies = [
+    "firebase-admin",
+    "jsonwebtoken",
+    "jwks-rsa",
+    "google-auth-library",
+    "@fastify/busboy",
+    "jwa",
+    "jws",
+  ];
+  const dependency = knownDependencies.find((name) => combined.includes(name)) || null;
+
+  return {
+    status: "failed",
+    name: error instanceof Error ? error.name : "UnknownError",
+    code,
+    category,
+    dependency,
+  };
 }
 
 export async function GET() {
@@ -47,7 +89,7 @@ export async function GET() {
       const adminAuth = await import("firebase-admin/auth");
       result.authImport = typeof adminAuth.getAuth === "function" ? "ok" : "failed";
     } catch (error) {
-      result.authImport = { status: "failed", code: errorCode(error) };
+      result.authImport = diagnosticError(error);
     }
 
     let adminFirestore: typeof import("firebase-admin/firestore") | null = null;
@@ -55,7 +97,7 @@ export async function GET() {
       adminFirestore = await import("firebase-admin/firestore");
       result.firestoreImport = typeof adminFirestore.getFirestore === "function" ? "ok" : "failed";
     } catch (error) {
-      result.firestoreImport = { status: "failed", code: errorCode(error) };
+      result.firestoreImport = diagnosticError(error);
     }
 
     if (!projectId || !clientEmail || !rawPrivateKey.trim()) {
@@ -78,16 +120,16 @@ export async function GET() {
           await adminFirestore.getFirestore(app).collection("organizations").limit(1).get();
           result.firestoreRead = "ok";
         } catch (error) {
-          result.firestoreRead = { status: "failed", code: errorCode(error) };
+          result.firestoreRead = diagnosticError(error);
         }
       }
 
       await adminApp.deleteApp(app).catch(() => undefined);
     } catch (error) {
-      result.credentialInitialization = { status: "failed", code: errorCode(error) };
+      result.credentialInitialization = diagnosticError(error);
     }
   } catch (error) {
-    result.appImport = { status: "failed", code: errorCode(error) };
+    result.appImport = diagnosticError(error);
   }
 
   return NextResponse.json(result, {
