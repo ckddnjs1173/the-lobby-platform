@@ -105,11 +105,11 @@ export default function FeaturedJobs() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
           <div key={index} className="overflow-hidden rounded-2xl border border-brand-line bg-white shadow-card">
-            <div className="h-44 animate-pulse bg-brand-sand/50" />
+            <div className="h-44 animate-pulse bg-brand-cream/70" />
             <div className="space-y-3 p-5">
-              <div className="h-3 w-24 animate-pulse rounded bg-brand-sand/60" />
-              <div className="h-5 w-3/4 animate-pulse rounded bg-brand-sand/60" />
-              <div className="h-3 w-full animate-pulse rounded bg-brand-sand/40" />
+              <div className="h-3 w-24 animate-pulse rounded bg-brand-cream" />
+              <div className="h-5 w-3/4 animate-pulse rounded bg-brand-cream" />
+              <div className="h-3 w-full animate-pulse rounded bg-brand-ivory" />
             </div>
           </div>
         ))}
@@ -141,7 +141,7 @@ export default function FeaturedJobs() {
             href="/jobs"
             className="group overflow-hidden rounded-2xl border border-brand-line bg-white shadow-card transition duration-300 hover:-translate-y-1 hover:border-brand-gold/35 hover:shadow-soft"
           >
-            <div className="relative h-44 overflow-hidden bg-brand-sand">
+            <div className="relative h-44 overflow-hidden bg-brand-cream">
               <div
                 className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-[1.035]"
                 style={{ backgroundImage: `url('${imageForJob(job, index)}')` }}
