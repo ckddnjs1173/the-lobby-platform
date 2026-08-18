@@ -1,6 +1,10 @@
+const fs = require("fs");
+const path = require("path");
 const { chromium } = require("playwright");
 
 const BASE_URL = "http://127.0.0.1:3000";
+const ARTIFACT_DIR = path.resolve("browser-qa-artifacts");
+fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 
 const JOBS = [
   {
@@ -65,6 +69,13 @@ async function waitForStablePage(page) {
   await page.waitForTimeout(450);
 }
 
+async function capture(page, viewportName, pageName) {
+  await page.screenshot({
+    path: path.join(ARTIFACT_DIR, `${viewportName.toLowerCase()}-${pageName}.png`),
+    fullPage: true,
+  });
+}
+
 async function runViewport(browser, name, viewport) {
   const context = await browser.newContext({ viewport, locale: "ko-KR" });
   const page = await context.newPage();
@@ -88,12 +99,14 @@ async function runViewport(browser, name, viewport) {
   assert(await page.getByRole("button", { name: "채용공고 검색" }).isVisible(), `${name}:HOME_SEARCH_MISSING`);
   assert(await page.locator('form[action="/jobs"] input[name="q"]').isVisible(), `${name}:HOME_KEYWORD_INPUT_MISSING`);
   await assertNoHorizontalOverflow(page, `${name}:HOME`);
+  await capture(page, name, "home");
 
   if (viewport.width < 1280) {
     const menuButton = page.getByRole("button", { name: "메뉴 열기" });
     assert(await menuButton.isVisible(), `${name}:MOBILE_MENU_BUTTON_MISSING`);
     await menuButton.click();
     assert(await page.getByRole("navigation", { name: "모바일 주요 메뉴" }).isVisible(), `${name}:MOBILE_MENU_NOT_OPEN`);
+    await capture(page, name, "mobile-menu");
     await page.getByRole("button", { name: "메뉴 닫기" }).click();
   }
 
@@ -103,6 +116,7 @@ async function runViewport(browser, name, viewport) {
   assert(!(await page.getByText("프리미엄 쇼룸 리셉션").isVisible().catch(() => false)), `${name}:FILTER_LEAKED_UNMATCHED_JOB`);
   assert((await page.locator('select').nth(0).inputValue()) === "서울", `${name}:LOCATION_QUERY_NOT_HYDRATED`);
   await assertNoHorizontalOverflow(page, `${name}:JOBS`);
+  await capture(page, name, "jobs");
 
   const keyword = page.locator('input[placeholder="직무, 회사, 지역 검색"]');
   await keyword.fill("호텔");
@@ -116,11 +130,16 @@ async function runViewport(browser, name, viewport) {
   await page.waitForTimeout(250);
   assert(new URL(page.url()).pathname === "/login", `${name}:ANON_APPLY_DID_NOT_GO_LOGIN:${page.url()}`);
 
-  for (const route of ["/login", "/register", "/b2b-admin/login"]) {
+  for (const [route, screenshotName] of [
+    ["/login", "login"],
+    ["/register", "register"],
+    ["/b2b-admin/login", "b2b-login"],
+  ]) {
     await page.goto(`${BASE_URL}${route}`, { waitUntil: "domcontentloaded" });
     await waitForStablePage(page);
     await assertNoHorizontalOverflow(page, `${name}:${route}`);
     assert(await page.locator("body").isVisible(), `${name}:${route}:BODY_NOT_VISIBLE`);
+    await capture(page, name, screenshotName);
   }
 
   if (pageErrors.length > 0) {
