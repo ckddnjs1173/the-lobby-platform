@@ -3,7 +3,7 @@ from pathlib import Path
 path = Path("src/app/register/page.tsx")
 source = path.read_text(encoding="utf-8")
 
-old = '''                <input
+native = '''                <input
                   type="file"
                   accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                   onChange={handleResumeFileChange}
@@ -21,7 +21,7 @@ old = '''                <input
                   </button>
                 ) : null}'''
 
-new = '''                <label
+custom = '''                <label
                   className={`mt-4 flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border border-brand-line bg-white px-4 py-3 transition hover:border-brand-gold/55 hover:bg-brand-ivory ${loading ? "pointer-events-none opacity-50" : ""}`}
                 >
                   <span className="min-w-0">
@@ -29,13 +29,14 @@ new = '''                <label
                       {resumeFile ? "다른 파일 선택" : "이력서 파일 선택"}
                     </span>
                     <span className="mt-1 block truncate text-[10px] text-brand-muted">
-                      {resumeFile ? resumeFile.name : "PDF, DOCX, TXT 파일을 선택해주세요."}
+                      {resumeFile ? "파일을 바꾸려면 이 영역을 클릭하세요." : "PDF, DOCX, TXT 파일을 선택해주세요."}
                     </span>
                   </span>
                   <span className="shrink-0 rounded-md bg-brand-espresso px-3 py-2 text-[10px] font-bold text-white">
                     찾아보기
                   </span>
                   <input
+                    key={resumeFile ? `${resumeFile.name}-${resumeFile.size}` : "resume-file-empty"}
                     type="file"
                     accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                     onChange={handleResumeFileChange}
@@ -72,8 +73,22 @@ new = '''                <label
                   </button>
                 ) : null}'''
 
-if old not in source:
-    raise SystemExit("REGISTER_NATIVE_FILE_INPUT_BLOCK_NOT_FOUND")
+if native in source:
+    source = source.replace(native, custom, 1)
+else:
+    if 'className="sr-only"' not in source or '다른 파일 선택' not in source:
+        raise SystemExit("REGISTER_FILE_PICKER_BLOCK_NOT_FOUND")
 
-source = source.replace(old, new, 1)
+    source = source.replace(
+        '{resumeFile ? resumeFile.name : "PDF, DOCX, TXT 파일을 선택해주세요."}',
+        '{resumeFile ? "파일을 바꾸려면 이 영역을 클릭하세요." : "PDF, DOCX, TXT 파일을 선택해주세요."}',
+        1,
+    )
+    if 'key={resumeFile ? `${resumeFile.name}-${resumeFile.size}` : "resume-file-empty"}' not in source:
+        source = source.replace(
+            '                  <input\n                    type="file"',
+            '                  <input\n                    key={resumeFile ? `${resumeFile.name}-${resumeFile.size}` : "resume-file-empty"}\n                    type="file"',
+            1,
+        )
+
 path.write_text(source, encoding="utf-8")
