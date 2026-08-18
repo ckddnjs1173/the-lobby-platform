@@ -30,7 +30,7 @@ const readinessRoute = read("src/app/api/readiness/route.ts");
 console.log("STEP_1: CANDIDATE_AUTH_PROFILE_WORKFLOW");
 assert(
   registerPage.includes("createUserWithEmailAndPassword") &&
-    registerPage.includes("bootstrapCandidatePortal") &&
+    registerPage.includes("bootstrapCandidateProfileViaApi") &&
     registerPage.includes("/api/ai-parse-resume") &&
     loginPage.includes("signInWithEmailAndPassword") &&
     candidatePage.includes("onAuthStateChanged") &&
