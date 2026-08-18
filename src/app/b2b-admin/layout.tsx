@@ -138,10 +138,10 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
   }
 
   const navItems = [
-    { href: "/b2b-admin", label: "지원자 관리", caption: "Applications / Pipeline", icon: "pipeline" as const, active: isApplicationsPage },
+    { href: "/b2b-admin", label: "지원자 파이프라인", caption: "Applications", icon: "pipeline" as const, active: isApplicationsPage },
     { href: "/b2b-admin/candidates", label: "후보자 CRM", caption: "Candidate Pool", icon: "candidate" as const, active: isCandidatesPage },
     { href: "/b2b-admin/jobs", label: "포지션 관리", caption: "Jobs", icon: "job" as const, active: isJobsPage },
-    { href: "/b2b-admin/analytics", label: "분석 리포트", caption: "Analytics", icon: "analytics" as const, active: isAnalyticsPage },
+    { href: "/b2b-admin/analytics", label: "채용 분석", caption: "Analytics", icon: "analytics" as const, active: isAnalyticsPage },
   ];
 
   const pageTitle = isCandidatesPage
@@ -150,7 +150,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
       ? "포지션 관리"
       : isAnalyticsPage
         ? "채용 분석"
-        : "Applications Pipeline";
+        : "지원자 파이프라인";
 
   const pageCaption = isCandidatesPage
     ? "인재 프로필과 지원 이력을 한 곳에서 관리합니다."
@@ -168,16 +168,16 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
   return (
     <B2BSessionProvider session={session}>
       <div className="flex h-screen overflow-hidden bg-brand-ivory text-brand-ink">
-        <aside className="hidden w-[238px] shrink-0 flex-col border-r border-brand-line bg-brand-light lg:flex">
-          <div className="flex h-[88px] items-center gap-3 border-b border-brand-line px-6">
+        <aside className="hidden w-[230px] shrink-0 flex-col border-r border-brand-line bg-brand-light lg:flex">
+          <div className="flex h-[88px] items-center gap-3 border-b border-brand-line px-5">
             <LobbyMark />
             <div className="leading-none">
-              <div className="font-editorial text-[20px] tracking-[0.08em] text-brand-espresso">THE LOBBY</div>
-              <div className="mt-1 text-[7px] font-semibold uppercase tracking-[0.18em] text-brand-muted">Recruiting Operating System</div>
+              <div className="font-editorial text-[19px] tracking-[0.08em] text-brand-espresso">THE LOBBY</div>
+              <div className="mt-1 text-[7px] font-semibold uppercase tracking-[0.16em] text-brand-muted">Recruiting Operating System</div>
             </div>
           </div>
 
-          <nav className="flex-1 space-y-1.5 px-4 py-6">
+          <nav className="flex-1 space-y-1.5 px-3 py-6">
             <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-[0.22em] text-brand-muted">Workspace</p>
             {navItems.map((item) => (
               <Link
@@ -208,15 +208,15 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
             </Link>
           </nav>
 
-          <div className="border-t border-brand-line p-4">
-            <div className="rounded-xl border border-brand-line bg-white p-4">
+          <div className="border-t border-brand-line p-3">
+            <div className="rounded-xl border border-brand-line bg-white p-3.5">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-ivory text-xs font-bold text-brand-bronze">
                   {session.name.slice(0, 1)}
                 </div>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-bold text-brand-espresso">{session.name}</div>
-                  <div className="mt-0.5 truncate text-[9px] text-brand-muted">{session.role} · {session.organizationId || "ALL"}</div>
+                  <div className="mt-0.5 truncate text-[9px] text-brand-muted">{session.role} · {session.organizationId || "전체 조직"}</div>
                 </div>
               </div>
               <button
@@ -243,14 +243,9 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <Link
-                href="/b2b-admin/candidates/new"
-                className="rounded-lg border border-brand-gold/35 bg-white px-4 py-2.5 text-[11px] font-bold text-brand-bronze transition hover:border-brand-gold/60 hover:bg-brand-ivory"
-              >
-                + 지원자 추가
-              </Link>
-              <div className="hidden rounded-lg bg-brand-espresso px-4 py-2.5 text-[10px] font-semibold text-brand-cream sm:block">
-                {session.name} · {session.role}
+              <div className="rounded-lg border border-brand-line bg-white px-4 py-2.5 text-[10px] font-semibold text-brand-espresso shadow-card">
+                {session.name}
+                <span className="ml-2 text-brand-muted">{session.role}</span>
               </div>
             </div>
           </header>
