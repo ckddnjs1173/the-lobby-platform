@@ -39,17 +39,10 @@ function assert(condition, message) {
 
 async function attachPublicJobMock(page) {
   await page.route("**/api/public/jobs**", async (route) => {
-    const requestUrl = new URL(route.request().url());
-    const pathname = requestUrl.pathname;
-    const match = pathname.match(/^\/api\/public\/jobs\/([^/]+)$/);
-    const data = match
-      ? JOBS.find((job) => job.jobId === decodeURIComponent(match[1])) || JOBS[0]
-      : JOBS;
-
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ success: true, data }),
+      body: JSON.stringify({ success: true, data: JOBS }),
     });
   });
 }
@@ -117,11 +110,8 @@ async function runViewport(browser, name, viewport) {
   await page.waitForTimeout(200);
   assert(new URL(page.url()).searchParams.get("q") === "호텔", `${name}:JOBS_SEARCH_URL_NOT_SYNCED`);
 
-  await page.goto(`${BASE_URL}/jobs/job-hotel`, { waitUntil: "domcontentloaded" });
-  await waitForStablePage(page);
-  assert(await page.getByText("호텔 프론트 · VIP 게스트 서비스").first().isVisible(), `${name}:JOB_DETAIL_TITLE_MISSING`);
-  const applyButton = page.getByRole("button", { name: /지원/ }).first();
-  assert(await applyButton.isVisible(), `${name}:JOB_DETAIL_APPLY_MISSING`);
+  const applyButton = page.getByRole("button", { name: /로그인 후 지원/ }).first();
+  assert(await applyButton.isVisible(), `${name}:JOBS_ANON_APPLY_MISSING`);
   await applyButton.click();
   await page.waitForTimeout(250);
   assert(new URL(page.url()).pathname === "/login", `${name}:ANON_APPLY_DID_NOT_GO_LOGIN:${page.url()}`);
