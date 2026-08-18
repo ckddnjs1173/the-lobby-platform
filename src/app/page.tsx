@@ -4,12 +4,12 @@ import FeaturedJobs from "../components/public/FeaturedJobs";
 import PublicHeader from "../components/public/PublicHeader";
 
 const ROLE_CATEGORIES = [
-  ["기업 리셉션", "Corporate Reception"],
-  ["병원 · 클리닉", "Clinic / Hospital"],
-  ["호텔 프론트", "Hotel Front"],
-  ["전시장 · 쇼룸", "Showroom"],
-  ["서비스 데스크", "Service Desk"],
-  ["VIP 라운지", "VIP Lounge"],
+  ["기업 리셉션", "Corporate Reception", "/jobs?category=corporate"],
+  ["병원 · 클리닉", "Clinic / Hospital", "/jobs?category=clinic"],
+  ["호텔 프론트", "Hotel Front", "/jobs?category=hotel"],
+  ["전시장 · 쇼룸", "Showroom", "/jobs?category=showroom"],
+  ["서비스 데스크", "Service Desk", "/jobs?q=서비스"],
+  ["VIP 라운지", "VIP Lounge", "/jobs?category=lounge"],
 ] as const;
 
 const VALUE_PROPS = [
@@ -44,13 +44,6 @@ function SearchIcon() {
   );
 }
 
-function ChevronIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-      <path d="m7 9 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 export default function Home() {
   return (
@@ -148,38 +141,72 @@ export default function Home() {
         </div>
 
         <div className="relative z-10 mx-auto -mt-7 max-w-[1320px] px-5 pb-8 sm:px-8 lg:-mt-8">
-          <Link
-            href="/jobs"
-            className="lobby-glass grid overflow-hidden rounded-xl border border-brand-line shadow-soft sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_76px]"
+          <form
+            action="/jobs"
+            method="get"
+            className="lobby-glass grid overflow-hidden rounded-xl border border-brand-line shadow-soft sm:grid-cols-2 lg:grid-cols-[1.25fr_0.8fr_0.8fr_0.8fr_76px]"
           >
-            {[
-              ["지역", "전체 지역"],
-              ["직무", "전체 직무"],
-              ["경력", "전체 경력"],
-              ["근무형태", "전체 형태"],
-            ].map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between border-b border-brand-line px-5 py-4 last:border-b-0 sm:border-r lg:border-b-0">
-                <div>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-brand-muted">{label}</p>
-                  <p className="mt-1 text-sm font-semibold text-brand-espresso">{value}</p>
-                </div>
-                <span className="text-brand-bronze/60"><ChevronIcon /></span>
-              </div>
-            ))}
-            <div className="flex min-h-[66px] items-center justify-center bg-brand-bronze text-white transition hover:bg-brand-espresso">
+            <label className="flex min-h-[66px] items-center gap-3 border-b border-brand-line px-5 py-4 sm:border-r lg:border-b-0">
+              <span className="text-brand-bronze"><SearchIcon /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[9px] font-bold uppercase tracking-[0.18em] text-brand-muted">키워드</span>
+                <input
+                  name="q"
+                  placeholder="직무, 회사, 지역"
+                  className="mt-1 w-full bg-transparent text-sm font-semibold text-brand-espresso outline-none placeholder:font-normal placeholder:text-brand-muted/65"
+                />
+              </span>
+            </label>
+
+            <label className="border-b border-brand-line px-5 py-3.5 sm:border-r lg:border-b-0">
+              <span className="block text-[9px] font-bold uppercase tracking-[0.18em] text-brand-muted">지역</span>
+              <select name="location" defaultValue="" className="mt-1 w-full bg-transparent text-sm font-semibold text-brand-espresso outline-none">
+                <option value="">전체 지역</option>
+                <option value="서울">서울</option>
+                <option value="경기">경기</option>
+                <option value="인천">인천</option>
+                <option value="부산">부산</option>
+                <option value="제주">제주</option>
+              </select>
+            </label>
+
+            <label className="border-b border-brand-line px-5 py-3.5 sm:border-r lg:border-b-0">
+              <span className="block text-[9px] font-bold uppercase tracking-[0.18em] text-brand-muted">직무</span>
+              <select name="category" defaultValue="" className="mt-1 w-full bg-transparent text-sm font-semibold text-brand-espresso outline-none">
+                <option value="">전체 직무</option>
+                <option value="corporate">기업 리셉션</option>
+                <option value="clinic">병원 · 클리닉</option>
+                <option value="hotel">호텔 프론트</option>
+                <option value="showroom">전시장 · 쇼룸</option>
+                <option value="lounge">VIP 라운지</option>
+              </select>
+            </label>
+
+            <label className="px-5 py-3.5 sm:border-r">
+              <span className="block text-[9px] font-bold uppercase tracking-[0.18em] text-brand-muted">근무형태</span>
+              <select name="employment" defaultValue="" className="mt-1 w-full bg-transparent text-sm font-semibold text-brand-espresso outline-none">
+                <option value="">전체 형태</option>
+                <option value="정규직">정규직</option>
+                <option value="계약직">계약직</option>
+                <option value="파견계약직">파견계약직</option>
+                <option value="인턴">인턴</option>
+              </select>
+            </label>
+
+            <button type="submit" aria-label="채용공고 검색" className="flex min-h-[66px] items-center justify-center bg-brand-bronze text-white transition hover:bg-brand-espresso">
               <SearchIcon />
-            </div>
-          </Link>
+            </button>
+          </form>
         </div>
       </section>
 
       <section className="border-b border-brand-line/80 bg-white/60">
         <div className="mx-auto max-w-[1500px] px-5 py-5 sm:px-8 lg:px-10">
           <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-            {ROLE_CATEGORIES.map(([title, subtitle], index) => (
+            {ROLE_CATEGORIES.map(([title, subtitle, href], index) => (
               <Link
                 key={title}
-                href="/jobs"
+                href={href}
                 className="group flex items-center gap-3 rounded-lg border border-brand-line bg-white px-4 py-3.5 transition hover:border-brand-gold/45 hover:shadow-card"
               >
                 <div className="font-editorial flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-brand-gold/25 bg-brand-ivory text-[14px] text-brand-bronze transition group-hover:bg-brand-bronze group-hover:text-white">

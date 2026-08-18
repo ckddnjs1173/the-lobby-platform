@@ -63,6 +63,19 @@ export default function JobsPage() {
   const [employment, setEmployment] = useState("ALL");
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedCategory = params.get("category");
+    const validCategory = CATEGORY_OPTIONS.some(
+      (option) => option.value !== "ALL" && option.value === requestedCategory
+    );
+
+    setKeyword(params.get("q") || "");
+    setCategory(validCategory ? (requestedCategory as JobVisualCategory) : "ALL");
+    setLocation(params.get("location") || "ALL");
+    setEmployment(params.get("employment") || "ALL");
+  }, []);
+
+  useEffect(() => {
     return onAuthStateChanged(auth, async (user) => {
       setIsAuthenticated(Boolean(user));
       if (!user) {
@@ -112,7 +125,13 @@ export default function JobsPage() {
 
   const locationOptions = useMemo(
     () =>
-      Array.from(new Set(jobs.map((job) => formatJobLocation(job.location)))).sort((a, b) =>
+      Array.from(
+        new Set(
+          jobs
+            .map((job) => formatJobLocation(job.location).split(" ")[0])
+            .filter(Boolean)
+        )
+      ).sort((a, b) =>
         a.localeCompare(b, "ko-KR")
       ),
     [jobs]
@@ -131,7 +150,10 @@ export default function JobsPage() {
 
     return jobs.filter((job) => {
       if (category !== "ALL" && getJobCategory(job) !== category) return false;
-      if (location !== "ALL" && formatJobLocation(job.location) !== location) return false;
+      if (
+        location !== "ALL" &&
+        !formatJobLocation(job.location).startsWith(location)
+      ) return false;
       if (
         employment !== "ALL" &&
         formatJobEmploymentType(job.employmentType) !== employment
@@ -153,6 +175,21 @@ export default function JobsPage() {
       return haystack.includes(normalizedKeyword);
     });
   }, [category, employment, jobs, keyword, location]);
+
+  const syncFiltersToUrl = (
+    nextCategory: "ALL" | JobVisualCategory = category
+  ) => {
+    const params = new URLSearchParams();
+    const normalizedKeyword = keyword.trim();
+
+    if (normalizedKeyword) params.set("q", normalizedKeyword);
+    if (nextCategory !== "ALL") params.set("category", nextCategory);
+    if (location !== "ALL") params.set("location", location);
+    if (employment !== "ALL") params.set("employment", employment);
+
+    const query = params.toString();
+    router.replace(query ? `/jobs?${query}` : "/jobs", { scroll: false });
+  };
 
   const handleApply = async (jobId: string) => {
     if (!isAuthenticated) {
@@ -244,6 +281,12 @@ export default function JobsPage() {
                 <input
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      syncFiltersToUrl();
+                    }
+                  }}
                   placeholder="직무, 회사, 지역 검색"
                   className="mt-1 w-full bg-transparent text-sm font-semibold text-brand-espresso outline-none placeholder:font-normal placeholder:text-brand-muted/65"
                 />
@@ -266,7 +309,7 @@ export default function JobsPage() {
               </select>
             </label>
 
-            <button type="button" aria-label="채용공고 검색" className="flex min-h-[64px] items-center justify-center bg-brand-bronze text-white transition hover:bg-brand-espresso lg:min-h-0">
+            <button type="button" onClick={() => syncFiltersToUrl()} aria-label="채용공고 검색" className="flex min-h-[64px] items-center justify-center bg-brand-bronze text-white transition hover:bg-brand-espresso lg:min-h-0">
               <SearchIcon />
             </button>
           </div>
@@ -278,7 +321,10 @@ export default function JobsPage() {
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => setCategory(option.value)}
+                  onClick={() => {
+                    setCategory(option.value);
+                    syncFiltersToUrl(option.value);
+                  }}
                   className={`rounded-full border px-4 py-2 text-xs font-bold transition ${active ? "border-brand-bronze bg-brand-bronze text-white" : "border-brand-line bg-white text-brand-ink hover:border-brand-gold/50 hover:text-brand-bronze"}`}
                 >
                   {option.label}
@@ -323,6 +369,7 @@ export default function JobsPage() {
                 setCategory("ALL");
                 setLocation("ALL");
                 setEmployment("ALL");
+                router.replace("/jobs", { scroll: false });
               }}
               className="mt-6 rounded-lg border border-brand-gold/35 bg-brand-light px-5 py-3 text-xs font-bold text-brand-bronze"
             >
