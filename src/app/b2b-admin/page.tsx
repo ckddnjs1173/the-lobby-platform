@@ -58,6 +58,24 @@ const TERMINAL_STAGES = new Set<ApplicationStage>([
   "CANCELED",
 ]);
 
+const FINAL_TERMINAL_STAGES = new Set<ApplicationStage>([
+  "HIRED",
+  "REJECTED",
+  "CANCELED",
+]);
+
+const PIPELINE_STAGE_ORDER: ApplicationStage[] = [
+  "NEW",
+  "REVIEWING",
+  "CONTACTED",
+  "RECOMMEND_PENDING",
+  "RECOMMENDED",
+  "DOCUMENT_SCREEN",
+  "INTERVIEW",
+  "OFFER",
+  "HIRED",
+];
+
 const STALE_THRESHOLD_MS = 3 * 24 * 60 * 60 * 1000;
 const APPLICATION_REFRESH_INTERVAL_MS = 15 * 1000;
 
@@ -78,6 +96,43 @@ function isStaleApplication(application: ApplicationView, now: number): boolean 
   if (TERMINAL_STAGES.has(application.stage)) return false;
   const lastTouchTime = getLastTouchTime(application);
   return lastTouchTime !== null && now - lastTouchTime >= STALE_THRESHOLD_MS;
+}
+
+function guidedStageMessage(
+  application: ApplicationView,
+  newStage: ApplicationStage,
+  note?: string
+): string | null {
+  if (newStage === application.stage) return null;
+
+  if (newStage === "INTERVIEW") {
+    return "면접 단계는 상세 패널에서 면접 일정을 등록하면서 이동합니다.";
+  }
+
+  if (newStage === "HIRED" || newStage === "REJECTED") {
+    return "입사 확정과 불합격은 상세 패널의 최종 채용 결과에서 결정 정보와 함께 처리합니다.";
+  }
+
+  if (newStage === "OFFER" && application.stage !== "INTERVIEW" && !note?.trim()) {
+    return "처우협의 단계는 면접 단계에서 이동합니다. 예외 처리가 필요하면 상세 패널에서 사유를 기록해주세요.";
+  }
+
+  if (FINAL_TERMINAL_STAGES.has(application.stage) && !note?.trim()) {
+    return "종료된 지원 건을 다시 열려면 ADMIN 권한과 변경 사유가 필요합니다. 상세 패널에서 처리해주세요.";
+  }
+
+  if (application.stage === "HOLD" && !["HOLD", "CANCELED"].includes(newStage) && !note?.trim()) {
+    return "보류 상태에서 채용 절차를 재개하려면 변경 사유를 기록해야 합니다. 상세 패널에서 처리해주세요.";
+  }
+
+  const fromIndex = PIPELINE_STAGE_ORDER.indexOf(application.stage);
+  const toIndex = PIPELINE_STAGE_ORDER.indexOf(newStage);
+
+  if (fromIndex >= 0 && toIndex >= 0 && toIndex < fromIndex && !note?.trim()) {
+    return "이전 단계로 되돌리려면 변경 사유를 기록해야 합니다. 상세 패널에서 처리해주세요.";
+  }
+
+  return null;
 }
 
 function ViewIcon({ mode }: { mode: "TABLE" | "KANBAN" }) {
@@ -102,7 +157,6 @@ function ViewIcon({ mode }: { mode: "TABLE" | "KANBAN" }) {
 export default function B2BAdminPage() {
   const router = useRouter();
   const session = useB2BSession();
-
   const [applications, setApplications] = useState<ApplicationView[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -113,7 +167,6 @@ export default function B2BAdminPage() {
   const [recruiterFilter, setRecruiterFilter] = useState("ALL");
   const [activityFilter, setActivityFilter] = useState<"ALL" | "STALE">("ALL");
   const [recruiters, setRecruiters] = useState<AssignableRecruiter[]>([]);
-
   const [selectedApp, setSelectedApp] = useState<ApplicationView | null>(null);
   const [candidateProfile, setCandidateProfile] = useState<B2BCandidateProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -129,7 +182,6 @@ export default function B2BAdminPage() {
         setApplications(await fetchB2BApplications());
       } catch (error) {
         console.error("B2B application list API error:", error);
-
         if (error instanceof ApplicationApiError) {
           if (error.status === 401) {
             if (!silent) toast.error("관리자 로그인 세션이 만료되었습니다.");
@@ -140,7 +192,6 @@ export default function B2BAdminPage() {
         } else if (!silent) {
           toast.error("권한이 있는 지원 내역을 불러오지 못했습니다.");
         }
-
         if (initial) setApplications([]);
       } finally {
         if (initial) setLoading(false);
@@ -178,7 +229,6 @@ export default function B2BAdminPage() {
 
   useEffect(() => {
     let cancelled = false;
-
     if (!organizationKey) {
       setRecruiters([]);
       return () => {
@@ -187,12 +237,10 @@ export default function B2BAdminPage() {
     }
 
     const organizationIds = organizationKey.split("|");
-
     void Promise.allSettled(
       organizationIds.map((organizationId) => fetchAssignableRecruiters(organizationId))
     ).then((results) => {
       if (cancelled) return;
-
       const recruiterMap = new Map<string, AssignableRecruiter>();
       let authExpired = false;
 
@@ -201,11 +249,7 @@ export default function B2BAdminPage() {
           for (const recruiter of result.value) recruiterMap.set(recruiter.uid, recruiter);
           continue;
         }
-
-        if (
-          result.reason instanceof ApplicationOperationsApiError &&
-          result.reason.status === 401
-        ) {
+        if (result.reason instanceof ApplicationOperationsApiError && result.reason.status === 401) {
           authExpired = true;
         } else {
           console.error("Recruiter filter list error:", result.reason);
@@ -218,9 +262,7 @@ export default function B2BAdminPage() {
         return;
       }
 
-      setRecruiters(
-        Array.from(recruiterMap.values()).sort((a, b) => a.name.localeCompare(b.name, "ko"))
-      );
+      setRecruiters(Array.from(recruiterMap.values()).sort((a, b) => a.name.localeCompare(b.name, "ko")));
     });
 
     return () => {
@@ -248,7 +290,6 @@ export default function B2BAdminPage() {
   }, [applications]);
 
   const now = Date.now();
-
   const staleApplicationIds = useMemo(() => {
     const ids = new Set<string>();
     for (const application of applications) {
@@ -259,17 +300,12 @@ export default function B2BAdminPage() {
 
   const filteredApplications = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase("ko-KR");
-
     return applications.filter((application) => {
       if (stageFilter !== "ALL" && application.stage !== stageFilter) return false;
       if (jobFilter !== "ALL" && application.jobId !== jobFilter) return false;
       if (recruiterFilter !== "ALL" && application.recruiterId !== recruiterFilter) return false;
-      if (
-        activityFilter === "STALE" &&
-        !staleApplicationIds.has(application.applicationId)
-      ) return false;
+      if (activityFilter === "STALE" && !staleApplicationIds.has(application.applicationId)) return false;
       if (!normalizedQuery) return true;
-
       return [
         application.candidateName,
         application.candidatePhone,
@@ -282,33 +318,12 @@ export default function B2BAdminPage() {
         .toLocaleLowerCase("ko-KR")
         .includes(normalizedQuery);
     });
-  }, [
-    activityFilter,
-    applications,
-    jobFilter,
-    recruiterFilter,
-    recruiterNameById,
-    searchQuery,
-    stageFilter,
-    staleApplicationIds,
-  ]);
+  }, [activityFilter, applications, jobFilter, recruiterFilter, recruiterNameById, searchQuery, stageFilter, staleApplicationIds]);
 
-  const activeCount = useMemo(
-    () => applications.filter((application) => ACTIVE_PIPELINE_STAGES.has(application.stage)).length,
-    [applications]
-  );
-  const attentionCount = useMemo(
-    () => applications.filter((application) => application.stage === "NEW" || application.stage === "REVIEWING").length,
-    [applications]
-  );
-  const interviewCount = useMemo(
-    () => applications.filter((application) => application.stage === "INTERVIEW").length,
-    [applications]
-  );
-  const hiredCount = useMemo(
-    () => applications.filter((application) => application.stage === "HIRED").length,
-    [applications]
-  );
+  const activeCount = useMemo(() => applications.filter((application) => ACTIVE_PIPELINE_STAGES.has(application.stage)).length, [applications]);
+  const attentionCount = useMemo(() => applications.filter((application) => application.stage === "NEW" || application.stage === "REVIEWING").length, [applications]);
+  const interviewCount = useMemo(() => applications.filter((application) => application.stage === "INTERVIEW").length, [applications]);
+  const hiredCount = useMemo(() => applications.filter((application) => application.stage === "HIRED").length, [applications]);
   const staleCount = staleApplicationIds.size;
 
   const hasActiveFilters =
@@ -327,10 +342,7 @@ export default function B2BAdminPage() {
   };
 
   const handleSelectApplication = async (application: ApplicationView) => {
-    if (
-      session.role === "RECRUITER" &&
-      application.organizationId !== session.organizationId
-    ) {
+    if (session.role === "RECRUITER" && application.organizationId !== session.organizationId) {
       toast.error("다른 조직의 지원 정보에는 접근할 수 없습니다.");
       return;
     }
@@ -340,9 +352,7 @@ export default function B2BAdminPage() {
     setCandidateProfile(null);
     setOtherApplications(
       applications.filter(
-        (item) =>
-          item.candidateId === application.candidateId &&
-          item.applicationId !== application.applicationId
+        (item) => item.candidateId === application.candidateId && item.applicationId !== application.applicationId
       )
     );
     setProfileLoading(true);
@@ -352,7 +362,6 @@ export default function B2BAdminPage() {
     } catch (error) {
       console.error("Candidate profile API error:", error);
       setCandidateProfile(null);
-
       if (error instanceof B2BApiError) {
         if (error.status === 401) {
           toast.error("관리자 로그인 세션이 만료되었습니다.");
@@ -373,6 +382,17 @@ export default function B2BAdminPage() {
     newStage: ApplicationStage,
     note?: string
   ) => {
+    const application = applications.find((item) => item.applicationId === applicationId);
+    const guidedMessage = application
+      ? guidedStageMessage(application, newStage, note)
+      : null;
+
+    if (application && guidedMessage) {
+      toast(guidedMessage);
+      await handleSelectApplication(application);
+      return;
+    }
+
     try {
       const result = await updateApplicationStageViaApi(applicationId, newStage, note);
       if (!result.changed) return;
@@ -384,10 +404,10 @@ export default function B2BAdminPage() {
           : previous
       );
       setOtherApplications((previous) =>
-        previous.map((application) =>
-          application.applicationId === applicationId
-            ? { ...application, stage: result.stage }
-            : application
+        previous.map((item) =>
+          item.applicationId === applicationId
+            ? { ...item, stage: result.stage }
+            : item
         )
       );
       await refreshApplications({ silent: true });
@@ -435,13 +455,7 @@ export default function B2BAdminPage() {
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {metrics.map((metric) => (
           <div key={metric.label} className="rounded-xl border border-brand-line bg-white px-4 py-4 shadow-card">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-brand-muted">{metric.caption}</p>
-                <p className="mt-1 text-[12px] font-bold text-brand-ink">{metric.label}</p>
-              </div>
-              {metric.warning ? <span className="mt-1 h-2 w-2 rounded-full bg-brand-danger" /> : null}
-            </div>
+            <div className="flex items-start justify-between gap-2"><div><p className="text-[9px] font-bold uppercase tracking-[0.14em] text-brand-muted">{metric.caption}</p><p className="mt-1 text-[12px] font-bold text-brand-ink">{metric.label}</p></div>{metric.warning ? <span className="mt-1 h-2 w-2 rounded-full bg-brand-danger" /> : null}</div>
             <p className={`font-editorial mt-4 text-[30px] ${metric.warning ? "text-brand-danger" : "text-brand-espresso"}`}>{metric.value}</p>
           </div>
         ))}
@@ -449,93 +463,34 @@ export default function B2BAdminPage() {
 
       <section className="rounded-xl border border-brand-line bg-white p-4 shadow-card">
         <div className="flex flex-col justify-between gap-4 border-b border-brand-line pb-4 xl:flex-row xl:items-center">
-          <div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-brand-bronze">Pipeline Controls</p>
-            <p className="mt-1 text-xs text-brand-muted">
-              총 <strong className="text-brand-espresso">{applications.length}건</strong> · 15초 자동 갱신
-              {hasActiveFilters ? <> · 필터 결과 <strong className="text-brand-espresso">{filteredApplications.length}건</strong></> : null}
-            </p>
-          </div>
-
+          <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-brand-bronze">Pipeline Controls</p><p className="mt-1 text-xs text-brand-muted">총 <strong className="text-brand-espresso">{applications.length}건</strong> · 15초 자동 갱신{hasActiveFilters ? <> · 필터 결과 <strong className="text-brand-espresso">{filteredApplications.length}건</strong></> : null}</p></div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void refreshApplications()}
-              disabled={refreshing}
-              className="rounded-lg border border-brand-line bg-white px-3 py-2.5 text-[10px] font-bold text-brand-muted transition hover:bg-brand-ivory hover:text-brand-bronze disabled:opacity-50"
-            >
-              {refreshing ? "갱신 중..." : "새로고침"}
-            </button>
-
+            <button type="button" onClick={() => void refreshApplications()} disabled={refreshing} className="rounded-lg border border-brand-line bg-white px-3 py-2.5 text-[10px] font-bold text-brand-muted hover:bg-brand-ivory disabled:opacity-50">{refreshing ? "갱신 중..." : "새로고침"}</button>
             <div className="flex rounded-lg border border-brand-line bg-brand-ivory p-1">
-              {(["TABLE", "KANBAN"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setViewMode(mode)}
-                  className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-[10px] font-bold transition ${
-                    viewMode === mode
-                      ? "bg-white text-brand-bronze shadow-sm"
-                      : "text-brand-muted hover:text-brand-ink"
-                  }`}
-                >
-                  <ViewIcon mode={mode} />
-                  {mode === "TABLE" ? "Table" : "Pipeline"}
-                </button>
-              ))}
+              {(["TABLE", "KANBAN"] as const).map((mode) => <button key={mode} type="button" onClick={() => setViewMode(mode)} className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-[10px] font-bold ${viewMode === mode ? "bg-white text-brand-bronze shadow-sm" : "text-brand-muted"}`}><ViewIcon mode={mode} />{mode === "TABLE" ? "Table" : "Pipeline"}</button>)}
             </div>
           </div>
         </div>
 
         <div className="mt-4 grid gap-2 xl:grid-cols-[minmax(240px,1.2fr)_160px_minmax(210px,1fr)_210px_160px_auto]">
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="지원자, 연락처, 이메일, 공고, 기업, 담당자 검색"
-            className="w-full rounded-lg border border-brand-line px-3.5 py-2.5 text-xs text-brand-ink outline-none transition focus:border-brand-bronze"
-          />
+          <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="지원자, 연락처, 이메일, 공고, 기업, 담당자 검색" className="w-full rounded-lg border border-brand-line px-3.5 py-2.5 text-xs outline-none focus:border-brand-bronze" />
+          <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value as ApplicationStage | "ALL")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 단계</option>{Object.entries(STAGE_LABELS).map(([stage, label]) => <option key={stage} value={stage}>{label}</option>)}</select>
+          <select value={jobFilter} onChange={(event) => setJobFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 공고</option>{jobOptions.map((job) => <option key={job.jobId} value={job.jobId}>{job.label}</option>)}</select>
+          <select value={recruiterFilter} onChange={(event) => setRecruiterFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 담당자</option>{recruiters.map((recruiter) => <option key={recruiter.uid} value={recruiter.uid}>{recruiter.name} · {recruiter.email}</option>)}</select>
+          <select value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as "ALL" | "STALE")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 처리상태</option><option value="STALE">3일+ 미처리</option></select>
+          <button type="button" onClick={resetFilters} disabled={!hasActiveFilters} className="rounded-lg border border-brand-line px-3 py-2.5 text-[10px] font-bold text-brand-muted disabled:opacity-35">초기화</button>
+        </div>
 
-          <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value as ApplicationStage | "ALL")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs font-medium text-brand-ink outline-none focus:border-brand-bronze">
-            <option value="ALL">모든 단계</option>
-            {Object.entries(STAGE_LABELS).map(([stage, label]) => <option key={stage} value={stage}>{label}</option>)}
-          </select>
-
-          <select value={jobFilter} onChange={(event) => setJobFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs font-medium text-brand-ink outline-none focus:border-brand-bronze">
-            <option value="ALL">모든 공고</option>
-            {jobOptions.map((job) => <option key={job.jobId} value={job.jobId}>{job.label}</option>)}
-          </select>
-
-          <select value={recruiterFilter} onChange={(event) => setRecruiterFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs font-medium text-brand-ink outline-none focus:border-brand-bronze">
-            <option value="ALL">모든 담당자</option>
-            {recruiters.map((recruiter) => <option key={recruiter.uid} value={recruiter.uid}>{recruiter.name} · {recruiter.email}</option>)}
-          </select>
-
-          <select value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as "ALL" | "STALE")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs font-medium text-brand-ink outline-none focus:border-brand-bronze">
-            <option value="ALL">모든 처리상태</option>
-            <option value="STALE">3일+ 미처리</option>
-          </select>
-
-          <button type="button" onClick={resetFilters} disabled={!hasActiveFilters} className="rounded-lg border border-brand-line px-3 py-2.5 text-[10px] font-bold text-brand-muted transition hover:bg-brand-ivory hover:text-brand-bronze disabled:opacity-35">초기화</button>
+        <div className="mt-3 rounded-lg border border-brand-line bg-brand-ivory/55 px-3 py-2 text-[10px] leading-5 text-brand-muted">
+          면접 진입은 일정 등록과 함께, 합격/불합격은 최종 결과 기록과 함께 처리합니다. 이전 단계 복귀·보류 재개·종료 건 재오픈은 상세 패널에서 사유를 기록합니다.
         </div>
       </section>
 
       <div className="min-h-[520px] flex-1">
         {viewMode === "TABLE" ? (
-          <ApplicationTable
-            applications={filteredApplications}
-            recruiterNames={recruiterNameById}
-            staleApplicationIds={staleApplicationIds}
-            onSelectApplication={handleSelectApplication}
-            onStageChange={(id, stage) => handleStageChange(id, stage)}
-          />
+          <ApplicationTable applications={filteredApplications} recruiterNames={recruiterNameById} staleApplicationIds={staleApplicationIds} onSelectApplication={handleSelectApplication} onStageChange={(id, stage) => handleStageChange(id, stage)} />
         ) : (
-          <ApplicationKanban
-            applications={filteredApplications}
-            recruiterNames={recruiterNameById}
-            staleApplicationIds={staleApplicationIds}
-            onStageChange={(id, stage) => handleStageChange(id, stage)}
-            onSelectApplication={handleSelectApplication}
-          />
+          <ApplicationKanban applications={filteredApplications} recruiterNames={recruiterNameById} staleApplicationIds={staleApplicationIds} onStageChange={(id, stage) => handleStageChange(id, stage)} onSelectApplication={handleSelectApplication} />
         )}
       </div>
 
