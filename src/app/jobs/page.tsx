@@ -2,14 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 import PublicHeader from "../../components/public/PublicHeader";
 import { CandidatePortalApiError, fetchCandidatePortalApplications } from "../../lib/candidatePortalApi";
-import { auth, db } from "../../lib/firebase";
+import { auth } from "../../lib/firebase";
 import { ApplicationApiError, applyToJob } from "../../lib/applicationApi";
 import {
   formatJobEmploymentType,
@@ -19,11 +18,11 @@ import {
   getJobCategoryLabel,
   getJobDisplayCompany,
   getJobImage,
-  getJobTimestampMillis,
   normalizeJobText,
   type JobVisualCategory,
 } from "../../lib/jobPresentation";
-import type { Job } from "../../types";
+import { fetchPublicJobs } from "../../lib/publicJobApi";
+import type { PublicJobView } from "../../lib/publicJobTypes";
 
 const CATEGORY_OPTIONS: Array<{ value: "ALL" | JobVisualCategory; label: string }> = [
   { value: "ALL", label: "전체 보기" },
@@ -53,7 +52,7 @@ function ArrowIcon() {
 
 export default function JobsPage() {
   const router = useRouter();
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<PublicJobView[]>([]);
   const [loading, setLoading] = useState(true);
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -88,27 +87,27 @@ export default function JobsPage() {
   }, []);
 
   useEffect(() => {
-    const jobsQuery = query(collection(db, "jobs"), where("status", "==", "OPEN"));
+    let cancelled = false;
+    setLoading(true);
 
-    return onSnapshot(
-      jobsQuery,
-      (snapshot) => {
-        const items = snapshot.docs
-          .map((document) => ({ jobId: document.id, ...document.data() }) as Job)
-          .sort(
-            (a, b) =>
-              getJobTimestampMillis(b.createdAt) - getJobTimestampMillis(a.createdAt)
-          );
-        setJobs(items);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("OPEN jobs subscription failed:", error);
-        setJobs([]);
-        setLoading(false);
-        toast.error("채용 공고를 불러오지 못했습니다.");
-      }
-    );
+    fetchPublicJobs()
+      .then((items) => {
+        if (!cancelled) setJobs(items);
+      })
+      .catch((error) => {
+        console.error("Public jobs load failed:", error);
+        if (!cancelled) {
+          setJobs([]);
+          toast.error("채용 공고를 불러오지 못했습니다.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const locationOptions = useMemo(
@@ -142,7 +141,6 @@ export default function JobsPage() {
 
       const haystack = [
         job.title,
-        job.company,
         job.displayCompany,
         job.location,
         job.employmentType,
