@@ -3,6 +3,7 @@ import { Toaster } from "react-hot-toast";
 
 import CandidateNavigationIntentTracker from "../components/candidate/CandidateNavigationIntentTracker";
 import "../styles/globals.css";
+import "../styles/visual-polish.css";
 
 export const metadata: Metadata = {
   title: "The Lobby | Premium Reception Career Studio",
