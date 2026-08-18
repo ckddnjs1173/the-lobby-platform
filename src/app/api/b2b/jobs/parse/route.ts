@@ -3,25 +3,25 @@ import { NextResponse } from "next/server";
 import {
   B2BAuthorizationError,
   requireB2BActor,
-} from "../../../../../../lib/server/b2bAuthorization";
+} from "../../../../../lib/server/b2bAuthorization";
 import {
   JobDescriptionParsingServiceError,
   parseJobDescriptionText,
-} from "../../../../../../lib/server/jobDescriptionParsingService";
+} from "../../../../../lib/server/jobDescriptionParsingService";
 import {
   MAX_RESUME_FILE_BYTES,
   ResumeFileExtractionError,
   extractResumeTextFromFile,
   type ResumeUploadFile,
-} from "../../../../../../lib/server/resumeFileExtractionService";
+} from "../../../../../lib/server/resumeFileExtractionService";
 import {
   createRateLimitHeaders,
   consumeRateLimit,
-} from "../../../../../../lib/server/requestRateLimit";
+} from "../../../../../lib/server/requestRateLimit";
 import {
   ServerAuthError,
   requireFirebaseUser,
-} from "../../../../../../lib/server/serverAuth";
+} from "../../../../../lib/server/serverAuth";
 
 export const runtime = "nodejs";
 
