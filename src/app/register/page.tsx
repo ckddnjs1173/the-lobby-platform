@@ -352,13 +352,14 @@ export default function RegisterProfilePage() {
                       {resumeFile ? "다른 파일 선택" : "이력서 파일 선택"}
                     </span>
                     <span className="mt-1 block truncate text-[10px] text-brand-muted">
-                      {resumeFile ? resumeFile.name : "PDF, DOCX, TXT 파일을 선택해주세요."}
+                      {resumeFile ? "파일을 바꾸려면 이 영역을 클릭하세요." : "PDF, DOCX, TXT 파일을 선택해주세요."}
                     </span>
                   </span>
                   <span className="shrink-0 rounded-md bg-brand-espresso px-3 py-2 text-[10px] font-bold text-white">
                     찾아보기
                   </span>
                   <input
+                    key={resumeFile ? `${resumeFile.name}-${resumeFile.size}` : "resume-file-empty"}
                     type="file"
                     accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                     onChange={handleResumeFileChange}
