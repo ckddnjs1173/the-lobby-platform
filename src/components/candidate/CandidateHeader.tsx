@@ -44,7 +44,7 @@ export default function CandidateHeader() {
     }`;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-brand-line/80 bg-brand-light/94 backdrop-blur-xl">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-brand-line/80 bg-brand-light/94 backdrop-blur-xl">
       <div className="mx-auto flex h-[78px] max-w-[1500px] items-center justify-between px-5 sm:px-8 lg:px-10">
         <Link href="/" className="group flex items-center gap-3" aria-label="The Lobby 홈">
           <LobbyMark />
