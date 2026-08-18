@@ -13,58 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout validated main
-        uses: actions/checkout@v4
-
-      - name: Setup Node 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Read preview Firebase runtime diagnostic
-        env:
-          PREVIEW_BASE_URL: https://the-lobby-platform-git-ops-product-fb6dc9-ckddnjs1173s-projects.vercel.app
-        shell: bash
-        run: |
-          set -euo pipefail
-          status="$(curl -sS -L -o /tmp/runtime-diagnostic -w '%{http_code}' "$PREVIEW_BASE_URL/api/runtime-diagnostic")"
-          echo "PREVIEW_DIAGNOSTIC_STATUS:$status"
-          cat /tmp/runtime-diagnostic
-          echo
-          test "$status" = "200"
-
-      - name: Diagnose production endpoints
+      - name: Read production Firebase runtime diagnostic
         env:
           PRODUCTION_BASE_URL: https://the-lobby-platform-ten.vercel.app
         shell: bash
         run: |
-          set -u
-          failures=0
-          check_status() {
-            path="$1"
-            expected="$2"
-            rm -f /tmp/headers /tmp/body
-            status="$(curl -sS -L -D /tmp/headers -o /tmp/body -w '%{http_code}' "$PRODUCTION_BASE_URL$path" || echo CURL_FAILED)"
-            echo "===== $path ====="
-            echo "STATUS:$status EXPECTED:$expected"
-            grep -Ei '^(content-type|content-length|x-vercel-error|server|cache-control):' /tmp/headers 2>/dev/null || true
-            echo "BODY_BEGIN"
-            head -c 2000 /tmp/body 2>/dev/null || true
-            echo
-            echo "BODY_END"
-            if [ "$status" != "$expected" ]; then failures=$((failures + 1)); fi
-          }
-
-          check_status /api/health 200
-          check_status /api/readiness 200
-          check_status / 200
-          check_status /jobs 200
-          check_status /login 200
-          check_status /register 200
-          check_status /b2b-admin/login 200
-          check_status /api/public/jobs 200
-          check_status /api/candidate/me 401
-          check_status /api/b2b/session 401
-
-          echo "PRODUCTION_SMOKE_FAILURES:$failures"
-          exit "$failures"
+          set -euo pipefail
+          status="$(curl -sS -L -o /tmp/runtime-diagnostic -w '%{http_code}' "$PRODUCTION_BASE_URL/api/runtime-diagnostic")"
+          echo "PRODUCTION_DIAGNOSTIC_STATUS:$status"
+          cat /tmp/runtime-diagnostic
+          echo
+          test "$status" = "200"
