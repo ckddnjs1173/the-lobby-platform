@@ -13,12 +13,19 @@ This runbook defines the minimum release gate for The Lobby.
 
 ## 2. Required production environment
 
-Use `.env.example` as the contract. The required groups are:
+Use `.env.example` as the contract. The required groups for the initial public release are:
 
 - Firebase client configuration (`NEXT_PUBLIC_FIREBASE_*`)
 - Firebase Admin service-account environment (`FIREBASE_ADMIN_*`)
-- Groq (`GROQ_API_KEY`)
-- Resend email delivery (`COMMUNICATION_EMAIL_PROVIDER`, `RESEND_API_KEY`, `COMMUNICATION_FROM_EMAIL`)
+- Groq (`GROQ_API_KEY`) for resume and job-description structuring
+
+Candidate communication starts in **manual mode**. Recruiters use the applicant email/phone shown in the admin workspace and contact candidates through the organization’s existing mail/phone tools. Resend is therefore not a release blocker.
+
+Automated email can be enabled later by configuring all of these together:
+
+- `COMMUNICATION_EMAIL_PROVIDER=RESEND`
+- `RESEND_API_KEY`
+- `COMMUNICATION_FROM_EMAIL`
 
 Before a release, validate an injected environment with:
 
@@ -40,12 +47,14 @@ The development server must be running for the Firebase-backed E2E suite.
 
 ```bash
 npm ci
+npm run check:core-workflows
 npm run check:phase10
 npm run build
 ```
 
 Expected final markers:
 
+- `CORE_WORKFLOWS_RELEASE_CHECK_PASSED`
 - `PHASE9_REGRESSION_ALL_PASSED`
 - `PHASE10_PRODUCTION_READINESS_CHECK_PASSED`
 - `PHASE10_REGRESSION_ALL_PASSED`
@@ -75,15 +84,16 @@ npm run deploy:firestore:indexes
 
 ## 5. Application deployment
 
-Deploy the application from the exact `main` commit that passed CI and the local release gate. Record the deployed commit SHA.
+Deploy the application from the exact `main` commit that passed CI and the release gate. Record the deployed commit SHA.
 
 The application must expose:
 
 ```text
 GET /api/health
+GET /api/readiness
 ```
 
-A healthy response has HTTP 200 and `status: "ok"`.
+A healthy release returns HTTP 200 from both endpoints. `/api/readiness` should report Firestore ready, AI parsing available, and `communicationMode: "MANUAL"` until automated email is intentionally configured.
 
 ## 6. Production smoke gate
 
@@ -103,10 +113,17 @@ npm run check:phase10:smoke
 The smoke gate verifies:
 
 - `/api/health`
+- `/api/readiness`
 - `/`
 - `/jobs`
 - `/login`
 - `/b2b-admin/login`
+
+After the anonymous smoke gate, manually verify the three core workflows against the deployed revision:
+
+1. Candidate signup/login → profile creation/update → job application visibility.
+2. B2B job intake → PDF/DOCX/TXT or pasted JD → AI standardization → human review → DRAFT/OPEN save.
+3. Admin application operations → candidate contact details → stage/assignment/interview/outcome workflow.
 
 Expected marker:
 
@@ -120,6 +137,7 @@ Record these items for every production release:
 
 - Git commit SHA
 - GitHub CI result
+- core workflow gate result
 - Phase 10 regression result
 - production build result
 - Firestore rules/index deployment result
