@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
@@ -50,14 +51,6 @@ function ArrowIcon() {
   );
 }
 
-function BookmarkIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-      <path d="M7 4.5h10v15l-5-3-5 3v-15Z" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 export default function JobsPage() {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -73,7 +66,6 @@ export default function JobsPage() {
   useEffect(() => {
     return onAuthStateChanged(auth, async (user) => {
       setIsAuthenticated(Boolean(user));
-
       if (!user) {
         setAppliedJobIds(new Set());
         return;
@@ -90,7 +82,6 @@ export default function JobsPage() {
           setAppliedJobIds(new Set());
           return;
         }
-
         console.error("Candidate application-state restore failed:", error);
       }
     });
@@ -103,18 +94,11 @@ export default function JobsPage() {
       jobsQuery,
       (snapshot) => {
         const items = snapshot.docs
-          .map(
-            (document) =>
-              ({
-                jobId: document.id,
-                ...document.data(),
-              }) as Job
-          )
+          .map((document) => ({ jobId: document.id, ...document.data() }) as Job)
           .sort(
             (a, b) =>
               getJobTimestampMillis(b.createdAt) - getJobTimestampMillis(a.createdAt)
           );
-
         setJobs(items);
         setLoading(false);
       },
@@ -137,9 +121,9 @@ export default function JobsPage() {
 
   const employmentOptions = useMemo(
     () =>
-      Array.from(
-        new Set(jobs.map((job) => formatJobEmploymentType(job.employmentType)))
-      ).sort((a, b) => a.localeCompare(b, "ko-KR")),
+      Array.from(new Set(jobs.map((job) => formatJobEmploymentType(job.employmentType)))).sort((a, b) =>
+        a.localeCompare(b, "ko-KR")
+      ),
     [jobs]
   );
 
@@ -147,24 +131,14 @@ export default function JobsPage() {
     const normalizedKeyword = keyword.trim().toLocaleLowerCase("ko-KR");
 
     return jobs.filter((job) => {
-      if (category !== "ALL" && getJobCategory(job) !== category) {
-        return false;
-      }
-
-      if (location !== "ALL" && formatJobLocation(job.location) !== location) {
-        return false;
-      }
-
+      if (category !== "ALL" && getJobCategory(job) !== category) return false;
+      if (location !== "ALL" && formatJobLocation(job.location) !== location) return false;
       if (
         employment !== "ALL" &&
         formatJobEmploymentType(job.employmentType) !== employment
-      ) {
-        return false;
-      }
+      ) return false;
 
-      if (!normalizedKeyword) {
-        return true;
-      }
+      if (!normalizedKeyword) return true;
 
       const haystack = [
         job.title,
@@ -198,13 +172,11 @@ export default function JobsPage() {
 
     try {
       await applyToJob(jobId);
-
       setAppliedJobIds((previous) => {
         const next = new Set(previous);
         next.add(jobId);
         return next;
       });
-
       toast.success("지원이 완료되었습니다. 지원현황에서 진행 상태를 확인할 수 있습니다.");
     } catch (error) {
       if (error instanceof ApplicationApiError) {
@@ -213,7 +185,6 @@ export default function JobsPage() {
           router.push("/register");
           return;
         }
-
         if (error.code === "DUPLICATE_APPLICATION") {
           setAppliedJobIds((previous) => {
             const next = new Set(previous);
@@ -223,7 +194,6 @@ export default function JobsPage() {
           toast("이미 지원한 공고입니다.");
           return;
         }
-
         if (
           error.status === 401 ||
           error.code === "AUTH_REQUIRED" ||
@@ -233,7 +203,6 @@ export default function JobsPage() {
           router.push("/login");
           return;
         }
-
         toast.error(error.message);
         return;
       }
@@ -251,17 +220,11 @@ export default function JobsPage() {
 
       <section className="border-b border-brand-line bg-white/35">
         <div className="mx-auto max-w-[1460px] px-5 pb-10 pt-14 sm:px-8 lg:px-10 lg:pb-12 lg:pt-16">
-          <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-bronze">
-            Recommended Jobs
-          </p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-bronze">Recommended Jobs</p>
           <div className="mt-4 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
             <div>
-              <h1 className="font-editorial text-[42px] leading-tight tracking-[-0.045em] text-brand-espresso sm:text-[52px]">
-                추천 채용 / 채용공고 탐색
-              </h1>
-              <p className="mt-4 text-sm leading-6 text-brand-muted">
-                The Lobby가 엄선한 리셉션·고객서비스 포지션을 확인하고 간편하게 지원하세요.
-              </p>
+              <h1 className="font-editorial text-[42px] leading-tight tracking-[-0.045em] text-brand-espresso sm:text-[52px]">추천 채용 / 채용공고 탐색</h1>
+              <p className="mt-4 text-sm leading-6 text-brand-muted">The Lobby가 엄선한 리셉션·고객서비스 포지션을 확인하고 간편하게 지원하세요.</p>
             </div>
 
             {isAuthenticated ? (
@@ -270,8 +233,7 @@ export default function JobsPage() {
                 onClick={() => router.push("/candidate")}
                 className="inline-flex w-fit items-center gap-2 rounded-lg border border-brand-gold/35 bg-white px-5 py-3 text-xs font-bold text-brand-bronze transition hover:border-brand-gold/60 hover:bg-brand-ivory"
               >
-                내 지원현황 보기
-                <ArrowIcon />
+                내 지원현황 보기 <ArrowIcon />
               </button>
             ) : null}
           </div>
@@ -292,37 +254,21 @@ export default function JobsPage() {
 
             <label className="border-b border-brand-line px-5 py-3.5 lg:border-b-0 lg:border-r">
               <span className="block text-[9px] font-bold uppercase tracking-[0.16em] text-brand-muted">지역</span>
-              <select
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
-                className="mt-1 w-full cursor-pointer bg-transparent text-sm font-semibold text-brand-espresso outline-none"
-              >
+              <select value={location} onChange={(event) => setLocation(event.target.value)} className="mt-1 w-full cursor-pointer bg-transparent text-sm font-semibold text-brand-espresso outline-none">
                 <option value="ALL">전체 지역</option>
-                {locationOptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
+                {locationOptions.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </label>
 
             <label className="px-5 py-3.5 lg:border-r">
               <span className="block text-[9px] font-bold uppercase tracking-[0.16em] text-brand-muted">근무형태</span>
-              <select
-                value={employment}
-                onChange={(event) => setEmployment(event.target.value)}
-                className="mt-1 w-full cursor-pointer bg-transparent text-sm font-semibold text-brand-espresso outline-none"
-              >
+              <select value={employment} onChange={(event) => setEmployment(event.target.value)} className="mt-1 w-full cursor-pointer bg-transparent text-sm font-semibold text-brand-espresso outline-none">
                 <option value="ALL">전체 형태</option>
-                {employmentOptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
+                {employmentOptions.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </label>
 
-            <button
-              type="button"
-              aria-label="채용공고 검색"
-              className="flex min-h-[64px] items-center justify-center bg-brand-bronze text-white transition hover:bg-brand-espresso lg:min-h-0"
-            >
+            <button type="button" aria-label="채용공고 검색" className="flex min-h-[64px] items-center justify-center bg-brand-bronze text-white transition hover:bg-brand-espresso lg:min-h-0">
               <SearchIcon />
             </button>
           </div>
@@ -330,17 +276,12 @@ export default function JobsPage() {
           <div className="mt-5 flex flex-wrap gap-2">
             {CATEGORY_OPTIONS.map((option) => {
               const active = category === option.value;
-
               return (
                 <button
                   key={option.value}
                   type="button"
                   onClick={() => setCategory(option.value)}
-                  className={`rounded-full border px-4 py-2 text-xs font-bold transition ${
-                    active
-                      ? "border-brand-bronze bg-brand-bronze text-white"
-                      : "border-brand-line bg-white text-brand-ink hover:border-brand-gold/50 hover:text-brand-bronze"
-                  }`}
+                  className={`rounded-full border px-4 py-2 text-xs font-bold transition ${active ? "border-brand-bronze bg-brand-bronze text-white" : "border-brand-line bg-white text-brand-ink hover:border-brand-gold/50 hover:text-brand-bronze"}`}
                 >
                   {option.label}
                 </button>
@@ -357,9 +298,7 @@ export default function JobsPage() {
             <span className="text-brand-muted">신규 채용</span>
             <span className="hidden text-brand-muted sm:inline">리셉션 · 고객서비스</span>
           </div>
-          <p className="text-xs text-brand-muted">
-            총 <span className="font-bold text-brand-bronze">{filteredJobs.length}</span>건 · 최신순
-          </p>
+          <p className="text-xs text-brand-muted">총 <span className="font-bold text-brand-bronze">{filteredJobs.length}</span>건 · 최신순</p>
         </div>
 
         {loading ? (
@@ -401,72 +340,39 @@ export default function JobsPage() {
               const categoryLabel = getJobCategoryLabel(getJobCategory(job));
 
               return (
-                <article
-                  key={job.jobId}
-                  className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-brand-line bg-white shadow-card transition duration-300 hover:-translate-y-1 hover:border-brand-gold/35 hover:shadow-soft"
-                >
-                  <div className="relative h-48 overflow-hidden bg-brand-cream">
-                    <div
-                      className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-[1.035]"
-                      style={{ backgroundImage: `url('${getJobImage(job)}')` }}
-                    />
+                <article key={job.jobId} className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-brand-line bg-white shadow-card transition duration-300 hover:-translate-y-1 hover:border-brand-gold/35 hover:shadow-soft">
+                  <Link href={`/jobs/${job.jobId}`} className="relative block h-48 overflow-hidden bg-brand-cream">
+                    <div className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-[1.035]" style={{ backgroundImage: `url('${getJobImage(job)}')` }} />
                     <div className="absolute inset-0 bg-gradient-to-t from-brand-espresso/75 via-brand-espresso/5 to-transparent" />
-                    <div className="absolute left-4 top-4 rounded-full border border-white/35 bg-white/92 px-3 py-1 text-[9px] font-bold tracking-[0.08em] text-brand-bronze backdrop-blur">
-                      {categoryLabel}
-                    </div>
-                    <button
-                      type="button"
-                      aria-label="관심 채용"
-                      className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full border border-white/35 bg-white/90 text-brand-bronze backdrop-blur transition hover:bg-white"
-                    >
-                      <BookmarkIcon />
-                    </button>
+                    <div className="absolute left-4 top-4 rounded-full border border-white/35 bg-white/92 px-3 py-1 text-[9px] font-bold tracking-[0.08em] text-brand-bronze backdrop-blur">{categoryLabel}</div>
                     <div className="absolute bottom-4 left-4 right-4 text-white">
                       <p className="truncate text-[10px] font-semibold text-white/70">{company}</p>
                       <h2 className="mt-1 line-clamp-2 break-keep text-[17px] font-bold leading-snug">{job.title}</h2>
                     </div>
-                  </div>
+                  </Link>
 
                   <div className="flex flex-1 flex-col p-5">
                     <dl className="grid gap-2.5 text-xs text-brand-muted">
-                      <div className="flex items-center justify-between gap-4">
-                        <dt>근무지</dt>
-                        <dd className="truncate font-semibold text-brand-ink">{formatJobLocation(job.location)}</dd>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <dt>근무형태</dt>
-                        <dd className="truncate font-semibold text-brand-ink">{formatJobEmploymentType(job.employmentType)}</dd>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <dt>급여</dt>
-                        <dd className="truncate font-semibold text-brand-ink">{formatJobSalary(job.salary)}</dd>
-                      </div>
+                      <div className="flex items-center justify-between gap-4"><dt>근무지</dt><dd className="truncate font-semibold text-brand-ink">{formatJobLocation(job.location)}</dd></div>
+                      <div className="flex items-center justify-between gap-4"><dt>근무형태</dt><dd className="truncate font-semibold text-brand-ink">{formatJobEmploymentType(job.employmentType)}</dd></div>
+                      <div className="flex items-center justify-between gap-4"><dt>급여</dt><dd className="truncate font-semibold text-brand-ink">{formatJobSalary(job.salary)}</dd></div>
                     </dl>
 
                     <p className="mt-4 line-clamp-2 min-h-[44px] break-keep text-[12px] leading-[22px] text-brand-muted">
                       {normalizeJobText(job.description) || "The Lobby가 엄선한 리셉션·고객서비스 포지션입니다."}
                     </p>
 
-                    <div className="mt-5 border-t border-brand-line pt-4">
+                    <div className="mt-auto grid grid-cols-[0.8fr_1.2fr] gap-2 border-t border-brand-line pt-4">
+                      <Link href={`/jobs/${job.jobId}`} className="flex items-center justify-center rounded-lg border border-brand-line px-3 py-3 text-[11px] font-bold text-brand-bronze transition hover:bg-brand-ivory">
+                        상세보기
+                      </Link>
                       <button
                         type="button"
                         onClick={() => void handleApply(job.jobId)}
                         disabled={isApplying || isApplied}
-                        className={`flex w-full items-center justify-between rounded-lg px-4 py-3 text-xs font-bold transition ${
-                          isApplied
-                            ? "cursor-default bg-brand-success/10 text-brand-success"
-                            : "bg-brand-espresso text-white hover:bg-brand-bronze disabled:cursor-wait disabled:opacity-60"
-                        }`}
+                        className={`flex items-center justify-between rounded-lg px-4 py-3 text-[11px] font-bold transition ${isApplied ? "cursor-default bg-brand-success/10 text-brand-success" : "bg-brand-espresso text-white hover:bg-brand-bronze disabled:cursor-wait disabled:opacity-60"}`}
                       >
-                        <span>
-                          {isApplying
-                            ? "지원 중..."
-                            : isApplied
-                              ? "지원 완료"
-                              : isAuthenticated
-                                ? "간편 지원하기"
-                                : "로그인 후 지원"}
-                        </span>
+                        <span>{isApplying ? "지원 중..." : isApplied ? "지원 완료" : isAuthenticated ? "간편 지원" : "로그인 후 지원"}</span>
                         <ArrowIcon />
                       </button>
                     </div>
@@ -479,21 +385,14 @@ export default function JobsPage() {
               <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full border border-brand-gold/20" />
               <div className="absolute -right-7 -top-7 h-36 w-36 rounded-full border border-brand-gold/15" />
               <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-brand-cream/65">The Lobby Curator Note</p>
-              <h3 className="font-editorial mt-5 break-keep text-[30px] leading-[1.35] tracking-[-0.04em]">
-                모든 공고는 직무와 근무조건을 확인하고 연결합니다.
-              </h3>
+              <h3 className="font-editorial mt-5 break-keep text-[30px] leading-[1.35] tracking-[-0.04em]">모든 공고는 직무와 근무조건을 확인하고 연결합니다.</h3>
               <div className="mt-8 grid gap-4 text-xs text-white/70">
                 <p>01 · 리셉션·고객서비스 직무 중심</p>
                 <p>02 · 지원 이력과 진행상태 연동</p>
                 <p>03 · 전문 리크루터 채용 지원</p>
               </div>
-              <button
-                type="button"
-                onClick={() => router.push("/register")}
-                className="mt-auto flex items-center justify-between border-t border-white/15 pt-5 text-xs font-bold text-brand-cream"
-              >
-                프로필 등록하기
-                <ArrowIcon />
+              <button type="button" onClick={() => router.push("/register")} className="mt-auto flex items-center justify-between border-t border-white/15 pt-5 text-xs font-bold text-brand-cream">
+                프로필 등록하기 <ArrowIcon />
               </button>
             </aside>
           </div>
@@ -502,10 +401,7 @@ export default function JobsPage() {
 
       <footer className="border-t border-brand-line bg-white/45">
         <div className="mx-auto flex max-w-[1460px] flex-col gap-3 px-5 py-8 text-xs text-brand-muted sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
-          <div>
-            <span className="font-editorial text-lg tracking-[0.1em] text-brand-espresso">THE LOBBY</span>
-            <span className="ml-3">Premium Reception Career Studio</span>
-          </div>
+          <div><span className="font-editorial text-lg tracking-[0.1em] text-brand-espresso">THE LOBBY</span><span className="ml-3">Premium Reception Career Studio</span></div>
           <p>Reception · Hospitality · Customer Service Recruiting</p>
         </div>
       </footer>
