@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { auth } from "../../lib/firebase";
+import { consumeCandidateReturnPath } from "../../lib/candidateNavigationIntent";
 
 function LobbyMark() {
   return (
@@ -27,8 +28,13 @@ export default function CandidateHeader() {
     return onAuthStateChanged(auth, (user) => {
       setAuthenticated(Boolean(user));
       setAuthReady(true);
+
+      if (user && pathname === "/candidate") {
+        const returnPath = consumeCandidateReturnPath();
+        if (returnPath) router.replace(returnPath);
+      }
     });
-  }, []);
+  }, [pathname, router]);
 
   const handleSignOut = async () => {
     await signOut(auth);
