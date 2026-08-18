@@ -113,12 +113,12 @@ export default function Home() {
               className="absolute inset-0 scale-[1.01] bg-cover bg-center"
               style={{
                 backgroundImage:
-                  "linear-gradient(90deg, rgba(36,24,15,0.12), rgba(36,24,15,0.00) 48%), url('https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1800&q=90')",
+                  "linear-gradient(90deg, rgba(36,24,15,0.08), rgba(36,24,15,0.00) 45%), url('https://images.unsplash.com/photo-1775447665921-87fb172bf115?auto=format&fit=crop&w=1800&q=90')",
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-brand-espresso/25 via-transparent to-white/5" />
+            <div className="absolute inset-0 bg-gradient-to-t from-brand-espresso/30 via-transparent to-white/5" />
 
-            <div className="absolute left-6 top-6 rounded-xl border border-white/45 bg-white/90 p-3 shadow-card backdrop-blur sm:left-8 sm:top-8 sm:flex sm:items-center sm:gap-3 sm:p-3.5">
+            <div className="absolute left-6 top-6 rounded-xl border border-white/45 bg-white/92 p-3 shadow-card backdrop-blur sm:left-8 sm:top-8 sm:flex sm:items-center sm:gap-3 sm:p-3.5">
               <div
                 className="h-11 w-11 shrink-0 rounded-full bg-cover bg-center"
                 style={{
@@ -246,31 +246,26 @@ export default function Home() {
           {[
             ["엄선된 전문 포지션", "리셉션·고객서비스 직무에 집중합니다."],
             ["지원자 보호", "지원 정보와 내부 채용 데이터의 경계를 지킵니다."],
-            ["커리어 연결", "지원 이후의 진행 과정까지 계속 확인할 수 있습니다."],
+            ["커리어 연결", "지원 이후의 과정까지 계속 이어집니다."],
           ].map(([title, description]) => (
-            <div key={title} className="flex items-start gap-4">
-              <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full border-2 border-brand-bronze bg-brand-cream" />
+            <div key={title} className="flex items-start gap-3">
+              <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-bronze" />
               <div>
-                <p className="text-[13px] font-bold text-brand-espresso">{title}</p>
-                <p className="mt-1 text-[11px] leading-5 text-brand-muted">{description}</p>
+                <p className="text-sm font-bold text-brand-espresso">{title}</p>
+                <p className="mt-1 text-xs leading-5 text-brand-muted">{description}</p>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      <footer className="border-t border-brand-line/80 bg-white/50">
+      <footer className="border-t border-brand-line/80">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-5 py-8 text-xs text-brand-muted sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
           <div>
-            <span className="font-editorial text-lg tracking-[0.08em] text-brand-espresso">THE LOBBY</span>
-            <span className="ml-3 hidden sm:inline">Premium Reception Career Studio</span>
+            <span className="font-editorial text-lg tracking-[0.12em] text-brand-espresso">THE LOBBY</span>
+            <span className="ml-3">Premium Reception Career Studio</span>
           </div>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <Link href="/jobs" className="transition hover:text-brand-bronze">채용공고</Link>
-            <Link href="/register" className="transition hover:text-brand-bronze">프로필 등록</Link>
-            <Link href="/login" className="transition hover:text-brand-bronze">로그인</Link>
-            <span>© 2026 The Lobby by J&amp;C</span>
-          </div>
+          <div>© 2026 The Lobby by J&C.</div>
         </div>
       </footer>
     </main>
