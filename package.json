@@ -38,7 +38,8 @@
     "deploy:firestore:indexes": "firebase deploy --only firestore:indexes --project the-lobby-platform",
     "deploy:firestore:rules": "firebase deploy --only firestore:rules --project the-lobby-platform",
     "deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes --project the-lobby-platform",
-    "check:final:integration": "node tests/final-frontend-backend-contract-check.cjs"
+    "check:final:integration": "node tests/final-frontend-backend-contract-check.cjs",
+    "check:core-workflows": "node tests/core-workflows-release-check.cjs"
   },
   "dependencies": {
     "firebase": "^12.17.1",

@@ -172,7 +172,8 @@ assert(
   "PARSED_STRUCTURED_PROFILE_NOT_SENT_TO_CREATE_API"
 );
 assert(
-  candidatePage.includes("AI가 만든 초안은 자동 저장되지 않습니다"),
+  candidatePage.includes("결과는 저장 전 직접 검토합니다") &&
+    candidatePage.includes("Recruiter가 최종 확인합니다"),
   "HUMAN_IN_LOOP_NOTICE_MISSING"
 );
 

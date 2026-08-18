@@ -30,6 +30,9 @@ const applicationsRoute = read(
 const client = read(
   "src/lib/candidatePortalApi.ts"
 );
+const portalTypes = read(
+  "src/lib/candidatePortalTypes.ts"
+);
 const registerPage = read(
   "src/app/register/page.tsx"
 );
@@ -146,10 +149,13 @@ assert(
 
 assert(
   registerPage.includes(
-    "이력서 없이 직접 입력"
+    "이름, 연락처, 이메일은 필수 입력 항목입니다"
   ) &&
     registerPage.includes(
       "hasAuthenticatedAccount"
+    ) &&
+    registerPage.includes(
+      "직접 검토해 저장하세요"
     ),
   "REGISTRATION_RECOVERY_OR_MANUAL_PATH_MISSING"
 );
@@ -163,25 +169,41 @@ assert(
     "signInWithEmailAndPassword"
   ) &&
     loginPage.includes(
-      'router.replace("/candidate")'
+      "consumeCandidateReturnPath"
+    ) &&
+    loginPage.includes(
+      '|| "/candidate"'
+    ) &&
+    loginPage.includes(
+      "fetchCandidatePortalProfile"
     ),
   "CANDIDATE_LOGIN_FLOW_MISSING"
 );
 
 assert(
   portalPage.includes(
-    "내 지원현황"
+    "지원현황"
   ) &&
     portalPage.includes(
       "nextInterview"
     ) &&
     portalPage.includes(
-      "plannedStartDate"
+      "updateCandidatePortalProfileViaApi"
     ) &&
     portalPage.includes(
-      "updateCandidatePortalProfileViaApi"
+      "지원 취소"
     ),
   "CANDIDATE_DASHBOARD_MISSING"
+);
+
+assert(
+  portalTypes.includes(
+    "plannedStartDate: string | null"
+  ) &&
+    service.includes(
+      "plannedStartDate"
+    ),
+  "CANDIDATE_PLANNED_START_DATE_CONTRACT_MISSING"
 );
 
 assert(

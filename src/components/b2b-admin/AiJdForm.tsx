@@ -1,127 +1,213 @@
 "use client";
 
 import { useState } from "react";
-import { db } from "../../lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import toast from "react-hot-toast";
 
-interface JdResult {
-  company: string;
-  title: string;
-  learnPoints: string[];
-  salary: string;
-  location: string;
+import {
+  JobDescriptionApiError,
+  parseJobDescriptionFileViaApi,
+  parseJobDescriptionTextViaApi,
+  type JobDescriptionParseResult,
+} from "../../lib/jobDescriptionApi";
+
+const MAX_JOB_FILE_BYTES = 8 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = new Set([".pdf", ".docx", ".txt"]);
+
+interface AiJdFormProps {
+  onParsed: (result: JobDescriptionParseResult) => void;
+  disabled?: boolean;
 }
 
-export default function AiJdForm() {
+function getExtension(fileName: string): string {
+  const index = fileName.lastIndexOf(".");
+  return index >= 0 ? fileName.slice(index).toLowerCase() : "";
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+export default function AiJdForm({ onParsed, disabled = false }: AiJdFormProps) {
   const [inputText, setInputText] = useState("");
-  const [maskCompany, setMaskCompany] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [publishLoading, setPublishLoading] = useState(false);
-  const [result, setResult] = useState<JdResult | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [maskCompany, setMaskCompany] = useState(false);
+  const [loadingSource, setLoadingSource] = useState<"TEXT" | "FILE" | null>(null);
 
-  const handleFormat = async () => {
-    if (!inputText) return;
-    setLoading(true);
+  const handleError = (error: unknown) => {
+    console.error("AI JD transform failed:", error);
+    toast.error(
+      error instanceof JobDescriptionApiError || error instanceof Error
+        ? error.message
+        : "AI 공고 변환에 실패했습니다."
+    );
+  };
+
+  const handleTextParse = async () => {
+    if (!inputText.trim()) {
+      toast.error("변환할 채용공고 원문을 붙여넣어주세요.");
+      return;
+    }
+
+    setLoadingSource("TEXT");
     try {
-      const res = await fetch("/api/ai-format", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ originalText: inputText, maskCompany }),
+      const parsed = await parseJobDescriptionTextViaApi({
+        jobText: inputText.trim(),
+        maskCompany,
       });
-      const data = await res.json();
-      setResult(data);
+      onParsed(parsed);
+      toast.success("공고 원문을 The Lobby 양식으로 변환했습니다. 내용을 확인해주세요.");
     } catch (error) {
-      console.error(error);
-      toast.error("AI 변환에 실패했습니다.");
+      handleError(error);
     } finally {
-      setLoading(false);
+      setLoadingSource(null);
     }
   };
 
-  const handlePublish = async () => {
-    if (!result) return;
-    setPublishLoading(true);
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = event.target.files?.[0] || null;
+    if (!selected) {
+      setFile(null);
+      return;
+    }
+
+    if (!ALLOWED_EXTENSIONS.has(getExtension(selected.name))) {
+      toast.error("PDF, DOCX, TXT 공고 파일만 선택할 수 있습니다.");
+      event.currentTarget.value = "";
+      setFile(null);
+      return;
+    }
+
+    if (selected.size > MAX_JOB_FILE_BYTES) {
+      toast.error("공고 파일은 8MB 이하만 업로드할 수 있습니다.");
+      event.currentTarget.value = "";
+      setFile(null);
+      return;
+    }
+
+    setFile(selected);
+  };
+
+  const handleFileParse = async () => {
+    if (!file) {
+      toast.error("변환할 채용공고 파일을 선택해주세요.");
+      return;
+    }
+
+    setLoadingSource("FILE");
     try {
-      await addDoc(collection(db, "jobs"), {
-        ...result,
-        createdAt: serverTimestamp(),
-      });
-      toast.success("공고가 성공적으로 발행되었습니다!");
-      setResult(null);
-      setInputText("");
+      const parsed = await parseJobDescriptionFileViaApi({ file, maskCompany });
+      onParsed(parsed);
+      toast.success("공고 파일을 The Lobby 양식으로 변환했습니다. 내용을 확인해주세요.");
     } catch (error) {
-      console.error(error);
-      toast.error("공고 발행에 실패했습니다.");
+      handleError(error);
     } finally {
-      setPublishLoading(false);
+      setLoadingSource(null);
     }
   };
+
+  const busy = disabled || loadingSource !== null;
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-      <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-        <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-          <span className="text-brand-gold">✨</span> AI 공고 자동 포맷팅
-        </h3>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500 font-medium">고객사 블라인드 처리</span>
-          <button 
-            onClick={() => setMaskCompany(!maskCompany)} 
-            className={`w-8 h-4 rounded-full relative cursor-pointer transition-colors ${maskCompany ? "bg-emerald-500" : "bg-slate-300"}`}
-          >
-            <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${maskCompany ? "right-0.5" : "left-0.5"}`}></div>
-          </button>
+    <section className="overflow-hidden rounded-2xl border border-brand-gold/25 bg-slate-950 text-white shadow-sm">
+      <div className="flex flex-col gap-4 border-b border-white/10 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-gold">AI JD Intake</p>
+          <h3 className="mt-1 text-base font-bold">받은 공고문을 그대로 넣어주세요</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-400">
+            PDF·DOCX·TXT 또는 원문 텍스트를 분석해 현재 공고 등록 양식에 자동으로 채웁니다.
+          </p>
         </div>
-      </div>
-      
-      <div className="p-4 flex gap-4 h-[400px]">
-        <div className="flex-1 flex flex-col gap-2">
-          <label className="text-xs font-semibold text-slate-600 uppercase">Original JD (Paste here)</label>
-          <textarea 
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            className="flex-1 w-full p-3 text-sm border border-slate-200 rounded-md bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-navy focus:ring-1 focus:ring-brand-navy resize-none font-mono"
-            placeholder="고객사로부터 받은 채용 요강 텍스트를 그대로 붙여넣으세요..."
+        <label className="flex shrink-0 items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+          <span className="text-xs font-semibold text-slate-300">기업명 블라인드</span>
+          <input
+            type="checkbox"
+            checked={maskCompany}
+            onChange={(event) => setMaskCompany(event.target.checked)}
+            disabled={busy}
+            className="h-4 w-4 accent-amber-400"
           />
-          <button onClick={handleFormat} disabled={loading} className="w-full bg-slate-800 text-white py-2 rounded-md text-sm font-medium hover:bg-slate-900 transition-colors disabled:opacity-50">
-            {loading ? "AI 변환 중..." : "AI 변환 시작"}
+        </label>
+      </div>
+
+      <div className="grid gap-4 p-5 lg:grid-cols-2">
+        <div className="flex min-h-[260px] flex-col rounded-xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-white">공고 원문 붙여넣기</p>
+              <p className="mt-1 text-[10px] text-slate-400">메일·메신저·웹에서 받은 내용을 그대로 붙여넣습니다.</p>
+            </div>
+            <span className="text-[10px] text-slate-500">최대 40,000자</span>
+          </div>
+          <textarea
+            value={inputText}
+            onChange={(event) => setInputText(event.target.value)}
+            disabled={busy}
+            className="min-h-[150px] flex-1 resize-y rounded-xl border border-white/10 bg-slate-900 px-3 py-3 text-sm leading-6 text-slate-100 outline-none placeholder:text-slate-600 focus:border-brand-gold/60"
+            placeholder="예) 고객사명, 모집 포지션, 담당업무, 자격요건, 우대사항, 근무지, 급여, 고용형태..."
+          />
+          <button
+            type="button"
+            onClick={() => void handleTextParse()}
+            disabled={busy || !inputText.trim()}
+            className="mt-3 rounded-xl bg-brand-gold px-4 py-2.5 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {loadingSource === "TEXT" ? "AI가 양식화하는 중..." : "원문 AI 양식화"}
           </button>
         </div>
 
-        <div className="flex-1 flex flex-col gap-2">
-          <label className="text-xs font-semibold text-slate-600 uppercase">The Lobby Formatted JD</label>
-          <div className="flex-1 w-full p-4 border border-slate-200 rounded-md bg-white overflow-y-auto">
-            {result ? (
-              <>
-                <div className="mb-4">
-                  <span className="px-2 py-1 bg-brand-gold/20 text-brand-navy text-[10px] font-bold rounded-sm tracking-wider">{result.company}</span>
-                </div>
-                <h4 className="text-lg font-bold text-slate-900 mb-2">{result.title}</h4>
-                <div className="space-y-4 text-sm text-slate-700 mt-4">
-                  <div>
-                    <strong className="block text-brand-navy mb-1">🎯 What you will learn (스펙업 포인트)</strong>
-                    <ul className="list-disc pl-4 space-y-1 text-slate-600">
-                      {result.learnPoints?.map((point, idx) => (
-                        <li key={idx}>{point}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <strong className="block text-brand-navy mb-1">💼 근무 조건</strong>
-                    <p>연봉: {result.salary} / 위치: {result.location}</p>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="h-full flex items-center justify-center text-slate-400 text-sm">변환 결과가 여기에 표시됩니다.</div>
-            )}
+        <div className="flex min-h-[260px] flex-col rounded-xl border border-white/10 bg-white/[0.04] p-4">
+          <div>
+            <p className="text-xs font-bold text-white">공고 파일 업로드</p>
+            <p className="mt-1 text-[10px] text-slate-400">PDF·DOCX·TXT, 최대 8MB. 원본 파일은 저장하지 않습니다.</p>
           </div>
-          <button onClick={handlePublish} disabled={!result || publishLoading} className="w-full bg-brand-navy text-brand-gold py-2 rounded-md text-sm font-bold hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50 disabled:hover:bg-brand-navy">
-            {publishLoading ? "발행 중..." : "공고 즉시 발행"}
+
+          <label className="mt-4 flex flex-1 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-slate-900/70 px-5 py-8 text-center hover:border-brand-gold/50">
+            <input
+              key={file ? `${file.name}-${file.size}` : "job-file-empty"}
+              type="file"
+              accept=".pdf,.docx,.txt"
+              onChange={handleFileChange}
+              disabled={busy}
+              className="sr-only"
+            />
+            <span className="text-2xl" aria-hidden="true">↥</span>
+            <span className="mt-3 text-sm font-bold text-white">
+              {file ? "다른 공고 파일 선택" : "공고 파일 선택"}
+            </span>
+            <span className="mt-1 max-w-full truncate text-xs text-slate-400">
+              {file ? `${file.name} · ${formatFileSize(file.size)}` : "클릭해서 파일을 선택하세요"}
+            </span>
+          </label>
+
+          {file ? (
+            <div className="mt-3 flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs">
+              <span className="min-w-0 truncate text-slate-300">{file.name}</span>
+              <button
+                type="button"
+                onClick={() => setFile(null)}
+                disabled={busy}
+                className="ml-3 shrink-0 font-bold text-slate-400 hover:text-white"
+              >
+                제거
+              </button>
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => void handleFileParse()}
+            disabled={busy || !file}
+            className="mt-3 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {loadingSource === "FILE" ? "AI가 파일을 분석하는 중..." : "파일 AI 양식화"}
           </button>
         </div>
       </div>
-    </div>
+
+      <div className="border-t border-white/10 px-5 py-3 text-[10px] leading-5 text-slate-500">
+        AI 변환 결과는 즉시 공개되지 않습니다. 아래 등록 양식에 채워진 결과를 담당자가 검토한 뒤 초안 저장 또는 공개합니다.
+      </div>
+    </section>
   );
 }

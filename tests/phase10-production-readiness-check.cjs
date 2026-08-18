@@ -5,10 +5,7 @@ const root = path.resolve(__dirname, "..");
 
 function read(relativePath) {
   return fs
-    .readFileSync(
-      path.join(root, relativePath),
-      "utf8"
-    )
+    .readFileSync(path.join(root, relativePath), "utf8")
     .replace(/\r\n/g, "\n");
 }
 
@@ -43,9 +40,6 @@ const requiredEnvKeys = [
   "FIREBASE_ADMIN_CLIENT_EMAIL",
   "FIREBASE_ADMIN_PRIVATE_KEY",
   "GROQ_API_KEY",
-  "COMMUNICATION_EMAIL_PROVIDER",
-  "RESEND_API_KEY",
-  "COMMUNICATION_FROM_EMAIL",
 ];
 
 assert(
@@ -55,6 +49,20 @@ assert(
       envValidator.includes(`\"${key}\"`)
   ),
   "PRODUCTION_ENV_CONTRACT_INCOMPLETE"
+);
+
+const optionalCommunicationKeys = [
+  "COMMUNICATION_EMAIL_PROVIDER",
+  "RESEND_API_KEY",
+  "COMMUNICATION_FROM_EMAIL",
+];
+
+const requiredKeysBlock = envValidator.match(/const requiredKeys = \[[\s\S]*?\];/)?.[0] || "";
+assert(
+  optionalCommunicationKeys.every((key) => envExample.includes(`${key}=`)) &&
+    optionalCommunicationKeys.every((key) => !requiredKeysBlock.includes(key)) &&
+    envValidator.includes("COMMUNICATION_MODE=MANUAL"),
+  "OPTIONAL_COMMUNICATION_ENV_CONTRACT_INVALID"
 );
 
 assert(
@@ -124,6 +132,7 @@ assert(
     readinessRoute.includes('status: ready ? "ready" : "not_ready"') &&
     readinessRoute.includes("checks.firestore") &&
     readinessRoute.includes("REQUIRED_SERVER_ENV") &&
+    readinessRoute.includes('communicationMode: emailAutomation ? "RESEND" : "MANUAL"') &&
     smoke.includes("/api/readiness") &&
     smoke.includes("PRODUCTION_BASE_URL") &&
     smoke.includes("PHASE10_PRODUCTION_SMOKE_PASSED"),
