@@ -1,0 +1,156 @@
+name: Production Authenticated E2E
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  production-authenticated-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+      FIREBASE_ADMIN_PROJECT_ID: ${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}
+      FIREBASE_ADMIN_CLIENT_EMAIL: ${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}
+      FIREBASE_ADMIN_PRIVATE_KEY: ${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
+      E2E_BASE_URL: https://the-lobby-platform-ten.vercel.app
+
+    steps:
+      - name: Checkout final production revision
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify required test credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in NEXT_PUBLIC_FIREBASE_API_KEY FIREBASE_ADMIN_PROJECT_ID FIREBASE_ADMIN_CLIENT_EMAIL FIREBASE_ADMIN_PRIVATE_KEY; do
+            if [ -z "${!key}" ]; then
+              echo "MISSING_TEST_CREDENTIAL:$key"
+              exit 1
+            fi
+          done
+          echo "PRODUCTION_E2E_CREDENTIALS_PRESENT"
+
+      - name: Materialize ephemeral Firebase credential
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          credential = {
+              "type": "service_account",
+              "project_id": os.environ["FIREBASE_ADMIN_PROJECT_ID"],
+              "private_key": os.environ["FIREBASE_ADMIN_PRIVATE_KEY"].replace("\\n", "\n"),
+              "client_email": os.environ["FIREBASE_ADMIN_CLIENT_EMAIL"],
+              "token_uri": "https://oauth2.googleapis.com/token",
+          }
+          path = Path("/tmp/the-lobby-production-e2e.json")
+          path.write_text(json.dumps(credential), encoding="utf-8")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              env_file.write(f"GOOGLE_APPLICATION_CREDENTIALS={path}\n")
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Candidate signup profile apply portal E2E
+        run: node tests/phase8-candidate-portal-e2e.cjs
+
+      - name: Prepare production-targeted admin E2E scripts
+        shell: bash
+        run: |
+          cp tests/job-management-check.cjs tests/.tmp-production-job-management.cjs
+          cp tests/application-operations-check.cjs tests/.tmp-production-application-operations.cjs
+          python - <<'PY'
+          from pathlib import Path
+          for name in [
+              "tests/.tmp-production-job-management.cjs",
+              "tests/.tmp-production-application-operations.cjs",
+          ]:
+              path = Path(name)
+              text = path.read_text(encoding="utf-8")
+              old = '"http://localhost:3000" + url'
+              new = '(process.env.E2E_BASE_URL || "http://localhost:3000") + url'
+              if old not in text:
+                  raise SystemExit(f"LOCALHOST_CALLSITE_NOT_FOUND:{name}")
+              path.write_text(text.replace(old, new), encoding="utf-8")
+          PY
+
+      - name: Admin job create publish authorization E2E
+        run: node tests/.tmp-production-job-management.cjs
+
+      - name: Admin pipeline assignee interview E2E
+        run: node tests/.tmp-production-application-operations.cjs
+
+      - name: Authenticated AI job-description parse E2E
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const { initializeApp, cert } = require('firebase-admin/app');
+          const { getAuth } = require('firebase-admin/auth');
+
+          const serviceAccount = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'));
+          initializeApp({ credential: cert(serviceAccount), projectId: process.env.FIREBASE_ADMIN_PROJECT_ID });
+          const auth = getAuth();
+
+          async function main() {
+            const customToken = await auth.createCustomToken('e2e-recruiter-jnc');
+            const tokenResponse = await fetch(
+              'https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + encodeURIComponent(process.env.NEXT_PUBLIC_FIREBASE_API_KEY),
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: customToken, returnSecureToken: true }),
+              }
+            );
+            const tokenBody = await tokenResponse.json();
+            if (!tokenResponse.ok || !tokenBody.idToken) throw new Error('PRODUCTION_ADMIN_TOKEN_EXCHANGE_FAILED');
+
+            const response = await fetch(process.env.E2E_BASE_URL + '/api/b2b/jobs/parse', {
+              method: 'POST',
+              headers: {
+                Authorization: 'Bearer ' + tokenBody.idToken,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                jobText: '서울 강남 기업 안내데스크 리셉션 채용. 정규직. 주요업무는 방문객 안내, 전화 응대, 회의실 관리. 고객응대 경력 1년 이상 우대. 급여는 회사 내규에 따름.',
+                maskCompany: true,
+              }),
+            });
+            const text = await response.text();
+            let body = null;
+            try { body = JSON.parse(text); } catch {}
+            console.log('AI_JD_PARSE_STATUS:', response.status);
+            console.log('AI_JD_PARSE_SUCCESS:', body?.success === true);
+            console.log('AI_JD_TITLE_PRESENT:', Boolean(body?.data?.title));
+            if (response.status !== 200 || body?.success !== true || !body?.data?.title) {
+              throw new Error('PRODUCTION_AI_JD_PARSE_FAILED:' + response.status + ':' + text.slice(0, 800));
+            }
+            console.log('PRODUCTION_AI_JD_PARSE_E2E_PASSED');
+          }
+
+          main().catch((error) => {
+            console.error(error instanceof Error ? error.message : error);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Cleanup temporary runner files
+        if: always()
+        shell: bash
+        run: |
+          rm -f /tmp/the-lobby-production-e2e.json
+          rm -f tests/.tmp-production-job-management.cjs tests/.tmp-production-application-operations.cjs
