@@ -53,7 +53,10 @@ jobs:
 
           readiness="$(curl -sS -L "$PRODUCTION_BASE_URL/api/readiness")"
           echo "READINESS_BODY:$readiness"
-          if ! printf '%s' "$readiness" | grep -q '"ready":true'; then failures=$((failures + 1)); fi
+          if ! printf '%s' "$readiness" | grep -q '"status":"ready"'; then failures=$((failures + 1)); fi
+          if ! printf '%s' "$readiness" | grep -q '"environment":true'; then failures=$((failures + 1)); fi
+          if ! printf '%s' "$readiness" | grep -q '"firestore":true'; then failures=$((failures + 1)); fi
+          if ! printf '%s' "$readiness" | grep -q '"communicationMode":"MANUAL"'; then failures=$((failures + 1)); fi
 
           echo "PRODUCTION_SMOKE_FAILURES:$failures"
           exit "$failures"
