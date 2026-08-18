@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import CandidateHeader from "../../components/candidate/CandidateHeader";
 import {
   CandidatePortalApiError,
+  cancelCandidatePortalApplicationViaApi,
   fetchCandidatePortalApplications,
   fetchCandidatePortalProfile,
   updateCandidatePortalProfileViaApi,
@@ -60,6 +61,11 @@ const ACTIVE_STAGES = new Set<ApplicationStage>([
   "DOCUMENT_SCREEN",
   "INTERVIEW",
   "OFFER",
+]);
+
+const CANCELABLE_STAGES = new Set<ApplicationStage>([
+  ...ACTIVE_STAGES,
+  "HOLD",
 ]);
 
 function profileToForm(profile: CandidatePortalProfileView): ProfileFormState {
@@ -123,6 +129,7 @@ export default function CandidatePortalPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [cancelingApplicationId, setCancelingApplicationId] = useState<string | null>(null);
 
   const loadPortal = useCallback(async () => {
     setLoading(true);
@@ -191,6 +198,33 @@ export default function CandidatePortalPage() {
     [applications]
   );
 
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const handlePortalNavigation = (index: number) => {
+    if (index === 0) {
+      scrollToSection("candidate-dashboard");
+      return;
+    }
+
+    if (index === 1) {
+      setEditing(true);
+      window.requestAnimationFrame(() => scrollToSection("candidate-profile-editor"));
+      return;
+    }
+
+    if (index === 2) {
+      scrollToSection("candidate-applications");
+      return;
+    }
+
+    scrollToSection("candidate-interviews");
+  };
+
   const updateCareer = (index: number, field: keyof CareerItem, value: string) => {
     setForm((previous) => {
       if (!previous) return previous;
@@ -249,6 +283,39 @@ export default function CandidatePortalPage() {
     }
   };
 
+  const handleCancelApplication = async (application: CandidatePortalApplicationView) => {
+    if (!CANCELABLE_STAGES.has(application.stage) || cancelingApplicationId) return;
+
+    const confirmed = window.confirm(
+      `${application.jobTitle} 지원을 취소하시겠습니까? 취소 후에는 같은 지원 건을 Candidate Portal에서 되돌릴 수 없습니다.`
+    );
+
+    if (!confirmed) return;
+
+    setCancelingApplicationId(application.applicationId);
+
+    try {
+      const result = await cancelCandidatePortalApplicationViaApi(application.applicationId);
+      setApplications((previous) =>
+        previous.map((item) =>
+          item.applicationId === application.applicationId
+            ? { ...item, stage: result.stage, nextInterview: null }
+            : item
+        )
+      );
+      toast.success(result.changed ? "지원이 취소되었습니다." : "이미 취소된 지원입니다.");
+    } catch (error) {
+      console.error("Candidate application cancel failed:", error);
+      toast.error(
+        error instanceof CandidatePortalApiError
+          ? error.message
+          : "지원 취소 중 오류가 발생했습니다."
+      );
+    } finally {
+      setCancelingApplicationId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="candidate-surface min-h-screen bg-brand-light">
@@ -275,7 +342,7 @@ export default function CandidatePortalPage() {
     <div className="candidate-surface min-h-screen bg-brand-light text-brand-ink">
       <CandidateHeader />
 
-      <main className="mx-auto max-w-[1480px] px-5 pb-16 pt-28 sm:px-8 lg:px-10">
+      <main id="candidate-dashboard" className="scroll-mt-24 mx-auto max-w-[1480px] px-5 pb-16 pt-28 sm:px-8 lg:px-10">
         <div className="mb-6 flex items-center gap-2 text-[10px] text-brand-muted">
           <span>마이페이지</span><span>›</span><span className="font-bold text-brand-bronze">대시보드</span>
         </div>
@@ -298,7 +365,7 @@ export default function CandidatePortalPage() {
                 <button
                   key={label}
                   type="button"
-                  onClick={() => index === 1 && setEditing(true)}
+                  onClick={() => handlePortalNavigation(index)}
                   className={`flex w-full items-center justify-between border-b border-brand-line px-4 py-3.5 text-left last:border-b-0 ${index === 0 ? "bg-brand-ivory" : "hover:bg-brand-ivory/60"}`}
                 >
                   <span className="text-xs font-bold text-brand-espresso">{label}</span>
@@ -317,7 +384,7 @@ export default function CandidatePortalPage() {
           </aside>
 
           <div className="space-y-5">
-            <section className="rounded-xl border border-brand-line bg-white p-6 shadow-card">
+            <section id="candidate-profile" className="scroll-mt-24 rounded-xl border border-brand-line bg-white p-6 shadow-card">
               <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
                 <div className="flex min-w-0 items-center gap-4">
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-cream to-brand-ivory font-editorial text-3xl text-brand-bronze">
@@ -346,7 +413,7 @@ export default function CandidatePortalPage() {
               </div>
             </section>
 
-            <section className="rounded-xl border border-brand-line bg-white p-5 shadow-card">
+            <section id="candidate-applications" className="scroll-mt-24 rounded-xl border border-brand-line bg-white p-5 shadow-card">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-bold text-brand-espresso">지원현황</h2>
@@ -381,11 +448,16 @@ export default function CandidatePortalPage() {
                   </div>
                   {applications.map((application) => {
                     const copy = STAGE_COPY[application.stage];
+                    const canCancel = CANCELABLE_STAGES.has(application.stage);
+                    const canceling = cancelingApplicationId === application.applicationId;
+
                     return (
                       <article key={application.applicationId} className="grid gap-3 border-t border-brand-line px-4 py-4 first:border-t-0 sm:grid-cols-[minmax(0,1.6fr)_120px_110px] sm:items-center">
                         <div className="min-w-0">
                           <p className="truncate text-[10px] font-bold text-brand-muted">{application.company}</p>
-                          <h3 className="mt-1 truncate text-sm font-bold text-brand-espresso">{application.jobTitle}</h3>
+                          <Link href={`/jobs/${application.jobId}`} className="mt-1 block truncate text-sm font-bold text-brand-espresso hover:text-brand-bronze hover:underline">
+                            {application.jobTitle}
+                          </Link>
                           <p className="mt-1 text-[10px] text-brand-muted sm:hidden">지원일 {formatDate(application.appliedAt)}</p>
                         </div>
                         <div className="hidden text-[11px] text-brand-muted sm:block">{formatDate(application.appliedAt)}</div>
@@ -393,7 +465,19 @@ export default function CandidatePortalPage() {
                           <StatusDot stage={application.stage} />
                           <span className="text-[11px] font-bold text-brand-espresso">{copy.label}</span>
                         </div>
-                        <p className="sm:col-span-3 -mt-1 text-[10px] text-brand-muted">{copy.description}</p>
+                        <div className="sm:col-span-3 -mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-[10px] text-brand-muted">{copy.description}</p>
+                          {canCancel ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleCancelApplication(application)}
+                              disabled={cancelingApplicationId !== null}
+                              className="w-fit text-[10px] font-bold text-brand-danger hover:underline disabled:cursor-not-allowed disabled:opacity-45"
+                            >
+                              {canceling ? "취소 처리 중..." : "지원 취소"}
+                            </button>
+                          ) : null}
+                        </div>
                       </article>
                     );
                   })}
@@ -403,7 +487,7 @@ export default function CandidatePortalPage() {
           </div>
 
           <aside className="space-y-5">
-            <section className="rounded-xl border border-brand-line bg-white p-5 shadow-card">
+            <section id="candidate-interviews" className="scroll-mt-24 rounded-xl border border-brand-line bg-white p-5 shadow-card">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-brand-espresso">다가오는 면접 일정</h2>
                 <span className="text-[9px] text-brand-muted">NEXT</span>
@@ -436,7 +520,7 @@ export default function CandidatePortalPage() {
         </div>
 
         {editing ? (
-          <section className="mt-6 rounded-xl border border-brand-line bg-white p-6 shadow-card sm:p-8">
+          <section id="candidate-profile-editor" className="scroll-mt-24 mt-6 rounded-xl border border-brand-line bg-white p-6 shadow-card sm:p-8">
             <div className="flex flex-col gap-4 border-b border-brand-line pb-5 sm:flex-row sm:items-center sm:justify-between">
               <div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-bronze">Profile Editor</p><h2 className="font-editorial mt-2 text-[26px] text-brand-espresso">프로필 수정</h2></div>
               <div className="flex gap-2"><button type="button" onClick={() => { setForm(profileToForm(profile)); setEditing(false); }} className="rounded-lg border border-brand-line px-4 py-2.5 text-xs font-bold text-brand-muted">취소</button><button type="button" onClick={() => void handleSave()} disabled={saving} className="rounded-lg bg-brand-bronze px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50">{saving ? "저장 중..." : "변경사항 저장"}</button></div>

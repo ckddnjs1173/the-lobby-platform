@@ -1,5 +1,3 @@
-import type { Job } from "../types";
-
 const JOB_IMAGES = {
   corporate: [
     "https://images.unsplash.com/photo-1775447665921-87fb172bf115?auto=format&fit=crop&w=1400&q=86",
@@ -20,6 +18,12 @@ const JOB_IMAGES = {
 
 export type JobVisualCategory = keyof typeof JOB_IMAGES;
 
+interface JobPresentationSource {
+  title: string;
+  company?: string | null;
+  displayCompany?: string | null;
+}
+
 export function normalizeJobText(value: string | null | undefined): string {
   return value?.replace(/\s+/g, " ").trim() || "";
 }
@@ -39,6 +43,19 @@ function compactText(value: string, maxLength: number): string {
 }
 
 export function getJobTimestampMillis(value: unknown): number {
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+
   if (typeof value !== "object" || value === null) {
     return 0;
   }
@@ -56,8 +73,8 @@ export function getJobTimestampMillis(value: unknown): number {
   }
 }
 
-export function getJobCategory(job: Job): JobVisualCategory {
-  const text = `${job.title} ${job.company} ${job.displayCompany}`.toLocaleLowerCase(
+export function getJobCategory(job: JobPresentationSource): JobVisualCategory {
+  const text = `${job.title} ${job.company || ""} ${job.displayCompany || ""}`.toLocaleLowerCase(
     "ko-KR"
   );
 
@@ -118,7 +135,7 @@ export function getJobCategoryLabel(category: JobVisualCategory): string {
   }
 }
 
-export function getJobImage(job: Job): string {
+export function getJobImage(job: JobPresentationSource): string {
   const category = getJobCategory(job);
   return JOB_IMAGES[category][0];
 }
@@ -203,7 +220,7 @@ export function formatJobSalary(value: string | null | undefined): string {
   return compactText(firstSegment, 20);
 }
 
-export function getJobDisplayCompany(job: Job): string {
+export function getJobDisplayCompany(job: JobPresentationSource): string {
   return (
     normalizeJobText(job.displayCompany) ||
     normalizeJobText(job.company) ||

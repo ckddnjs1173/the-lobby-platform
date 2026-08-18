@@ -72,6 +72,8 @@ interface CandidatePoolCursor {
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
+const SEARCH_SCAN_LIMIT = 500;
+const SEARCH_RESULT_LIMIT = 50;
 
 function isNonEmptyString(
   value: unknown
@@ -301,35 +303,111 @@ function resolveCreatorName(
   userData: DocumentData | undefined,
   candidateOrganizationId: string
 ): string | null {
-  if (!userData) {
-    return null;
-  }
+  if (!userData) return null;
 
-  const name =
-    isNonEmptyString(userData.name)
-      ? userData.name.trim()
-      : null;
+  const name = isNonEmptyString(userData.name)
+    ? userData.name.trim()
+    : null;
 
-  if (!name) {
-    return null;
-  }
+  if (!name) return null;
+  if (userData.role === "ADMIN") return name;
+  if (userData.role !== "RECRUITER") return null;
 
-  if (userData.role === "ADMIN") {
-    return name;
-  }
-
-  if (userData.role !== "RECRUITER") {
-    return null;
-  }
-
-  const creatorOrganizationId =
-    isNonEmptyString(userData.organizationId)
-      ? userData.organizationId.trim()
-      : null;
+  const creatorOrganizationId = isNonEmptyString(userData.organizationId)
+    ? userData.organizationId.trim()
+    : null;
 
   return creatorOrganizationId === candidateOrganizationId
     ? name
     : null;
+}
+
+interface NormalizedCandidate {
+  candidateId: string;
+  data: DocumentData;
+  name: string;
+  phone: string;
+  email: string;
+  createdBy: string;
+}
+
+function normalizeCandidateDocument(
+  document: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>
+): NormalizedCandidate | null {
+  const data = document.data();
+  const candidateId = requireCandidateString(data, "candidateId") || document.id;
+  const name = requireCandidateString(data, "name");
+  const phone = requireCandidateString(data, "phone");
+  const email = requireCandidateString(data, "email");
+  const createdBy = requireCandidateString(data, "createdBy");
+
+  if (!name || !phone || !email || !createdBy) return null;
+
+  return {
+    candidateId,
+    data,
+    name,
+    phone,
+    email,
+    createdBy,
+  };
+}
+
+async function hydrateCandidateItems(
+  organizationId: string,
+  candidates: NormalizedCandidate[]
+): Promise<CandidatePoolItem[]> {
+  const db = getFirebaseAdminDb();
+  const profileRefs = candidates.map((candidate) =>
+    db.collection("profile").doc(candidate.candidateId)
+  );
+  const creatorIds = Array.from(new Set(candidates.map((candidate) => candidate.createdBy)));
+  const creatorRefs = creatorIds.map((uid) => db.collection("users").doc(uid));
+
+  const relatedSnapshots =
+    profileRefs.length + creatorRefs.length > 0
+      ? await db.getAll(...profileRefs, ...creatorRefs)
+      : [];
+
+  const profiles = new Map<string, DocumentData | undefined>();
+  const users = new Map<string, DocumentData | undefined>();
+
+  for (const snapshot of relatedSnapshots) {
+    if (snapshot.ref.parent.id === "profile") profiles.set(snapshot.id, snapshot.data());
+    if (snapshot.ref.parent.id === "users") users.set(snapshot.id, snapshot.data());
+  }
+
+  return candidates.map((candidate) => {
+    const profile = profiles.get(candidate.candidateId);
+
+    return {
+      candidateId: candidate.candidateId,
+      organizationId,
+      name: candidate.name,
+      phone: candidate.phone,
+      email: candidate.email,
+      source: "B2B_DIRECT" as const,
+      accountStatus: normalizeAccountStatus(candidate.data.accountStatus),
+      createdBy: candidate.createdBy,
+      createdByName: resolveCreatorName(users.get(candidate.createdBy), organizationId),
+      headline:
+        profile && isNonEmptyString(profile.headline)
+          ? profile.headline.trim()
+          : "",
+      skills: normalizeSkills(profile?.skills),
+      profileCompleteness: normalizeCompleteness(profile?.profileCompleteness),
+      createdAt: timestampToIsoString(candidate.data.createdAt),
+      updatedAt: timestampToIsoString(candidate.data.updatedAt),
+    } satisfies CandidatePoolItem;
+  });
+}
+
+function baseCandidateQuery(organizationId: string) {
+  return getFirebaseAdminDb()
+    .collection("candidates")
+    .where("organizationId", "==", organizationId)
+    .where("source", "==", "B2B_DIRECT")
+    .where("authUid", "==", null);
 }
 
 export async function listB2BCandidatePool(
@@ -337,22 +415,10 @@ export async function listB2BCandidatePool(
   options: CandidatePoolListOptions = {}
 ): Promise<CandidatePoolPageResult> {
   const actor = await requireB2BActor(actorUid);
-
-  const organizationId = resolveOrganizationId(
-    actor,
-    options.organizationId
-  );
-
+  const organizationId = resolveOrganizationId(actor, options.organizationId);
   const pageSize = normalizePageSize(options.limit);
   const cursor = decodeCursor(options.cursor);
-
-  const db = getFirebaseAdminDb();
-
-  const baseQuery = db
-    .collection("candidates")
-    .where("organizationId", "==", organizationId)
-    .where("source", "==", "B2B_DIRECT")
-    .where("authUid", "==", null);
+  const baseQuery = baseCandidateQuery(organizationId);
 
   let pageQuery = baseQuery
     .orderBy("updatedAt", "desc")
@@ -361,168 +427,25 @@ export async function listB2BCandidatePool(
 
   if (cursor) {
     pageQuery = pageQuery.startAfter(
-      new Timestamp(
-        cursor.seconds,
-        cursor.nanoseconds
-      ),
+      new Timestamp(cursor.seconds, cursor.nanoseconds),
       cursor.documentId
     );
   }
 
-  const [
-    candidateSnapshot,
-    countSnapshot,
-  ] = await Promise.all([
+  const [candidateSnapshot, countSnapshot] = await Promise.all([
     pageQuery.get(),
     baseQuery.count().get(),
   ]);
 
-  const hasMore =
-    candidateSnapshot.docs.length > pageSize;
-
-  const pageDocuments =
-    candidateSnapshot.docs.slice(0, pageSize);
-
+  const hasMore = candidateSnapshot.docs.length > pageSize;
+  const pageDocuments = candidateSnapshot.docs.slice(0, pageSize);
   const normalizedCandidates = pageDocuments
-    .map((document) => {
-      const data = document.data();
-
-      const candidateId =
-        requireCandidateString(data, "candidateId") ||
-        document.id;
-
-      const name = requireCandidateString(data, "name");
-      const phone = requireCandidateString(data, "phone");
-      const email = requireCandidateString(data, "email");
-      const createdBy = requireCandidateString(
-        data,
-        "createdBy"
-      );
-
-      if (
-        !name ||
-        !phone ||
-        !email ||
-        !createdBy
-      ) {
-        return null;
-      }
-
-      return {
-        candidateId,
-        data,
-        name,
-        phone,
-        email,
-        createdBy,
-      };
-    })
-    .filter(
-      (
-        item
-      ): item is NonNullable<typeof item> =>
-        item !== null
-    );
-
-  const profileRefs = normalizedCandidates.map(
-    (candidate) =>
-      db
-        .collection("profile")
-        .doc(candidate.candidateId)
-  );
-
-  const creatorIds = Array.from(
-    new Set(
-      normalizedCandidates.map(
-        (candidate) => candidate.createdBy
-      )
-    )
-  );
-
-  const creatorRefs = creatorIds.map(
-    (uid) =>
-      db
-        .collection("users")
-        .doc(uid)
-  );
-
-  const relatedSnapshots =
-    profileRefs.length + creatorRefs.length > 0
-      ? await db.getAll(
-          ...profileRefs,
-          ...creatorRefs
-        )
-      : [];
-
-  const profiles = new Map<
-    string,
-    DocumentData | undefined
-  >();
-
-  const users = new Map<
-    string,
-    DocumentData | undefined
-  >();
-
-  for (const snapshot of relatedSnapshots) {
-    if (snapshot.ref.parent.id === "profile") {
-      profiles.set(
-        snapshot.id,
-        snapshot.data()
-      );
-    }
-
-    if (snapshot.ref.parent.id === "users") {
-      users.set(
-        snapshot.id,
-        snapshot.data()
-      );
-    }
-  }
-
-  const items = normalizedCandidates.map(
-    (candidate) => {
-      const profile = profiles.get(
-        candidate.candidateId
-      );
-
-      return {
-        candidateId: candidate.candidateId,
-        organizationId,
-        name: candidate.name,
-        phone: candidate.phone,
-        email: candidate.email,
-        source: "B2B_DIRECT" as const,
-        accountStatus: normalizeAccountStatus(
-          candidate.data.accountStatus
-        ),
-        createdBy: candidate.createdBy,
-        createdByName: resolveCreatorName(
-          users.get(candidate.createdBy),
-          organizationId
-        ),
-        headline:
-          profile && isNonEmptyString(profile.headline)
-            ? profile.headline.trim()
-            : "",
-        skills: normalizeSkills(profile?.skills),
-        profileCompleteness: normalizeCompleteness(
-          profile?.profileCompleteness
-        ),
-        createdAt: timestampToIsoString(
-          candidate.data.createdAt
-        ),
-        updatedAt: timestampToIsoString(
-          candidate.data.updatedAt
-        ),
-      } satisfies CandidatePoolItem;
-    }
-  );
-
-  const lastDocument =
-    pageDocuments.length > 0
-      ? pageDocuments[pageDocuments.length - 1]
-      : null;
+    .map(normalizeCandidateDocument)
+    .filter((item): item is NormalizedCandidate => item !== null);
+  const items = await hydrateCandidateItems(organizationId, normalizedCandidates);
+  const lastDocument = pageDocuments.length > 0
+    ? pageDocuments[pageDocuments.length - 1]
+    : null;
 
   return {
     items,
@@ -532,11 +455,59 @@ export async function listB2BCandidatePool(
       hasMore,
       nextCursor:
         hasMore && lastDocument
-          ? encodeCursor(
-              lastDocument.data(),
-              lastDocument.id
-            )
+          ? encodeCursor(lastDocument.data(), lastDocument.id)
           : null,
+    },
+  };
+}
+
+export async function searchB2BCandidatePool(
+  actorUid: string,
+  queryInput: string,
+  organizationIdInput?: string
+): Promise<CandidatePoolPageResult> {
+  const actor = await requireB2BActor(actorUid);
+  const organizationId = resolveOrganizationId(actor, organizationIdInput);
+  const query = queryInput.trim().toLocaleLowerCase("ko-KR");
+
+  if (query.length < 2) {
+    throw new CandidatePoolServiceError(
+      "후보자 검색어는 2자 이상 입력해주세요.",
+      400,
+      "CANDIDATE_SEARCH_QUERY_TOO_SHORT"
+    );
+  }
+
+  const snapshot = await baseCandidateQuery(organizationId)
+    .orderBy("updatedAt", "desc")
+    .limit(SEARCH_SCAN_LIMIT)
+    .get();
+
+  const normalizedCandidates = snapshot.docs
+    .map(normalizeCandidateDocument)
+    .filter((item): item is NormalizedCandidate => item !== null);
+
+  const hydrated = await hydrateCandidateItems(organizationId, normalizedCandidates);
+  const matches = hydrated.filter((candidate) =>
+    [
+      candidate.name,
+      candidate.email,
+      candidate.phone,
+      candidate.headline,
+      ...candidate.skills,
+    ]
+      .join(" ")
+      .toLocaleLowerCase("ko-KR")
+      .includes(query)
+  );
+
+  return {
+    items: matches.slice(0, SEARCH_RESULT_LIMIT),
+    pagination: {
+      total: matches.length,
+      limit: SEARCH_RESULT_LIMIT,
+      hasMore: matches.length > SEARCH_RESULT_LIMIT,
+      nextCursor: null,
     },
   };
 }

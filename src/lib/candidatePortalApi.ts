@@ -152,6 +152,12 @@ export interface CandidatePortalProfileInput {
   education: CandidatePortalProfileView["education"];
 }
 
+export interface CandidateApplicationCancelResult {
+  applicationId: string;
+  stage: "CANCELED";
+  changed: boolean;
+}
+
 export async function bootstrapCandidateProfileViaApi(
   input: CandidatePortalProfileInput
 ): Promise<CandidatePortalBootstrapResult> {
@@ -202,6 +208,17 @@ export async function fetchCandidatePortalApplications(): Promise<
     "/api/candidate/applications",
     {
       method: "GET",
+    }
+  );
+}
+
+export async function cancelCandidatePortalApplicationViaApi(
+  applicationId: string
+): Promise<CandidateApplicationCancelResult> {
+  return authorizedRequest<CandidateApplicationCancelResult>(
+    `/api/candidate/applications/${encodeURIComponent(applicationId)}/cancel`,
+    {
+      method: "POST",
     }
   );
 }

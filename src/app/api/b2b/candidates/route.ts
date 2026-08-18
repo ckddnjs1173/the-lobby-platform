@@ -14,6 +14,7 @@ import {
 import {
   CandidatePoolServiceError,
   listB2BCandidatePool,
+  searchB2BCandidatePool,
 } from "../../../../lib/server/candidatePoolService";
 
 import {
@@ -28,60 +29,19 @@ function errorResponse(
   error: unknown
 ): NextResponse {
   if (
-    error instanceof
-    ServerAuthError
+    error instanceof ServerAuthError ||
+    error instanceof B2BAuthorizationError ||
+    error instanceof CandidateServiceError ||
+    error instanceof CandidatePoolServiceError
   ) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message,
-        code:
-          error.code,
+        error: error.message,
+        code: error.code,
       },
       {
-        status:
-          error.status,
-      }
-    );
-  }
-
-  if (
-    error instanceof
-    B2BAuthorizationError
-  ) {
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error.message,
-        code:
-          error.code,
-      },
-      {
-        status:
-          error.status,
-      }
-    );
-  }
-
-  if (
-    error instanceof
-    CandidateServiceError ||
-    error instanceof
-    CandidatePoolServiceError
-  ) {
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error.message,
-        code:
-          error.code,
-      },
-      {
-        status:
-          error.status,
+        status: error.status,
       }
     );
   }
@@ -122,6 +82,11 @@ export async function GET(
         "organizationId"
       ) || undefined;
 
+    const query =
+      requestUrl.searchParams.get(
+        "query"
+      ) || undefined;
+
     const cursor =
       requestUrl.searchParams.get(
         "cursor"
@@ -132,15 +97,20 @@ export async function GET(
         "limit"
       ) || undefined;
 
-    const result =
-      await listB2BCandidatePool(
-        authenticatedUser.uid,
-        {
-          organizationId,
-          cursor,
-          limit,
-        }
-      );
+    const result = query?.trim()
+      ? await searchB2BCandidatePool(
+          authenticatedUser.uid,
+          query,
+          organizationId
+        )
+      : await listB2BCandidatePool(
+          authenticatedUser.uid,
+          {
+            organizationId,
+            cursor,
+            limit,
+          }
+        );
 
     return NextResponse.json({
       success: true,

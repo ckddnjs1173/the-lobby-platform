@@ -2,13 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import {
-  collection,
-  doc,
-  onSnapshot,
-  query,
-  where,
-} from "firebase/firestore";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -19,7 +12,7 @@ import {
   fetchCandidatePortalApplications,
 } from "../../../lib/candidatePortalApi";
 import { ApplicationApiError, applyToJob } from "../../../lib/applicationApi";
-import { auth, db } from "../../../lib/firebase";
+import { auth } from "../../../lib/firebase";
 import {
   formatJobEmploymentType,
   formatJobLocation,
@@ -28,9 +21,9 @@ import {
   getJobCategoryLabel,
   getJobDisplayCompany,
   getJobImage,
-  getJobTimestampMillis,
 } from "../../../lib/jobPresentation";
-import type { Job } from "../../../types";
+import { fetchPublicJob, fetchPublicJobs } from "../../../lib/publicJobApi";
+import type { PublicJobView } from "../../../lib/publicJobTypes";
 
 function ArrowIcon() {
   return (
@@ -54,8 +47,8 @@ export default function JobDetailPage() {
   const router = useRouter();
   const jobId = typeof params.jobId === "string" ? params.jobId : "";
 
-  const [job, setJob] = useState<Job | null>(null);
-  const [allJobs, setAllJobs] = useState<Job[]>([]);
+  const [job, setJob] = useState<PublicJobView | null>(null);
+  const [allJobs, setAllJobs] = useState<PublicJobView[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isApplied, setIsApplied] = useState(false);
@@ -91,43 +84,41 @@ export default function JobDetailPage() {
       return;
     }
 
-    return onSnapshot(
-      doc(db, "jobs", jobId),
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          setJob(null);
-          setLoading(false);
-          return;
-        }
+    let cancelled = false;
+    setLoading(true);
 
-        const nextJob = {
-          jobId: snapshot.id,
-          ...snapshot.data(),
-        } as Job;
+    fetchPublicJob(jobId)
+      .then((item) => {
+        if (!cancelled) setJob(item);
+      })
+      .catch((error) => {
+        console.error("Public job detail load failed:", error);
+        if (!cancelled) setJob(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-        setJob(nextJob.status === "OPEN" ? nextJob : null);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Job detail subscription failed:", error);
-        setJob(null);
-        setLoading(false);
-      }
-    );
+    return () => {
+      cancelled = true;
+    };
   }, [jobId]);
 
   useEffect(() => {
-    const openJobsQuery = query(collection(db, "jobs"), where("status", "==", "OPEN"));
+    let cancelled = false;
 
-    return onSnapshot(openJobsQuery, (snapshot) => {
-      const items = snapshot.docs
-        .map((document) => ({ jobId: document.id, ...document.data() }) as Job)
-        .sort(
-          (a, b) =>
-            getJobTimestampMillis(b.createdAt) - getJobTimestampMillis(a.createdAt)
-        );
-      setAllJobs(items);
-    });
+    fetchPublicJobs()
+      .then((items) => {
+        if (!cancelled) setAllJobs(items);
+      })
+      .catch((error) => {
+        console.error("Related public jobs load failed:", error);
+        if (!cancelled) setAllJobs([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const relatedJobs = useMemo(() => {

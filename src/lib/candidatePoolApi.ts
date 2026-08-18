@@ -36,6 +36,7 @@ export interface CandidatePoolPageResult {
 export interface CandidatePoolPageOptions {
   cursor?: string | null;
   limit?: number;
+  query?: string | null;
 }
 
 interface CandidatePoolSuccessResponse {
@@ -114,18 +115,25 @@ export async function fetchCandidatePoolPage(
     );
   }
 
-  if (options.cursor?.trim()) {
+  if (options.query?.trim()) {
     params.set(
-      "cursor",
-      options.cursor.trim()
+      "query",
+      options.query.trim()
     );
-  }
+  } else {
+    if (options.cursor?.trim()) {
+      params.set(
+        "cursor",
+        options.cursor.trim()
+      );
+    }
 
-  if (options.limit !== undefined) {
-    params.set(
-      "limit",
-      String(options.limit)
-    );
+    if (options.limit !== undefined) {
+      params.set(
+        "limit",
+        String(options.limit)
+      );
+    }
   }
 
   const url =
