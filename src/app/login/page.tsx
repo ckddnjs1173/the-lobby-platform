@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 import CandidateHeader from "../../components/candidate/CandidateHeader";
+import { consumeCandidateReturnPath } from "../../lib/candidateNavigationIntent";
 import {
   CandidatePortalApiError,
   fetchCandidatePortalProfile,
@@ -23,13 +24,17 @@ export default function CandidateLoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const returnAfterAuthentication = () => {
+    router.replace(consumeCandidateReturnPath() || "/candidate");
+  };
+
   useEffect(() => {
     return onAuthStateChanged(auth, async (user) => {
       if (!user) return;
 
       try {
         await fetchCandidatePortalProfile();
-        router.replace("/candidate");
+        returnAfterAuthentication();
       } catch (error) {
         if (
           error instanceof CandidatePortalApiError &&
@@ -57,7 +62,7 @@ export default function CandidateLoginPage() {
       try {
         await fetchCandidatePortalProfile();
         toast.success("로그인했습니다.");
-        router.replace("/candidate");
+        returnAfterAuthentication();
       } catch (profileError) {
         if (
           profileError instanceof CandidatePortalApiError &&
