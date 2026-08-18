@@ -30,6 +30,9 @@ const applicationsRoute = read(
 const client = read(
   "src/lib/candidatePortalApi.ts"
 );
+const portalTypes = read(
+  "src/lib/candidatePortalTypes.ts"
+);
 const registerPage = read(
   "src/app/register/page.tsx"
 );
@@ -179,18 +182,28 @@ assert(
 
 assert(
   portalPage.includes(
-    "내 지원현황"
+    "지원현황"
   ) &&
     portalPage.includes(
       "nextInterview"
     ) &&
     portalPage.includes(
-      "plannedStartDate"
+      "updateCandidatePortalProfileViaApi"
     ) &&
     portalPage.includes(
-      "updateCandidatePortalProfileViaApi"
+      "지원 취소"
     ),
   "CANDIDATE_DASHBOARD_MISSING"
+);
+
+assert(
+  portalTypes.includes(
+    "plannedStartDate: string | null"
+  ) &&
+    service.includes(
+      "plannedStartDate"
+    ),
+  "CANDIDATE_PLANNED_START_DATE_CONTRACT_MISSING"
 );
 
 assert(
