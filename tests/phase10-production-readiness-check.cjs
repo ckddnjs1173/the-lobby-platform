@@ -37,6 +37,21 @@ const smoke = read(
 const runbook = read(
   "docs/PRODUCTION_RUNBOOK.md"
 );
+const firestoreRules = read(
+  "firestore.rules"
+);
+const publicJobService = read(
+  "src/lib/server/publicJobService.ts"
+);
+const publicJobsPage = read(
+  "src/app/jobs/page.tsx"
+);
+const publicJobDetailPage = read(
+  "src/app/jobs/[jobId]/page.tsx"
+);
+const publicResumeParseRoute = read(
+  "src/app/api/ai-parse-resume/route.ts"
+);
 
 console.log(
   "STEP_1: PRODUCTION_ENV_CONTRACT"
@@ -111,7 +126,45 @@ assert(
 );
 
 console.log(
-  "STEP_4: HEALTH_AND_SMOKE_GATE"
+  "STEP_4: PUBLIC_DATA_BOUNDARY"
+);
+
+assert(
+  publicJobService.includes("displayCompany") &&
+    !publicJobService.includes("data.company") &&
+    !publicJobService.includes("data.recruiterId") &&
+    !publicJobService.includes("data.organizationId") &&
+    publicJobsPage.includes("fetchPublicJobs") &&
+    publicJobDetailPage.includes("fetchPublicJob") &&
+    !publicJobsPage.includes('collection(db, "jobs")') &&
+    !publicJobDetailPage.includes('doc(db, "jobs"') &&
+    firestoreRules.includes(
+      "Public job discovery는 Firebase Admin 기반 /api/public/jobs를 사용한다."
+    ) &&
+    !firestoreRules.includes(
+      "allow read: if resource.data.status == 'OPEN'"
+    ),
+  "PUBLIC_JOB_DATA_BOUNDARY_INCOMPLETE"
+);
+
+console.log(
+  "STEP_5: AI_ABUSE_GATE"
+);
+
+assert(
+  publicResumeParseRoute.includes("RATE_LIMITED") &&
+    publicResumeParseRoute.includes("consumeRateLimit") &&
+    !fs.existsSync(
+      path.join(
+        root,
+        "src/app/api/ai-format/route.ts"
+      )
+    ),
+  "PUBLIC_AI_HARDENING_INCOMPLETE"
+);
+
+console.log(
+  "STEP_6: HEALTH_AND_SMOKE_GATE"
 );
 
 assert(
@@ -130,7 +183,7 @@ assert(
 );
 
 console.log(
-  "STEP_5: RELEASE_RUNBOOK"
+  "STEP_7: RELEASE_RUNBOOK"
 );
 
 assert(
