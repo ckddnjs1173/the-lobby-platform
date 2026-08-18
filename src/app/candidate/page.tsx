@@ -1,45 +1,24 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
-
-import {
-  onAuthStateChanged,
-} from "firebase/auth";
-
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
-import {
-  useRouter,
-} from "next/navigation";
-
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 import CandidateHeader from "../../components/candidate/CandidateHeader";
-
 import {
   CandidatePortalApiError,
   fetchCandidatePortalApplications,
   fetchCandidatePortalProfile,
   updateCandidatePortalProfileViaApi,
 } from "../../lib/candidatePortalApi";
-
 import type {
   CandidatePortalApplicationView,
   CandidatePortalProfileView,
 } from "../../lib/candidatePortalTypes";
-
-import {
-  auth,
-} from "../../lib/firebase";
-
-import type {
-  ApplicationStage,
-  CareerItem,
-  EducationItem,
-} from "../../types";
+import { auth } from "../../lib/firebase";
+import type { ApplicationStage, CareerItem, EducationItem } from "../../types";
 
 interface ProfileFormState {
   name: string;
@@ -51,73 +30,19 @@ interface ProfileFormState {
   education: EducationItem[];
 }
 
-const STAGE_COPY: Record<
-  ApplicationStage,
-  {
-    label: string;
-    description: string;
-  }
-> = {
-  NEW: {
-    label: "지원 접수",
-    description:
-      "지원서가 정상 접수되었습니다.",
-  },
-  REVIEWING: {
-    label: "검토 중",
-    description:
-      "담당자가 프로필을 검토하고 있습니다.",
-  },
-  CONTACTED: {
-    label: "연락 진행",
-    description:
-      "담당자 연락이 진행된 지원 건입니다.",
-  },
-  RECOMMEND_PENDING: {
-    label: "추천 준비",
-    description:
-      "고객사 추천을 준비하고 있습니다.",
-  },
-  RECOMMENDED: {
-    label: "기업 추천",
-    description:
-      "고객사에 프로필이 전달되었습니다.",
-  },
-  DOCUMENT_SCREEN: {
-    label: "서류 전형",
-    description:
-      "고객사 서류 검토가 진행 중입니다.",
-  },
-  INTERVIEW: {
-    label: "면접 진행",
-    description:
-      "면접 단계가 진행 중입니다.",
-  },
-  OFFER: {
-    label: "처우 협의",
-    description:
-      "최종 조건을 조율하고 있습니다.",
-  },
-  HIRED: {
-    label: "입사 확정",
-    description:
-      "채용이 확정되었습니다. 축하드립니다!",
-  },
-  HOLD: {
-    label: "진행 보류",
-    description:
-      "채용 절차가 잠시 보류된 상태입니다.",
-  },
-  REJECTED: {
-    label: "전형 종료",
-    description:
-      "이번 채용 절차가 종료되었습니다.",
-  },
-  CANCELED: {
-    label: "지원 취소",
-    description:
-      "지원이 취소된 건입니다.",
-  },
+const STAGE_COPY: Record<ApplicationStage, { label: string; description: string }> = {
+  NEW: { label: "지원 접수", description: "지원서가 정상 접수되었습니다." },
+  REVIEWING: { label: "검토 중", description: "담당자가 프로필을 검토하고 있습니다." },
+  CONTACTED: { label: "연락 진행", description: "담당자 연락이 진행된 지원 건입니다." },
+  RECOMMEND_PENDING: { label: "추천 준비", description: "고객사 추천을 준비하고 있습니다." },
+  RECOMMENDED: { label: "기업 추천", description: "고객사에 프로필이 전달되었습니다." },
+  DOCUMENT_SCREEN: { label: "서류 전형", description: "고객사 서류 검토가 진행 중입니다." },
+  INTERVIEW: { label: "면접 진행", description: "면접 단계가 진행 중입니다." },
+  OFFER: { label: "처우 협의", description: "최종 조건을 조율하고 있습니다." },
+  HIRED: { label: "입사 확정", description: "채용이 확정되었습니다. 축하드립니다!" },
+  HOLD: { label: "진행 보류", description: "채용 절차가 잠시 보류된 상태입니다." },
+  REJECTED: { label: "전형 종료", description: "이번 채용 절차가 종료되었습니다." },
+  CANCELED: { label: "지원 취소", description: "지원이 취소된 건입니다." },
 };
 
 const METHOD_LABELS = {
@@ -126,9 +51,18 @@ const METHOD_LABELS = {
   PHONE: "전화 면접",
 } as const;
 
-function profileToForm(
-  profile: CandidatePortalProfileView
-): ProfileFormState {
+const ACTIVE_STAGES = new Set<ApplicationStage>([
+  "NEW",
+  "REVIEWING",
+  "CONTACTED",
+  "RECOMMEND_PENDING",
+  "RECOMMENDED",
+  "DOCUMENT_SCREEN",
+  "INTERVIEW",
+  "OFFER",
+]);
+
+function profileToForm(profile: CandidatePortalProfileView): ProfileFormState {
   return {
     name: profile.name,
     phone: profile.phone,
@@ -140,115 +74,79 @@ function profileToForm(
   };
 }
 
-function normalizeSkills(
-  value: string
-): string[] {
-  return Array.from(
-    new Set(
-      value
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean)
-    )
+function normalizeSkills(value: string): string[] {
+  return Array.from(new Set(value.split(",").map((item) => item.trim()).filter(Boolean)));
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function StatusDot({ stage }: { stage: ApplicationStage }) {
+  const terminal = stage === "REJECTED" || stage === "CANCELED";
+  const hired = stage === "HIRED";
+  return (
+    <span
+      className={`h-2 w-2 rounded-full ${
+        terminal ? "bg-brand-danger" : hired ? "bg-brand-success" : "bg-brand-bronze"
+      }`}
+      aria-hidden="true"
+    />
   );
-}
-
-function formatDate(
-  value: string | null
-): string {
-  if (!value) {
-    return "-";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat(
-    "ko-KR",
-    {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }
-  ).format(date);
-}
-
-function formatDateTime(
-  value: string
-): string {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat(
-    "ko-KR",
-    {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      weekday: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    }
-  ).format(date);
 }
 
 export default function CandidatePortalPage() {
   const router = useRouter();
-  const [profile, setProfile] =
-    useState<CandidatePortalProfileView | null>(null);
-  const [applications, setApplications] =
-    useState<CandidatePortalApplicationView[]>([]);
-  const [form, setForm] =
-    useState<ProfileFormState | null>(null);
-  const [loading, setLoading] =
-    useState(true);
-  const [saving, setSaving] =
-    useState(false);
-  const [editing, setEditing] =
-    useState(false);
+  const [profile, setProfile] = useState<CandidatePortalProfileView | null>(null);
+  const [applications, setApplications] = useState<CandidatePortalApplicationView[]>([]);
+  const [form, setForm] = useState<ProfileFormState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const loadPortal = useCallback(async () => {
     setLoading(true);
-
     try {
-      const [profileData, applicationData] =
-        await Promise.all([
-          fetchCandidatePortalProfile(),
-          fetchCandidatePortalApplications(),
-        ]);
-
+      const [profileData, applicationData] = await Promise.all([
+        fetchCandidatePortalProfile(),
+        fetchCandidatePortalApplications(),
+      ]);
       setProfile(profileData);
       setForm(profileToForm(profileData));
       setApplications(applicationData);
     } catch (error) {
-      console.error(
-        "Candidate portal load failed:",
-        error
-      );
-
-      if (
-        error instanceof CandidatePortalApiError &&
-        error.code === "CANDIDATE_NOT_FOUND"
-      ) {
+      console.error("Candidate portal load failed:", error);
+      if (error instanceof CandidatePortalApiError && error.code === "CANDIDATE_NOT_FOUND") {
         router.replace("/register");
         return;
       }
-
       if (
         error instanceof CandidatePortalApiError &&
-        (error.code === "AUTH_REQUIRED" ||
-          error.status === 401)
+        (error.code === "AUTH_REQUIRED" || error.status === 401)
       ) {
         router.replace("/login");
         return;
       }
-
       toast.error(
         error instanceof CandidatePortalApiError
           ? error.message
@@ -260,108 +158,87 @@ export default function CandidatePortalPage() {
   }, [router]);
 
   useEffect(() => {
-    return onAuthStateChanged(
-      auth,
-      (user) => {
-        if (!user) {
-          setLoading(false);
-          router.replace("/login");
-          return;
-        }
-
-        void loadPortal();
+    return onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        setLoading(false);
+        router.replace("/login");
+        return;
       }
-    );
+      void loadPortal();
+    });
   }, [loadPortal, router]);
 
-  const updateCareer = (
-    index: number,
-    field: keyof CareerItem,
-    value: string
-  ) => {
+  const activeCount = useMemo(
+    () => applications.filter((application) => ACTIVE_STAGES.has(application.stage)).length,
+    [applications]
+  );
+  const interviewCount = useMemo(
+    () => applications.filter((application) => application.stage === "INTERVIEW").length,
+    [applications]
+  );
+  const hiredCount = useMemo(
+    () => applications.filter((application) => application.stage === "HIRED").length,
+    [applications]
+  );
+  const nextInterview = useMemo(
+    () =>
+      applications
+        .map((application) => ({ application, interview: application.nextInterview }))
+        .filter((item) => item.interview)
+        .sort((a, b) =>
+          new Date(a.interview!.scheduledAt).getTime() - new Date(b.interview!.scheduledAt).getTime()
+        )[0] || null,
+    [applications]
+  );
+
+  const updateCareer = (index: number, field: keyof CareerItem, value: string) => {
     setForm((previous) => {
       if (!previous) return previous;
-
       return {
         ...previous,
-        careers: previous.careers.map(
-          (career, careerIndex) =>
-            careerIndex === index
-              ? {
-                  ...career,
-                  [field]: value,
-                }
-              : career
+        careers: previous.careers.map((career, careerIndex) =>
+          careerIndex === index ? { ...career, [field]: value } : career
         ),
       };
     });
   };
 
-  const updateEducation = (
-    index: number,
-    field: keyof EducationItem,
-    value: string
-  ) => {
+  const updateEducation = (index: number, field: keyof EducationItem, value: string) => {
     setForm((previous) => {
       if (!previous) return previous;
-
       return {
         ...previous,
-        education: previous.education.map(
-          (item, itemIndex) =>
-            itemIndex === index
-              ? {
-                  ...item,
-                  [field]: value,
-                }
-              : item
+        education: previous.education.map((item, itemIndex) =>
+          itemIndex === index ? { ...item, [field]: value } : item
         ),
       };
     });
   };
 
   const handleSave = async () => {
-    if (!form || saving) {
-      return;
-    }
-
-    if (
-      !form.name.trim() ||
-      !form.phone.trim()
-    ) {
-      toast.error(
-        "이름과 연락처는 필수 입력 항목입니다."
-      );
+    if (!form || saving) return;
+    if (!form.name.trim() || !form.phone.trim()) {
+      toast.error("이름과 연락처는 필수 입력 항목입니다.");
       return;
     }
 
     setSaving(true);
-
     try {
-      const updated =
-        await updateCandidatePortalProfileViaApi({
-          name: form.name.trim(),
-          phone: form.phone.trim(),
-          headline: form.headline.trim(),
-          careerSummary:
-            form.careerSummary.trim(),
-          skills: normalizeSkills(form.skills),
-          careers: form.careers,
-          education: form.education,
-        });
-
+      const updated = await updateCandidatePortalProfileViaApi({
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        headline: form.headline.trim(),
+        careerSummary: form.careerSummary.trim(),
+        skills: normalizeSkills(form.skills),
+        careers: form.careers,
+        education: form.education,
+      });
       setProfile(updated);
       setForm(profileToForm(updated));
       setEditing(false);
-      toast.success(
-        "프로필을 업데이트했습니다."
-      );
+      toast.success("프로필을 업데이트했습니다.");
     } catch (error) {
-      console.error(
-        "Candidate profile update failed:",
-        error
-      );
-
+      console.error("Candidate profile update failed:", error);
       toast.error(
         error instanceof CandidatePortalApiError
           ? error.message
@@ -374,9 +251,9 @@ export default function CandidatePortalPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="candidate-surface min-h-screen bg-brand-light">
         <CandidateHeader />
-        <div className="flex min-h-screen items-center justify-center pt-16 text-sm font-medium text-slate-400">
+        <div className="flex min-h-[70vh] items-center justify-center pt-20 text-sm font-medium text-brand-muted">
           내 커리어 정보를 불러오는 중입니다...
         </div>
       </div>
@@ -385,9 +262,9 @@ export default function CandidatePortalPage() {
 
   if (!profile || !form) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="candidate-surface min-h-screen bg-brand-light">
         <CandidateHeader />
-        <div className="mx-auto max-w-xl px-4 pb-12 pt-28 text-center text-sm text-slate-500">
+        <div className="mx-auto max-w-xl px-4 pb-12 pt-32 text-center text-sm text-brand-muted">
           Candidate 프로필을 확인할 수 없습니다.
         </div>
       </div>
@@ -395,521 +272,198 @@ export default function CandidatePortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="candidate-surface min-h-screen bg-brand-light text-brand-ink">
       <CandidateHeader />
 
-      <main className="mx-auto max-w-6xl space-y-8 px-4 pb-16 pt-24 sm:px-6">
-        <section className="overflow-hidden rounded-3xl bg-brand-navy p-6 text-white shadow-xl sm:p-8">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-2">
-              <div className="text-xs font-bold uppercase tracking-[0.18em] text-brand-gold">
-                Candidate Portal
-              </div>
-              <h1 className="text-3xl font-extrabold">
-                {profile.name}님의 커리어 로비
-              </h1>
-              <p className="max-w-2xl text-sm leading-6 text-slate-300">
-                프로필을 최신 상태로 유지하고 지원 현황과 예정 면접을 한 곳에서 확인하세요.
-              </p>
-            </div>
-
-            <Link
-              href="/jobs"
-              className="rounded-xl bg-brand-gold px-5 py-3 text-center text-sm font-bold text-brand-navy hover:bg-yellow-400"
-            >
-              새 채용기회 보기
-            </Link>
-          </div>
-        </section>
-
-        <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-          <section className="space-y-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-extrabold text-slate-900">
-                  내 프로필
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  이메일은 로그인 계정과 연결되어 있어 여기서 변경하지 않습니다.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (editing) {
-                    setForm(profileToForm(profile));
-                  }
-                  setEditing(!editing);
-                }}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-              >
-                {editing ? "취소" : "프로필 수정"}
-              </button>
-            </div>
-
-            <div>
-              <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-600">
-                <span>프로필 완성도</span>
-                <span className="text-brand-navy">
-                  {profile.profileCompleteness}%
-                </span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-brand-gold transition-all"
-                  style={{
-                    width:
-                      `${profile.profileCompleteness}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            {editing ? (
-              <div className="space-y-5">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="space-y-1 text-xs font-bold text-slate-700">
-                    이름
-                    <input
-                      value={form.name}
-                      onChange={(event) =>
-                        setForm({
-                          ...form,
-                          name: event.target.value,
-                        })
-                      }
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-brand-navy"
-                    />
-                  </label>
-
-                  <label className="space-y-1 text-xs font-bold text-slate-700">
-                    연락처
-                    <input
-                      value={form.phone}
-                      onChange={(event) =>
-                        setForm({
-                          ...form,
-                          phone: event.target.value,
-                        })
-                      }
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-brand-navy"
-                    />
-                  </label>
-                </div>
-
-                <label className="block space-y-1 text-xs font-bold text-slate-700">
-                  프로필 헤드라인
-                  <input
-                    value={form.headline}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        headline: event.target.value,
-                      })
-                    }
-                    maxLength={200}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-brand-navy"
-                  />
-                </label>
-
-                <label className="block space-y-1 text-xs font-bold text-slate-700">
-                  경력 요약
-                  <textarea
-                    value={form.careerSummary}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        careerSummary:
-                          event.target.value,
-                      })
-                    }
-                    maxLength={3000}
-                    className="min-h-28 w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal leading-6 outline-none focus:border-brand-navy"
-                  />
-                </label>
-
-                <label className="block space-y-1 text-xs font-bold text-slate-700">
-                  핵심 스킬
-                  <input
-                    value={form.skills}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        skills: event.target.value,
-                      })
-                    }
-                    placeholder="고객응대, VIP응대, 안내데스크"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal outline-none focus:border-brand-navy"
-                  />
-                </label>
-
-                <div className="space-y-3 border-t border-slate-100 pt-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-extrabold text-slate-700">
-                      경력
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          careers: [
-                            ...form.careers,
-                            {
-                              companyName: "",
-                              role: "",
-                              period: "",
-                              description: "",
-                            },
-                          ],
-                        })
-                      }
-                      className="text-xs font-bold text-brand-navy"
-                    >
-                      + 경력 추가
-                    </button>
-                  </div>
-
-                  {form.careers.map((career, index) => (
-                    <div
-                      key={`career-${index}`}
-                      className="space-y-2 rounded-xl border border-slate-200 p-3"
-                    >
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <input
-                          value={career.companyName}
-                          onChange={(event) =>
-                            updateCareer(
-                              index,
-                              "companyName",
-                              event.target.value
-                            )
-                          }
-                          placeholder="회사명"
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-brand-navy"
-                        />
-                        <input
-                          value={career.role}
-                          onChange={(event) =>
-                            updateCareer(
-                              index,
-                              "role",
-                              event.target.value
-                            )
-                          }
-                          placeholder="직무"
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-brand-navy"
-                        />
-                        <input
-                          value={career.period}
-                          onChange={(event) =>
-                            updateCareer(
-                              index,
-                              "period",
-                              event.target.value
-                            )
-                          }
-                          placeholder="2023.01 - 현재"
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-brand-navy"
-                        />
-                      </div>
-                      <textarea
-                        value={career.description}
-                        onChange={(event) =>
-                          updateCareer(
-                            index,
-                            "description",
-                            event.target.value
-                          )
-                        }
-                        placeholder="주요 업무"
-                        className="min-h-16 w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-brand-navy"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            careers:
-                              form.careers.filter(
-                                (_, itemIndex) =>
-                                  itemIndex !== index
-                              ),
-                          })
-                        }
-                        className="text-[11px] font-semibold text-rose-600"
-                      >
-                        경력 삭제
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-3 border-t border-slate-100 pt-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-extrabold text-slate-700">
-                      학력
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          education: [
-                            ...form.education,
-                            {
-                              schoolName: "",
-                              major: "",
-                              degree: "",
-                              period: "",
-                            },
-                          ],
-                        })
-                      }
-                      className="text-xs font-bold text-brand-navy"
-                    >
-                      + 학력 추가
-                    </button>
-                  </div>
-
-                  {form.education.map((item, index) => (
-                    <div
-                      key={`education-${index}`}
-                      className="space-y-2 rounded-xl border border-slate-200 p-3"
-                    >
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <input
-                          value={item.schoolName}
-                          onChange={(event) =>
-                            updateEducation(
-                              index,
-                              "schoolName",
-                              event.target.value
-                            )
-                          }
-                          placeholder="학교명"
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-brand-navy"
-                        />
-                        <input
-                          value={item.major || ""}
-                          onChange={(event) =>
-                            updateEducation(
-                              index,
-                              "major",
-                              event.target.value
-                            )
-                          }
-                          placeholder="전공"
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-brand-navy"
-                        />
-                        <input
-                          value={item.degree || ""}
-                          onChange={(event) =>
-                            updateEducation(
-                              index,
-                              "degree",
-                              event.target.value
-                            )
-                          }
-                          placeholder="학위"
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-brand-navy"
-                        />
-                        <input
-                          value={item.period || ""}
-                          onChange={(event) =>
-                            updateEducation(
-                              index,
-                              "period",
-                              event.target.value
-                            )
-                          }
-                          placeholder="2019.03 - 2023.02"
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-brand-navy"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            education:
-                              form.education.filter(
-                                (_, itemIndex) =>
-                                  itemIndex !== index
-                              ),
-                          })
-                        }
-                        className="text-[11px] font-semibold text-rose-600"
-                      >
-                        학력 삭제
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => void handleSave()}
-                  disabled={saving}
-                  className="w-full rounded-xl bg-brand-navy py-3 text-sm font-bold text-brand-gold hover:bg-slate-900 disabled:opacity-50"
-                >
-                  {saving
-                    ? "저장 중..."
-                    : "프로필 저장"}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-5 text-sm">
-                <div>
-                  <div className="text-xs font-bold text-slate-400">
-                    이메일
-                  </div>
-                  <div className="mt-1 font-semibold text-slate-800">
-                    {profile.email}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-400">
-                    연락처
-                  </div>
-                  <div className="mt-1 font-semibold text-slate-800">
-                    {profile.phone}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-400">
-                    헤드라인
-                  </div>
-                  <div className="mt-1 font-semibold text-slate-800">
-                    {profile.headline || "아직 등록되지 않았습니다."}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-400">
-                    핵심 스킬
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {profile.skills.length > 0 ? (
-                      profile.skills.map((skill) => (
-                        <span
-                          key={skill}
-                          className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600"
-                        >
-                          {skill}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-slate-400">
-                        등록된 스킬이 없습니다.
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
-
-          <section className="space-y-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-extrabold text-slate-900">
-                  내 지원현황
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  지원한 포지션의 현재 진행 상태와 예정 면접을 확인할 수 있습니다.
-                </p>
-              </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                {applications.length}건
-              </span>
-            </div>
-
-            {applications.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-200 py-12 text-center">
-                <p className="text-sm font-semibold text-slate-500">
-                  아직 지원한 채용공고가 없습니다.
-                </p>
-                <Link
-                  href="/jobs"
-                  className="mt-4 inline-flex rounded-lg bg-brand-navy px-4 py-2 text-xs font-bold text-brand-gold"
-                >
-                  채용공고 둘러보기
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {applications.map((application) => {
-                  const stageCopy =
-                    STAGE_COPY[application.stage];
-
-                  return (
-                    <article
-                      key={application.applicationId}
-                      className="rounded-2xl border border-slate-200 p-4"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-brand-navy">
-                            {application.company}
-                          </div>
-                          <h3 className="mt-1 text-base font-extrabold text-slate-900">
-                            {application.jobTitle}
-                          </h3>
-                          <p className="mt-1 text-xs text-slate-400">
-                            지원일 {formatDate(application.appliedAt)}
-                          </p>
-                        </div>
-
-                        <span className="shrink-0 rounded-full bg-brand-gold/15 px-3 py-1 text-xs font-bold text-brand-navy">
-                          {stageCopy.label}
-                        </span>
-                      </div>
-
-                      <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
-                        {stageCopy.description}
-                      </p>
-
-                      {application.nextInterview ? (
-                        <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-900">
-                          <div className="font-extrabold">
-                            다음 면접 일정
-                          </div>
-                          <div className="mt-1 leading-5">
-                            {formatDateTime(
-                              application.nextInterview.scheduledAt
-                            )}
-                            {" · "}
-                            {METHOD_LABELS[
-                              application.nextInterview.method
-                            ]}
-                          </div>
-                          {application.nextInterview.location ? (
-                            <div className="mt-1 break-all text-indigo-700">
-                              장소/접속: {application.nextInterview.location}
-                            </div>
-                          ) : null}
-                          {application.nextInterview.interviewer ? (
-                            <div className="mt-1 text-indigo-700">
-                              면접관: {application.nextInterview.interviewer}
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : null}
-
-                      {application.stage === "HIRED" &&
-                      application.plannedStartDate ? (
-                        <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-xs font-bold text-emerald-700">
-                          입사 예정일 {application.plannedStartDate}
-                        </div>
-                      ) : null}
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+      <main className="mx-auto max-w-[1480px] px-5 pb-16 pt-28 sm:px-8 lg:px-10">
+        <div className="mb-6 flex items-center gap-2 text-[10px] text-brand-muted">
+          <span>마이페이지</span><span>›</span><span className="font-bold text-brand-bronze">대시보드</span>
         </div>
+
+        <div className="grid gap-6 xl:grid-cols-[250px_minmax(0,1fr)_330px]">
+          <aside className="space-y-4">
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-brand-bronze">My Career</p>
+              <h1 className="font-editorial mt-2 text-[34px] text-brand-espresso">마이페이지</h1>
+              <p className="mt-2 text-xs leading-5 text-brand-muted">지원부터 면접, 입사까지 내 커리어 진행을 확인합니다.</p>
+            </div>
+
+            <nav className="overflow-hidden rounded-xl border border-brand-line bg-white shadow-card">
+              {[
+                ["대시보드", "현재 진행 현황"],
+                ["내 프로필", `${profile.profileCompleteness}% 완성`],
+                ["지원현황", `${applications.length}건`],
+                ["면접", `${interviewCount}건 진행`],
+              ].map(([label, caption], index) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => index === 1 && setEditing(true)}
+                  className={`flex w-full items-center justify-between border-b border-brand-line px-4 py-3.5 text-left last:border-b-0 ${index === 0 ? "bg-brand-ivory" : "hover:bg-brand-ivory/60"}`}
+                >
+                  <span className="text-xs font-bold text-brand-espresso">{label}</span>
+                  <span className="text-[9px] text-brand-muted">{caption}</span>
+                </button>
+              ))}
+            </nav>
+
+            <div className="rounded-xl border border-brand-line bg-brand-espresso p-5 text-white shadow-card">
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-cream/60">Career Support</p>
+              <p className="font-editorial mt-3 text-xl">새로운 기회를 계속 확인하세요.</p>
+              <Link href="/jobs" className="mt-5 inline-flex rounded-lg border border-white/20 px-4 py-2.5 text-[11px] font-bold text-brand-cream hover:bg-white/10">
+                추천 채용 보기 →
+              </Link>
+            </div>
+          </aside>
+
+          <div className="space-y-5">
+            <section className="rounded-xl border border-brand-line bg-white p-6 shadow-card">
+              <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-cream to-brand-ivory font-editorial text-3xl text-brand-bronze">
+                    {profile.name.slice(0, 1)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-bronze">The Lobby Candidate</p>
+                    <h2 className="font-editorial mt-1 truncate text-[28px] text-brand-espresso">{profile.name}님, 환영합니다.</h2>
+                    <p className="mt-1 truncate text-sm text-brand-muted">{profile.headline || "프로필 헤드라인을 등록해 나를 더 잘 보여주세요."}</p>
+                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-brand-muted">
+                      <span>{profile.phone}</span><span>{profile.email}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="min-w-[170px] border-l-0 border-brand-line md:border-l md:pl-6">
+                  <div className="flex items-end justify-between">
+                    <span className="text-[10px] font-bold text-brand-muted">프로필 완성도</span>
+                    <span className="font-editorial text-3xl text-brand-espresso">{profile.profileCompleteness}%</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-brand-cream">
+                    <div className="h-full rounded-full bg-brand-bronze" style={{ width: `${profile.profileCompleteness}%` }} />
+                  </div>
+                  <button type="button" onClick={() => setEditing(true)} className="mt-3 text-[11px] font-bold text-brand-bronze">프로필 보완하기 →</button>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-brand-line bg-white p-5 shadow-card">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-brand-espresso">지원현황</h2>
+                  <p className="mt-1 text-[10px] text-brand-muted">현재 지원 건의 단계와 다음 액션을 확인하세요.</p>
+                </div>
+                <Link href="/jobs" className="text-[11px] font-bold text-brand-bronze">채용 더 보기 →</Link>
+              </div>
+
+              <div className="mt-5 grid grid-cols-4 overflow-hidden rounded-xl border border-brand-line bg-brand-light">
+                {[
+                  ["전체 지원", applications.length],
+                  ["진행 중", activeCount],
+                  ["면접", interviewCount],
+                  ["입사 확정", hiredCount],
+                ].map(([label, value], index) => (
+                  <div key={String(label)} className={`px-3 py-4 text-center ${index > 0 ? "border-l border-brand-line" : ""}`}>
+                    <p className="text-[9px] font-bold text-brand-muted">{label}</p>
+                    <p className="font-editorial mt-1 text-2xl text-brand-espresso">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {applications.length === 0 ? (
+                <div className="mt-5 rounded-xl border border-dashed border-brand-line py-12 text-center">
+                  <p className="text-sm font-semibold text-brand-muted">아직 지원한 채용공고가 없습니다.</p>
+                  <Link href="/jobs" className="mt-4 inline-flex rounded-lg bg-brand-bronze px-4 py-2.5 text-xs font-bold text-white">채용공고 둘러보기</Link>
+                </div>
+              ) : (
+                <div className="mt-5 overflow-hidden rounded-xl border border-brand-line">
+                  <div className="hidden grid-cols-[minmax(0,1.6fr)_120px_110px] bg-brand-ivory px-4 py-3 text-[10px] font-bold text-brand-muted sm:grid">
+                    <span>포지션 / 회사</span><span>지원일</span><span>진행상태</span>
+                  </div>
+                  {applications.map((application) => {
+                    const copy = STAGE_COPY[application.stage];
+                    return (
+                      <article key={application.applicationId} className="grid gap-3 border-t border-brand-line px-4 py-4 first:border-t-0 sm:grid-cols-[minmax(0,1.6fr)_120px_110px] sm:items-center">
+                        <div className="min-w-0">
+                          <p className="truncate text-[10px] font-bold text-brand-muted">{application.company}</p>
+                          <h3 className="mt-1 truncate text-sm font-bold text-brand-espresso">{application.jobTitle}</h3>
+                          <p className="mt-1 text-[10px] text-brand-muted sm:hidden">지원일 {formatDate(application.appliedAt)}</p>
+                        </div>
+                        <div className="hidden text-[11px] text-brand-muted sm:block">{formatDate(application.appliedAt)}</div>
+                        <div className="flex items-center gap-2">
+                          <StatusDot stage={application.stage} />
+                          <span className="text-[11px] font-bold text-brand-espresso">{copy.label}</span>
+                        </div>
+                        <p className="sm:col-span-3 -mt-1 text-[10px] text-brand-muted">{copy.description}</p>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <aside className="space-y-5">
+            <section className="rounded-xl border border-brand-line bg-white p-5 shadow-card">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-brand-espresso">다가오는 면접 일정</h2>
+                <span className="text-[9px] text-brand-muted">NEXT</span>
+              </div>
+              {nextInterview?.interview ? (
+                <div className="mt-4 rounded-xl border border-brand-line bg-brand-light p-4">
+                  <p className="text-[10px] font-bold text-brand-bronze">{nextInterview.application.jobTitle}</p>
+                  <p className="mt-2 text-sm font-bold text-brand-espresso">{formatDateTime(nextInterview.interview.scheduledAt)}</p>
+                  <p className="mt-2 text-[11px] text-brand-muted">{METHOD_LABELS[nextInterview.interview.method]}</p>
+                  {nextInterview.interview.location ? <p className="mt-1 break-all text-[10px] text-brand-muted">{nextInterview.interview.location}</p> : null}
+                  {nextInterview.interview.interviewer ? <p className="mt-1 text-[10px] text-brand-muted">면접관 {nextInterview.interview.interviewer}</p> : null}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-dashed border-brand-line px-4 py-8 text-center text-xs text-brand-muted">예정된 면접이 없습니다.</div>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-brand-line bg-white p-5 shadow-card">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-brand-espresso">내 프로필</h2>
+                <button type="button" onClick={() => setEditing(true)} className="text-[10px] font-bold text-brand-bronze">수정</button>
+              </div>
+              <div className="mt-4 space-y-4 text-[11px]">
+                <div><p className="font-bold text-brand-muted">경력 요약</p><p className="mt-1 line-clamp-4 leading-5 text-brand-ink">{profile.careerSummary || "경력 요약을 등록해주세요."}</p></div>
+                <div><p className="font-bold text-brand-muted">핵심 스킬</p><div className="mt-2 flex flex-wrap gap-1.5">{profile.skills.length ? profile.skills.map((skill) => <span key={skill} className="rounded-full border border-brand-line bg-brand-ivory px-2 py-1 text-[10px] text-brand-muted">{skill}</span>) : <span className="text-brand-muted">등록된 스킬 없음</span>}</div></div>
+                <div className="grid grid-cols-2 gap-3 border-t border-brand-line pt-4"><div><p className="text-brand-muted">경력</p><p className="mt-1 font-bold text-brand-espresso">{profile.careers.length}건</p></div><div><p className="text-brand-muted">학력</p><p className="mt-1 font-bold text-brand-espresso">{profile.education.length}건</p></div></div>
+              </div>
+            </section>
+          </aside>
+        </div>
+
+        {editing ? (
+          <section className="mt-6 rounded-xl border border-brand-line bg-white p-6 shadow-card sm:p-8">
+            <div className="flex flex-col gap-4 border-b border-brand-line pb-5 sm:flex-row sm:items-center sm:justify-between">
+              <div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-bronze">Profile Editor</p><h2 className="font-editorial mt-2 text-[26px] text-brand-espresso">프로필 수정</h2></div>
+              <div className="flex gap-2"><button type="button" onClick={() => { setForm(profileToForm(profile)); setEditing(false); }} className="rounded-lg border border-brand-line px-4 py-2.5 text-xs font-bold text-brand-muted">취소</button><button type="button" onClick={() => void handleSave()} disabled={saving} className="rounded-lg bg-brand-bronze px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50">{saving ? "저장 중..." : "변경사항 저장"}</button></div>
+            </div>
+
+            <div className="mt-6 grid gap-5 lg:grid-cols-2">
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2"><label className="space-y-1 text-xs font-bold text-brand-muted">이름<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="w-full rounded-lg border border-brand-line px-3 py-2.5 text-sm font-normal text-brand-ink outline-none" /></label><label className="space-y-1 text-xs font-bold text-brand-muted">연락처<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} className="w-full rounded-lg border border-brand-line px-3 py-2.5 text-sm font-normal text-brand-ink outline-none" /></label></div>
+                <label className="block space-y-1 text-xs font-bold text-brand-muted">프로필 헤드라인<input value={form.headline} onChange={(event) => setForm({ ...form, headline: event.target.value })} maxLength={200} className="w-full rounded-lg border border-brand-line px-3 py-2.5 text-sm font-normal text-brand-ink outline-none" /></label>
+                <label className="block space-y-1 text-xs font-bold text-brand-muted">경력 요약<textarea value={form.careerSummary} onChange={(event) => setForm({ ...form, careerSummary: event.target.value })} maxLength={3000} className="min-h-32 w-full resize-y rounded-lg border border-brand-line px-3 py-2.5 text-sm font-normal leading-6 text-brand-ink outline-none" /></label>
+                <label className="block space-y-1 text-xs font-bold text-brand-muted">핵심 스킬<input value={form.skills} onChange={(event) => setForm({ ...form, skills: event.target.value })} placeholder="고객응대, VIP응대, 안내데스크" className="w-full rounded-lg border border-brand-line px-3 py-2.5 text-sm font-normal text-brand-ink outline-none" /></label>
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-brand-espresso">경력</h3><button type="button" onClick={() => setForm({ ...form, careers: [...form.careers, { companyName: "", role: "", period: "", description: "" }] })} className="text-[10px] font-bold text-brand-bronze">+ 경력 추가</button></div>
+                  <div className="mt-3 space-y-2">{form.careers.map((career, index) => <div key={`career-${index}`} className="rounded-lg border border-brand-line bg-brand-light p-3"><div className="grid gap-2 sm:grid-cols-2"><input value={career.companyName} onChange={(event) => updateCareer(index, "companyName", event.target.value)} placeholder="회사명" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={career.role} onChange={(event) => updateCareer(index, "role", event.target.value)} placeholder="직무" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={career.period} onChange={(event) => updateCareer(index, "period", event.target.value)} placeholder="기간" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /></div><textarea value={career.description} onChange={(event) => updateCareer(index, "description", event.target.value)} placeholder="주요 업무" className="mt-2 min-h-16 w-full rounded-lg border border-brand-line px-3 py-2 text-xs" /><button type="button" onClick={() => setForm({ ...form, careers: form.careers.filter((_, itemIndex) => itemIndex !== index) })} className="mt-2 text-[10px] font-bold text-brand-danger">삭제</button></div>)}</div>
+                </div>
+
+                <div className="border-t border-brand-line pt-5">
+                  <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-brand-espresso">학력</h3><button type="button" onClick={() => setForm({ ...form, education: [...form.education, { schoolName: "", major: "", degree: "", period: "" }] })} className="text-[10px] font-bold text-brand-bronze">+ 학력 추가</button></div>
+                  <div className="mt-3 space-y-2">{form.education.map((item, index) => <div key={`education-${index}`} className="rounded-lg border border-brand-line bg-brand-light p-3"><div className="grid gap-2 sm:grid-cols-2"><input value={item.schoolName} onChange={(event) => updateEducation(index, "schoolName", event.target.value)} placeholder="학교명" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={item.major || ""} onChange={(event) => updateEducation(index, "major", event.target.value)} placeholder="전공" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={item.degree || ""} onChange={(event) => updateEducation(index, "degree", event.target.value)} placeholder="학위" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={item.period || ""} onChange={(event) => updateEducation(index, "period", event.target.value)} placeholder="기간" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /></div><button type="button" onClick={() => setForm({ ...form, education: form.education.filter((_, itemIndex) => itemIndex !== index) })} className="mt-2 text-[10px] font-bold text-brand-danger">삭제</button></div>)}</div>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
       </main>
     </div>
   );

@@ -6,8 +6,8 @@ import "../styles/globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "The Lobby - 프리미엄 커리어 플랫폼",
-  description: "당신의 커리어를 한 단계 높여줄 엄선된 기회들",
+  title: "The Lobby | Premium Reception Career Studio",
+  description: "리셉션·프론트·VIP 고객서비스 전문 채용과 커리어를 연결하는 The Lobby",
 };
 
 export default function RootLayout({
@@ -19,20 +19,22 @@ export default function RootLayout({
     <html lang="ko">
       <body className={inter.className}>
         {children}
-        <Toaster 
+        <Toaster
           position="bottom-center"
           toastOptions={{
             style: {
-              background: '#0f172a', // slate-900 (brand-navy)
-              color: '#fff',
-              fontSize: '14px',
-              borderRadius: '999px',
-              padding: '12px 24px',
+              background: "#24180f",
+              color: "#fffdfa",
+              fontSize: "13px",
+              borderRadius: "10px",
+              border: "1px solid rgba(152,100,47,0.24)",
+              padding: "12px 18px",
+              boxShadow: "0 14px 34px rgba(36,24,15,0.16)",
             },
             success: {
               iconTheme: {
-                primary: '#d4af37', // brand-gold
-                secondary: '#0f172a',
+                primary: "#98642f",
+                secondary: "#fffdfa",
               },
             },
           }}

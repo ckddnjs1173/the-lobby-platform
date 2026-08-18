@@ -1,8 +1,219 @@
+@import url("https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --lobby-bg: #fbf8f3;
+  --lobby-surface: #fffdfa;
+  --lobby-ink: #2f2924;
+  --lobby-muted: #7f756b;
+  --lobby-line: #e6ddd2;
+  --lobby-bronze: #98642f;
+  --lobby-deep: #24180f;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  background: var(--lobby-bg);
+  scroll-behavior: smooth;
+}
+
 body {
-  background-color: #f8fafc;
-  color: #0f172a;
+  margin: 0;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(190, 150, 109, 0.07), transparent 28rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 24rem),
+    var(--lobby-bg);
+  color: var(--lobby-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: rgba(152, 100, 47, 0.18); }
+
+.font-editorial {
+  font-family: "Gowun Batang", "Noto Serif KR", "AppleMyungjo", "Batang", serif;
+  letter-spacing: -0.04em;
+  word-break: keep-all;
+}
+
+.lobby-hairline { border-color: rgba(92, 66, 42, 0.14); }
+
+.lobby-glass {
+  background: rgba(255, 253, 250, 0.92);
+  backdrop-filter: blur(18px);
+}
+
+.lobby-grid {
+  background-image:
+    linear-gradient(rgba(123, 86, 53, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(123, 86, 53, 0.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Legacy Candidate/B2B palette normalization. */
+.bg-slate-50,
+.bg-slate-100 { background-color: #f8f3eb !important; }
+
+.bg-slate-900 { background-color: #24180f !important; }
+.bg-slate-800 { background-color: #3a281b !important; }
+
+.border-slate-100,
+.border-slate-200,
+.border-slate-300,
+.divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e6ddd2 !important;
+}
+
+.text-slate-900,
+.text-slate-800 { color: #2f2924 !important; }
+
+.text-slate-700,
+.text-slate-600 { color: #62584f !important; }
+
+.text-slate-500,
+.text-slate-400 { color: #887c71 !important; }
+
+.text-slate-300 { color: #d8cdbf !important; }
+
+.hover\:bg-slate-50:hover,
+.hover\:bg-slate-100:hover { background-color: #f8f3eb !important; }
+
+.hover\:bg-slate-900:hover,
+.hover\:bg-slate-800:hover { background-color: #24180f !important; }
+
+.focus\:border-brand-navy:focus,
+.focus\:border-brand-gold:focus { border-color: #98642f !important; }
+
+.bg-brand-navy.text-brand-gold,
+.bg-brand-gold.text-brand-navy { color: #fffdfa !important; }
+
+.hover\:bg-yellow-400:hover { background-color: #815326 !important; }
+
+.shadow-xl,
+.shadow-lg,
+.shadow-md,
+.shadow-sm { --tw-shadow-color: rgba(84, 55, 31, 0.08) !important; }
+
+.rounded-3xl { border-radius: 14px !important; }
+
+input,
+select,
+textarea,
+button,
+a { -webkit-tap-highlight-color: transparent; }
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid rgba(152, 100, 47, 0.32);
+  outline-offset: 2px;
+}
+
+/* Candidate surfaces */
+.candidate-surface .rounded-3xl,
+.candidate-surface .rounded-2xl { border-radius: 14px !important; }
+
+.candidate-surface .bg-white { background-color: rgba(255, 253, 250, 0.97) !important; }
+
+.candidate-surface input,
+.candidate-surface textarea,
+.candidate-surface select { background-color: #fffdfa; }
+
+body:has(a[href="/candidate"]) main {
+  background-image: radial-gradient(circle at 90% 0%, rgba(152, 100, 47, 0.045), transparent 28rem);
+}
+
+/* Recruiting OS */
+.b2b-workspace {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(152, 100, 47, 0.055), transparent 34rem),
+    #f8f3eb;
+}
+
+.b2b-workspace .bg-white { background-color: rgba(255, 253, 250, 0.99) !important; }
+
+.b2b-workspace .rounded-3xl,
+.b2b-workspace .rounded-2xl { border-radius: 12px !important; }
+
+.b2b-workspace table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.b2b-workspace table thead tr { background-color: #f8f3eb !important; }
+.b2b-workspace table tbody tr { transition: background-color 140ms ease; }
+.b2b-workspace table tbody tr:hover { background-color: rgba(248, 243, 235, 0.78) !important; }
+
+.b2b-workspace th {
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+
+.b2b-workspace td { vertical-align: middle; }
+
+.b2b-workspace input,
+.b2b-workspace textarea,
+.b2b-workspace select {
+  border-color: #e6ddd2;
+  background-color: #fffdfa;
+}
+
+.b2b-workspace h1,
+.b2b-workspace h2 { letter-spacing: -0.025em; }
+
+.b2b-workspace .font-mono {
+  font-family: inherit !important;
+  letter-spacing: -0.01em;
+}
+
+.b2b-workspace .shadow-sm,
+.b2b-workspace .shadow-md,
+.b2b-workspace .shadow-lg {
+  box-shadow: 0 7px 24px rgba(84, 55, 31, 0.055) !important;
+}
+
+.b2b-workspace section.rounded-2xl,
+.b2b-workspace section.rounded-xl {
+  border-color: #e3d8cb !important;
+}
+
+.b2b-workspace [class*="bg-amber-50"] { background-color: #fff7ea !important; }
+.b2b-workspace [class*="bg-indigo-50"] { background-color: #f5f1eb !important; }
+.b2b-workspace [class*="bg-emerald-50"] { background-color: #f1f6ef !important; }
+
+/* Analytics: calmer dashboard density and stronger data hierarchy. */
+.b2b-workspace .grid > .rounded-2xl.border.bg-white.p-5 {
+  min-height: 116px;
+  padding: 18px !important;
+}
+
+.b2b-workspace .grid > .rounded-2xl.border.bg-white.p-5 > div:nth-child(2) {
+  font-family: "Gowun Batang", "Noto Serif KR", serif;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.b2b-workspace [class*="bg-brand-gold"] { background-color: #98642f !important; }
+.b2b-workspace [class*="bg-slate-800"] { background-color: #4b3322 !important; }
+
+@media (max-width: 1023px) {
+  .b2b-workspace { padding-bottom: 40px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
