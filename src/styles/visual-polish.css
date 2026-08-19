@@ -1,0 +1,79 @@
+@import url("https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap");
+
+body {
+  font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.font-editorial {
+  font-family: "Gowun Batang", "Noto Serif KR", "AppleMyungjo", "Batang", serif;
+  letter-spacing: -0.025em;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+/* Registration needs denser copy and a content-height companion panel. */
+body:has(input[type="file"]) .candidate-surface main h1.font-editorial,
+body:has(input[type="file"]) .candidate-surface main h2.font-editorial {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+body:has(input[type="file"]) .candidate-surface main [class~="text-[9px]"] {
+  font-size: 10px !important;
+}
+
+body:has(input[type="file"]) .candidate-surface main [class~="text-[10px]"] {
+  font-size: 11px !important;
+}
+
+body:has(input[type="file"]) .candidate-surface main [class~="text-[11px]"] {
+  font-size: 12px !important;
+}
+
+body:has(input[type="file"]) textarea[maxlength="40000"] {
+  height: 200px !important;
+  min-height: 180px;
+}
+
+/* Jobs browsing benefits from slightly larger metadata at desktop density. */
+body:has(input[placeholder="직무, 회사, 지역 검색"]) main [class~="text-[9px]"] {
+  font-size: 10px !important;
+}
+
+body:has(input[placeholder="직무, 회사, 지역 검색"]) main [class~="text-[10px]"] {
+  font-size: 11px !important;
+}
+
+body:has(input[placeholder="직무, 회사, 지역 검색"]) main [class~="text-[11px]"] {
+  font-size: 12px !important;
+}
+
+body:has(input[placeholder="직무, 회사, 지역 검색"]) main h1.font-editorial,
+body:has(input[placeholder="직무, 회사, 지역 검색"]) main h3.font-editorial {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+@media (min-width: 1024px) {
+  .public-shell {
+    --public-container: 1440px;
+    --public-content: 1320px;
+  }
+
+  body:has(input[type="file"]) .candidate-surface main > div.grid {
+    align-items: start;
+  }
+
+  body:has(input[type="file"]) .candidate-surface main > div.grid > aside {
+    align-self: start;
+    position: sticky;
+    top: 96px;
+  }
+}

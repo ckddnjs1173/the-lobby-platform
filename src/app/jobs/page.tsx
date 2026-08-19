@@ -377,7 +377,15 @@ export default function JobsPage() {
             </button>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div
+            className={
+              filteredJobs.length === 1
+                ? "mx-auto grid w-full max-w-[860px] gap-5 lg:grid-cols-[minmax(0,1fr)_360px]"
+                : filteredJobs.length === 2
+                  ? "mx-auto grid w-full max-w-[1180px] gap-5 md:grid-cols-2 xl:grid-cols-3"
+                  : "grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+            }
+          >
             {filteredJobs.map((job) => {
               const isApplying = applyingJobId === job.jobId;
               const isApplied = appliedJobIds.has(job.jobId);
