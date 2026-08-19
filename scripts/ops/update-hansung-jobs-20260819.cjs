@@ -139,7 +139,7 @@ const targets = [
   {
     key: "incheon-seogu",
     label: "한성자동차 인천서구 서비스센터 리셉션",
-    tokens: ["한성자동차", "인천서구서비스센터"],
+    tokens: ["인천서구서비스센터"],
     update: {
       displayCompany: "한성자동차㈜",
       title: "한성자동차 인천서구 서비스센터 리셉션 채용",
@@ -249,5 +249,3 @@ main().catch((error) => {
   console.error("HANSUNG_JOB_UPDATE_FAILED", error);
   process.exitCode = 1;
 });
-
-// Touch marker: rerun after result persistence was enabled.
