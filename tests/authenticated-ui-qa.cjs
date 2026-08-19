@@ -89,6 +89,15 @@ async function callApi(token, route, method = "GET", body) {
 }
 
 async function seed() {
+  await db.collection("organizations").doc(orgId).set({
+    organizationId: orgId,
+    name: "UI QA 격리 조직",
+    displayName: "UI QA 격리 조직",
+    status: "ACTIVE",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
   const [candidateUser, recruiterUser] = await Promise.all([
     auth.createUser({ email: candidateEmail, password, displayName: "UI QA 지원자" }),
     auth.createUser({ email: recruiterEmail, password, displayName: "UI QA 리크루터" }),
@@ -257,6 +266,7 @@ async function cleanup() {
     batchDeletes.push(db.collection("candidates").doc(candidateId));
   }
   for (const jobId of created.jobIds) batchDeletes.push(db.collection("jobs").doc(jobId));
+  batchDeletes.push(db.collection("organizations").doc(orgId));
   for (const uid of created.authUids) {
     batchDeletes.push(db.collection("candidateAuthLinks").doc(uid));
     batchDeletes.push(db.collection("users").doc(uid));
