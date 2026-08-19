@@ -249,3 +249,5 @@ main().catch((error) => {
   console.error("HANSUNG_JOB_UPDATE_FAILED", error);
   process.exitCode = 1;
 });
+
+// Touch marker: rerun after result persistence was enabled.
