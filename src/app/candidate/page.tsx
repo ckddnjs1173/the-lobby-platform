@@ -342,20 +342,20 @@ export default function CandidatePortalPage() {
     <div className="candidate-surface min-h-screen bg-brand-light text-brand-ink">
       <CandidateHeader />
 
-      <main id="candidate-dashboard" className="scroll-mt-24 mx-auto max-w-[1480px] px-5 pb-16 pt-28 sm:px-8 lg:px-10">
-        <div className="mb-6 flex items-center gap-2 text-[10px] text-brand-muted">
+      <main id="candidate-dashboard" className="scroll-mt-24 mx-auto w-full max-w-[1480px] px-5 pb-16 pt-28 sm:px-8 lg:px-10">
+        <div className="mb-6 flex items-center gap-2 text-[11px] text-brand-muted">
           <span>마이페이지</span><span>›</span><span className="font-bold text-brand-bronze">대시보드</span>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[250px_minmax(0,1fr)_330px]">
-          <aside className="space-y-4">
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[250px_minmax(0,1fr)_330px]">
+          <aside className="min-w-0 space-y-4">
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-brand-bronze">My Career</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand-bronze">My Career</p>
               <h1 className="font-editorial mt-2 text-[34px] text-brand-espresso">마이페이지</h1>
               <p className="mt-2 text-xs leading-5 text-brand-muted">지원부터 면접, 입사까지 내 커리어 진행을 확인합니다.</p>
             </div>
 
-            <nav className="overflow-hidden rounded-xl border border-brand-line bg-white shadow-card">
+            <nav className="hidden overflow-hidden rounded-xl border border-brand-line bg-white shadow-card xl:block">
               {[
                 ["대시보드", "현재 진행 현황"],
                 ["내 프로필", `${profile.profileCompleteness}% 완성`],
@@ -369,57 +369,57 @@ export default function CandidatePortalPage() {
                   className={`flex w-full items-center justify-between border-b border-brand-line px-4 py-3.5 text-left last:border-b-0 ${index === 0 ? "bg-brand-ivory" : "hover:bg-brand-ivory/60"}`}
                 >
                   <span className="text-xs font-bold text-brand-espresso">{label}</span>
-                  <span className="text-[9px] text-brand-muted">{caption}</span>
+                  <span className="text-[10px] text-brand-muted">{caption}</span>
                 </button>
               ))}
             </nav>
 
-            <div className="rounded-xl border border-brand-line bg-brand-espresso p-5 text-white shadow-card">
-              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-cream/60">Career Support</p>
+            <div className="hidden rounded-xl border border-brand-line bg-brand-espresso p-5 text-white shadow-card xl:block">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-cream/60">Career Support</p>
               <p className="font-editorial mt-3 text-xl">새로운 기회를 계속 확인하세요.</p>
-              <Link href="/jobs" className="mt-5 inline-flex rounded-lg border border-white/20 px-4 py-2.5 text-[11px] font-bold text-brand-cream hover:bg-white/10">
+              <Link href="/jobs" className="mt-5 inline-flex rounded-lg border border-white/20 px-4 py-2.5 text-xs font-bold text-brand-cream hover:bg-white/10">
                 추천 채용 보기 →
               </Link>
             </div>
           </aside>
 
-          <div className="space-y-5">
-            <section id="candidate-profile" className="scroll-mt-24 rounded-xl border border-brand-line bg-white p-6 shadow-card">
+          <div className="min-w-0 space-y-5">
+            <section id="candidate-profile" className="scroll-mt-24 rounded-xl border border-brand-line bg-white p-5 shadow-card sm:p-6">
               <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
                 <div className="flex min-w-0 items-center gap-4">
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-cream to-brand-ivory font-editorial text-3xl text-brand-bronze">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full sm:h-20 sm:w-20 bg-gradient-to-br from-brand-cream to-brand-ivory font-editorial text-3xl text-brand-bronze">
                     {profile.name.slice(0, 1)}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-bronze">The Lobby Candidate</p>
-                    <h2 className="font-editorial mt-1 truncate text-[28px] text-brand-espresso">{profile.name}님, 환영합니다.</h2>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-bronze">The Lobby Candidate</p>
+                    <h2 className="font-editorial mt-1 truncate text-[24px] text-brand-espresso sm:text-[28px]">{profile.name}님, 환영합니다.</h2>
                     <p className="mt-1 truncate text-sm text-brand-muted">{profile.headline || "프로필 헤드라인을 등록해 나를 더 잘 보여주세요."}</p>
-                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-brand-muted">
-                      <span>{profile.phone}</span><span>{profile.email}</span>
+                    <div className="mt-3 grid min-w-0 gap-1 text-xs text-brand-muted sm:flex sm:flex-wrap sm:gap-x-5 sm:gap-y-1">
+                      <span>{profile.phone}</span><span className="min-w-0 break-all">{profile.email}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="min-w-[170px] border-l-0 border-brand-line md:border-l md:pl-6">
+                <div className="w-full border-l-0 border-brand-line md:w-auto md:min-w-[170px] md:border-l md:pl-6">
                   <div className="flex items-end justify-between">
-                    <span className="text-[10px] font-bold text-brand-muted">프로필 완성도</span>
+                    <span className="text-[11px] font-bold text-brand-muted">프로필 완성도</span>
                     <span className="font-editorial text-3xl text-brand-espresso">{profile.profileCompleteness}%</span>
                   </div>
                   <div className="mt-2 h-2 overflow-hidden rounded-full bg-brand-cream">
                     <div className="h-full rounded-full bg-brand-bronze" style={{ width: `${profile.profileCompleteness}%` }} />
                   </div>
-                  <button type="button" onClick={() => setEditing(true)} className="mt-3 text-[11px] font-bold text-brand-bronze">프로필 보완하기 →</button>
+                  <button type="button" onClick={() => setEditing(true)} className="mt-3 text-xs font-bold text-brand-bronze">프로필 보완하기 →</button>
                 </div>
               </div>
             </section>
 
-            <section id="candidate-applications" className="scroll-mt-24 rounded-xl border border-brand-line bg-white p-5 shadow-card">
-              <div className="flex items-center justify-between">
+            <section id="candidate-applications" className="scroll-mt-24 min-w-0 rounded-xl border border-brand-line bg-white p-4 shadow-card sm:p-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-base font-bold text-brand-espresso">지원현황</h2>
-                  <p className="mt-1 text-[10px] text-brand-muted">현재 지원 건의 단계와 다음 액션을 확인하세요.</p>
+                  <p className="mt-1 text-[11px] text-brand-muted">현재 지원 건의 단계와 다음 액션을 확인하세요.</p>
                 </div>
-                <Link href="/jobs" className="text-[11px] font-bold text-brand-bronze">채용 더 보기 →</Link>
+                <Link href="/jobs" className="text-xs font-bold text-brand-bronze">채용 더 보기 →</Link>
               </div>
 
               <div className="mt-5 grid grid-cols-4 overflow-hidden rounded-xl border border-brand-line bg-brand-light">
@@ -430,7 +430,7 @@ export default function CandidatePortalPage() {
                   ["입사 확정", hiredCount],
                 ].map(([label, value], index) => (
                   <div key={String(label)} className={`px-3 py-4 text-center ${index > 0 ? "border-l border-brand-line" : ""}`}>
-                    <p className="text-[9px] font-bold text-brand-muted">{label}</p>
+                    <p className="text-[10px] font-bold text-brand-muted">{label}</p>
                     <p className="font-editorial mt-1 text-2xl text-brand-espresso">{value}</p>
                   </div>
                 ))}
@@ -443,7 +443,7 @@ export default function CandidatePortalPage() {
                 </div>
               ) : (
                 <div className="mt-5 overflow-hidden rounded-xl border border-brand-line">
-                  <div className="hidden grid-cols-[minmax(0,1.6fr)_120px_110px] bg-brand-ivory px-4 py-3 text-[10px] font-bold text-brand-muted sm:grid">
+                  <div className="hidden grid-cols-[minmax(0,1.6fr)_120px_110px] bg-brand-ivory px-4 py-3 text-[11px] font-bold text-brand-muted sm:grid">
                     <span>포지션 / 회사</span><span>지원일</span><span>진행상태</span>
                   </div>
                   {applications.map((application) => {
@@ -454,25 +454,25 @@ export default function CandidatePortalPage() {
                     return (
                       <article key={application.applicationId} className="grid gap-3 border-t border-brand-line px-4 py-4 first:border-t-0 sm:grid-cols-[minmax(0,1.6fr)_120px_110px] sm:items-center">
                         <div className="min-w-0">
-                          <p className="truncate text-[10px] font-bold text-brand-muted">{application.company}</p>
+                          <p className="truncate text-[11px] font-bold text-brand-muted">{application.company}</p>
                           <Link href={`/jobs/${application.jobId}`} className="mt-1 block truncate text-sm font-bold text-brand-espresso hover:text-brand-bronze hover:underline">
                             {application.jobTitle}
                           </Link>
-                          <p className="mt-1 text-[10px] text-brand-muted sm:hidden">지원일 {formatDate(application.appliedAt)}</p>
+                          <p className="mt-1 text-[11px] text-brand-muted sm:hidden">지원일 {formatDate(application.appliedAt)}</p>
                         </div>
-                        <div className="hidden text-[11px] text-brand-muted sm:block">{formatDate(application.appliedAt)}</div>
+                        <div className="hidden text-xs text-brand-muted sm:block">{formatDate(application.appliedAt)}</div>
                         <div className="flex items-center gap-2">
                           <StatusDot stage={application.stage} />
-                          <span className="text-[11px] font-bold text-brand-espresso">{copy.label}</span>
+                          <span className="text-xs font-bold text-brand-espresso">{copy.label}</span>
                         </div>
                         <div className="sm:col-span-3 -mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <p className="text-[10px] text-brand-muted">{copy.description}</p>
+                          <p className="text-[11px] text-brand-muted">{copy.description}</p>
                           {canCancel ? (
                             <button
                               type="button"
                               onClick={() => void handleCancelApplication(application)}
                               disabled={cancelingApplicationId !== null}
-                              className="w-fit text-[10px] font-bold text-brand-danger hover:underline disabled:cursor-not-allowed disabled:opacity-45"
+                              className="w-fit text-[11px] font-bold text-brand-danger hover:underline disabled:cursor-not-allowed disabled:opacity-45"
                             >
                               {canceling ? "취소 처리 중..." : "지원 취소"}
                             </button>
@@ -486,19 +486,19 @@ export default function CandidatePortalPage() {
             </section>
           </div>
 
-          <aside className="space-y-5">
+          <aside className="min-w-0 space-y-5">
             <section id="candidate-interviews" className="scroll-mt-24 rounded-xl border border-brand-line bg-white p-5 shadow-card">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-brand-espresso">다가오는 면접 일정</h2>
-                <span className="text-[9px] text-brand-muted">NEXT</span>
+                <span className="text-[10px] text-brand-muted">NEXT</span>
               </div>
               {nextInterview?.interview ? (
                 <div className="mt-4 rounded-xl border border-brand-line bg-brand-light p-4">
-                  <p className="text-[10px] font-bold text-brand-bronze">{nextInterview.application.jobTitle}</p>
+                  <p className="text-[11px] font-bold text-brand-bronze">{nextInterview.application.jobTitle}</p>
                   <p className="mt-2 text-sm font-bold text-brand-espresso">{formatDateTime(nextInterview.interview.scheduledAt)}</p>
-                  <p className="mt-2 text-[11px] text-brand-muted">{METHOD_LABELS[nextInterview.interview.method]}</p>
-                  {nextInterview.interview.location ? <p className="mt-1 break-all text-[10px] text-brand-muted">{nextInterview.interview.location}</p> : null}
-                  {nextInterview.interview.interviewer ? <p className="mt-1 text-[10px] text-brand-muted">면접관 {nextInterview.interview.interviewer}</p> : null}
+                  <p className="mt-2 text-xs text-brand-muted">{METHOD_LABELS[nextInterview.interview.method]}</p>
+                  {nextInterview.interview.location ? <p className="mt-1 break-all text-[11px] text-brand-muted">{nextInterview.interview.location}</p> : null}
+                  {nextInterview.interview.interviewer ? <p className="mt-1 text-[11px] text-brand-muted">면접관 {nextInterview.interview.interviewer}</p> : null}
                 </div>
               ) : (
                 <div className="mt-4 rounded-xl border border-dashed border-brand-line px-4 py-8 text-center text-xs text-brand-muted">예정된 면접이 없습니다.</div>
@@ -508,11 +508,11 @@ export default function CandidatePortalPage() {
             <section className="rounded-xl border border-brand-line bg-white p-5 shadow-card">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-brand-espresso">내 프로필</h2>
-                <button type="button" onClick={() => setEditing(true)} className="text-[10px] font-bold text-brand-bronze">수정</button>
+                <button type="button" onClick={() => setEditing(true)} className="text-[11px] font-bold text-brand-bronze">수정</button>
               </div>
-              <div className="mt-4 space-y-4 text-[11px]">
+              <div className="mt-4 space-y-4 text-xs">
                 <div><p className="font-bold text-brand-muted">경력 요약</p><p className="mt-1 line-clamp-4 leading-5 text-brand-ink">{profile.careerSummary || "경력 요약을 등록해주세요."}</p></div>
-                <div><p className="font-bold text-brand-muted">핵심 스킬</p><div className="mt-2 flex flex-wrap gap-1.5">{profile.skills.length ? profile.skills.map((skill) => <span key={skill} className="rounded-full border border-brand-line bg-brand-ivory px-2 py-1 text-[10px] text-brand-muted">{skill}</span>) : <span className="text-brand-muted">등록된 스킬 없음</span>}</div></div>
+                <div><p className="font-bold text-brand-muted">핵심 스킬</p><div className="mt-2 flex flex-wrap gap-1.5">{profile.skills.length ? profile.skills.map((skill) => <span key={skill} className="rounded-full border border-brand-line bg-brand-ivory px-2 py-1 text-[11px] text-brand-muted">{skill}</span>) : <span className="text-brand-muted">등록된 스킬 없음</span>}</div></div>
                 <div className="grid grid-cols-2 gap-3 border-t border-brand-line pt-4"><div><p className="text-brand-muted">경력</p><p className="mt-1 font-bold text-brand-espresso">{profile.careers.length}건</p></div><div><p className="text-brand-muted">학력</p><p className="mt-1 font-bold text-brand-espresso">{profile.education.length}건</p></div></div>
               </div>
             </section>
@@ -522,7 +522,7 @@ export default function CandidatePortalPage() {
         {editing ? (
           <section id="candidate-profile-editor" className="scroll-mt-24 mt-6 rounded-xl border border-brand-line bg-white p-6 shadow-card sm:p-8">
             <div className="flex flex-col gap-4 border-b border-brand-line pb-5 sm:flex-row sm:items-center sm:justify-between">
-              <div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-bronze">Profile Editor</p><h2 className="font-editorial mt-2 text-[26px] text-brand-espresso">프로필 수정</h2></div>
+              <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-bronze">Profile Editor</p><h2 className="font-editorial mt-2 text-[26px] text-brand-espresso">프로필 수정</h2></div>
               <div className="flex gap-2"><button type="button" onClick={() => { setForm(profileToForm(profile)); setEditing(false); }} className="rounded-lg border border-brand-line px-4 py-2.5 text-xs font-bold text-brand-muted">취소</button><button type="button" onClick={() => void handleSave()} disabled={saving} className="rounded-lg bg-brand-bronze px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50">{saving ? "저장 중..." : "변경사항 저장"}</button></div>
             </div>
 
@@ -536,13 +536,13 @@ export default function CandidatePortalPage() {
 
               <div className="space-y-5">
                 <div>
-                  <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-brand-espresso">경력</h3><button type="button" onClick={() => setForm({ ...form, careers: [...form.careers, { companyName: "", role: "", period: "", description: "" }] })} className="text-[10px] font-bold text-brand-bronze">+ 경력 추가</button></div>
-                  <div className="mt-3 space-y-2">{form.careers.map((career, index) => <div key={`career-${index}`} className="rounded-lg border border-brand-line bg-brand-light p-3"><div className="grid gap-2 sm:grid-cols-2"><input value={career.companyName} onChange={(event) => updateCareer(index, "companyName", event.target.value)} placeholder="회사명" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={career.role} onChange={(event) => updateCareer(index, "role", event.target.value)} placeholder="직무" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={career.period} onChange={(event) => updateCareer(index, "period", event.target.value)} placeholder="기간" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /></div><textarea value={career.description} onChange={(event) => updateCareer(index, "description", event.target.value)} placeholder="주요 업무" className="mt-2 min-h-16 w-full rounded-lg border border-brand-line px-3 py-2 text-xs" /><button type="button" onClick={() => setForm({ ...form, careers: form.careers.filter((_, itemIndex) => itemIndex !== index) })} className="mt-2 text-[10px] font-bold text-brand-danger">삭제</button></div>)}</div>
+                  <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-brand-espresso">경력</h3><button type="button" onClick={() => setForm({ ...form, careers: [...form.careers, { companyName: "", role: "", period: "", description: "" }] })} className="text-[11px] font-bold text-brand-bronze">+ 경력 추가</button></div>
+                  <div className="mt-3 space-y-2">{form.careers.map((career, index) => <div key={`career-${index}`} className="rounded-lg border border-brand-line bg-brand-light p-3"><div className="grid gap-2 sm:grid-cols-2"><input value={career.companyName} onChange={(event) => updateCareer(index, "companyName", event.target.value)} placeholder="회사명" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={career.role} onChange={(event) => updateCareer(index, "role", event.target.value)} placeholder="직무" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={career.period} onChange={(event) => updateCareer(index, "period", event.target.value)} placeholder="기간" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /></div><textarea value={career.description} onChange={(event) => updateCareer(index, "description", event.target.value)} placeholder="주요 업무" className="mt-2 min-h-16 w-full rounded-lg border border-brand-line px-3 py-2 text-xs" /><button type="button" onClick={() => setForm({ ...form, careers: form.careers.filter((_, itemIndex) => itemIndex !== index) })} className="mt-2 text-[11px] font-bold text-brand-danger">삭제</button></div>)}</div>
                 </div>
 
                 <div className="border-t border-brand-line pt-5">
-                  <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-brand-espresso">학력</h3><button type="button" onClick={() => setForm({ ...form, education: [...form.education, { schoolName: "", major: "", degree: "", period: "" }] })} className="text-[10px] font-bold text-brand-bronze">+ 학력 추가</button></div>
-                  <div className="mt-3 space-y-2">{form.education.map((item, index) => <div key={`education-${index}`} className="rounded-lg border border-brand-line bg-brand-light p-3"><div className="grid gap-2 sm:grid-cols-2"><input value={item.schoolName} onChange={(event) => updateEducation(index, "schoolName", event.target.value)} placeholder="학교명" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={item.major || ""} onChange={(event) => updateEducation(index, "major", event.target.value)} placeholder="전공" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={item.degree || ""} onChange={(event) => updateEducation(index, "degree", event.target.value)} placeholder="학위" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={item.period || ""} onChange={(event) => updateEducation(index, "period", event.target.value)} placeholder="기간" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /></div><button type="button" onClick={() => setForm({ ...form, education: form.education.filter((_, itemIndex) => itemIndex !== index) })} className="mt-2 text-[10px] font-bold text-brand-danger">삭제</button></div>)}</div>
+                  <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-brand-espresso">학력</h3><button type="button" onClick={() => setForm({ ...form, education: [...form.education, { schoolName: "", major: "", degree: "", period: "" }] })} className="text-[11px] font-bold text-brand-bronze">+ 학력 추가</button></div>
+                  <div className="mt-3 space-y-2">{form.education.map((item, index) => <div key={`education-${index}`} className="rounded-lg border border-brand-line bg-brand-light p-3"><div className="grid gap-2 sm:grid-cols-2"><input value={item.schoolName} onChange={(event) => updateEducation(index, "schoolName", event.target.value)} placeholder="학교명" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={item.major || ""} onChange={(event) => updateEducation(index, "major", event.target.value)} placeholder="전공" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={item.degree || ""} onChange={(event) => updateEducation(index, "degree", event.target.value)} placeholder="학위" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /><input value={item.period || ""} onChange={(event) => updateEducation(index, "period", event.target.value)} placeholder="기간" className="rounded-lg border border-brand-line px-3 py-2 text-xs" /></div><button type="button" onClick={() => setForm({ ...form, education: form.education.filter((_, itemIndex) => itemIndex !== index) })} className="mt-2 text-[11px] font-bold text-brand-danger">삭제</button></div>)}</div>
                 </div>
               </div>
             </div>

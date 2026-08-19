@@ -559,7 +559,45 @@ export default function B2BJobsPage() {
         ) : jobs.length === 0 ? (
           <div className="py-16 text-center text-sm text-slate-400">등록된 공고가 없습니다.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="space-y-3 p-3 md:hidden">
+              {jobs.map((job) => (
+                <article key={`mobile-${job.jobId}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="break-keep text-base font-bold leading-snug text-slate-900">{job.title}</h3>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">{job.displayCompany}</p>
+                    </div>
+                    <select
+                      value={job.status}
+                      disabled={updatingJobId === job.jobId || saving}
+                      onChange={(event) => void handleStatusChange(job, event.target.value as JobStatus)}
+                      className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold"
+                    >
+                      <option value="OPEN">공개중</option>
+                      <option value="DRAFT">작성중</option>
+                      <option value="CLOSED">마감</option>
+                    </select>
+                  </div>
+
+                  <dl className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3 text-xs">
+                    <div><dt className="text-slate-400">근무지</dt><dd className="mt-1 font-semibold text-slate-700">{job.location}</dd></div>
+                    <div><dt className="text-slate-400">고용형태</dt><dd className="mt-1 font-semibold text-slate-700">{job.employmentType}</dd></div>
+                    <div className="col-span-2"><dt className="text-slate-400">급여</dt><dd className="mt-1 font-semibold text-slate-700">{job.salary}</dd></div>
+                  </dl>
+
+                  <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                    <div className="min-w-0 text-[11px] text-slate-400">
+                      <p>수정 {formatDate(job.updatedAt)}</p>
+                      <p className="mt-1 truncate">{job.organizationId}</p>
+                    </div>
+                    <button type="button" onClick={() => startEdit(job)} className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-brand-navy">내용 수정</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
@@ -612,7 +650,8 @@ export default function B2BJobsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </section>
     </div>

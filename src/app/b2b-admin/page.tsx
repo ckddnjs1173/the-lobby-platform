@@ -455,7 +455,7 @@ export default function B2BAdminPage() {
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {metrics.map((metric) => (
           <div key={metric.label} className="rounded-xl border border-brand-line bg-white px-4 py-4 shadow-card">
-            <div className="flex items-start justify-between gap-2"><div><p className="text-[9px] font-bold uppercase tracking-[0.14em] text-brand-muted">{metric.caption}</p><p className="mt-1 text-[12px] font-bold text-brand-ink">{metric.label}</p></div>{metric.warning ? <span className="mt-1 h-2 w-2 rounded-full bg-brand-danger" /> : null}</div>
+            <div className="flex items-start justify-between gap-2"><div><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brand-muted">{metric.caption}</p><p className="mt-1 text-[13px] font-bold text-brand-ink">{metric.label}</p></div>{metric.warning ? <span className="mt-1 h-2 w-2 rounded-full bg-brand-danger" /> : null}</div>
             <p className={`font-editorial mt-4 text-[30px] ${metric.warning ? "text-brand-danger" : "text-brand-espresso"}`}>{metric.value}</p>
           </div>
         ))}
@@ -463,11 +463,11 @@ export default function B2BAdminPage() {
 
       <section className="rounded-xl border border-brand-line bg-white p-4 shadow-card">
         <div className="flex flex-col justify-between gap-4 border-b border-brand-line pb-4 xl:flex-row xl:items-center">
-          <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-brand-bronze">Pipeline Controls</p><p className="mt-1 text-xs text-brand-muted">총 <strong className="text-brand-espresso">{applications.length}건</strong> · 15초 자동 갱신{hasActiveFilters ? <> · 필터 결과 <strong className="text-brand-espresso">{filteredApplications.length}건</strong></> : null}</p></div>
+          <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-bronze">Pipeline Controls</p><p className="mt-1 text-xs text-brand-muted">총 <strong className="text-brand-espresso">{applications.length}건</strong> · 15초 자동 갱신{hasActiveFilters ? <> · 필터 결과 <strong className="text-brand-espresso">{filteredApplications.length}건</strong></> : null}</p></div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => void refreshApplications()} disabled={refreshing} className="rounded-lg border border-brand-line bg-white px-3 py-2.5 text-[10px] font-bold text-brand-muted hover:bg-brand-ivory disabled:opacity-50">{refreshing ? "갱신 중..." : "새로고침"}</button>
+            <button type="button" onClick={() => void refreshApplications()} disabled={refreshing} className="rounded-lg border border-brand-line bg-white px-3 py-2.5 text-[11px] font-bold text-brand-muted hover:bg-brand-ivory disabled:opacity-50">{refreshing ? "갱신 중..." : "새로고침"}</button>
             <div className="flex rounded-lg border border-brand-line bg-brand-ivory p-1">
-              {(["TABLE", "KANBAN"] as const).map((mode) => <button key={mode} type="button" onClick={() => setViewMode(mode)} className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-[10px] font-bold ${viewMode === mode ? "bg-white text-brand-bronze shadow-sm" : "text-brand-muted"}`}><ViewIcon mode={mode} />{mode === "TABLE" ? "Table" : "Pipeline"}</button>)}
+              {(["TABLE", "KANBAN"] as const).map((mode) => <button key={mode} type="button" onClick={() => setViewMode(mode)} className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-[11px] font-bold ${viewMode === mode ? "bg-white text-brand-bronze shadow-sm" : "text-brand-muted"}`}><ViewIcon mode={mode} />{mode === "TABLE" ? "Table" : "Pipeline"}</button>)}
             </div>
           </div>
         </div>
@@ -478,10 +478,10 @@ export default function B2BAdminPage() {
           <select value={jobFilter} onChange={(event) => setJobFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 공고</option>{jobOptions.map((job) => <option key={job.jobId} value={job.jobId}>{job.label}</option>)}</select>
           <select value={recruiterFilter} onChange={(event) => setRecruiterFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 담당자</option>{recruiters.map((recruiter) => <option key={recruiter.uid} value={recruiter.uid}>{recruiter.name} · {recruiter.email}</option>)}</select>
           <select value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as "ALL" | "STALE")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 처리상태</option><option value="STALE">3일+ 미처리</option></select>
-          <button type="button" onClick={resetFilters} disabled={!hasActiveFilters} className="rounded-lg border border-brand-line px-3 py-2.5 text-[10px] font-bold text-brand-muted disabled:opacity-35">초기화</button>
+          <button type="button" onClick={resetFilters} disabled={!hasActiveFilters} className="rounded-lg border border-brand-line px-3 py-2.5 text-[11px] font-bold text-brand-muted disabled:opacity-35">초기화</button>
         </div>
 
-        <div className="mt-3 rounded-lg border border-brand-line bg-brand-ivory/55 px-3 py-2 text-[10px] leading-5 text-brand-muted">
+        <div className="mt-3 rounded-lg border border-brand-line bg-brand-ivory/55 px-3 py-2 text-[11px] leading-5 text-brand-muted">
           면접 진입은 일정 등록과 함께, 합격/불합격은 최종 결과 기록과 함께 처리합니다. 이전 단계 복귀·보류 재개·종료 건 재오픈은 상세 패널에서 사유를 기록합니다.
         </div>
       </section>

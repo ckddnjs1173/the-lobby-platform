@@ -186,8 +186,8 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
         >
           <NavIcon type={item.icon} />
           <div className="min-w-0">
-            <div className="text-[13px] font-bold">{item.label}</div>
-            <div className={`mt-0.5 truncate text-[9px] ${item.active ? "text-white/65" : "text-brand-muted"}`}>{item.caption}</div>
+            <div className="text-sm font-bold">{item.label}</div>
+            <div className={`mt-0.5 truncate text-[10px] ${item.active ? "text-white/65" : "text-brand-muted"}`}>{item.caption}</div>
           </div>
         </Link>
       ))}
@@ -202,15 +202,15 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
             <LobbyMark />
             <div className="leading-none">
               <div className="font-editorial text-[19px] tracking-[0.08em] text-brand-espresso">THE LOBBY</div>
-              <div className="mt-1 text-[7px] font-semibold uppercase tracking-[0.16em] text-brand-muted">Recruiting Operating System</div>
+              <div className="mt-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-brand-muted">Recruiting Operating System</div>
             </div>
           </div>
 
           <nav className="flex-1 space-y-1.5 px-3 py-6">
-            <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-[0.22em] text-brand-muted">Workspace</p>
+            <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-brand-muted">Workspace</p>
             <NavLinks />
             <div className="my-5 border-t border-brand-line" />
-            <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-[0.22em] text-brand-muted">Quick Action</p>
+            <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-brand-muted">Quick Action</p>
             <Link href="/b2b-admin/candidates/new" className="flex items-center justify-between rounded-lg border border-brand-gold/30 bg-white px-3 py-3 text-[12px] font-bold text-brand-bronze transition hover:shadow-card">
               신규 후보자 등록 <span aria-hidden="true">＋</span>
             </Link>
@@ -222,10 +222,10 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-ivory text-xs font-bold text-brand-bronze">{session.name.slice(0, 1)}</div>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-bold text-brand-espresso">{session.name}</div>
-                  <div className="mt-0.5 truncate text-[9px] text-brand-muted">{session.role} · {session.organizationId || "전체 조직"}</div>
+                  <div className="mt-0.5 truncate text-[10px] text-brand-muted">{session.role} · {session.organizationId || "전체 조직"}</div>
                 </div>
               </div>
-              <button type="button" onClick={() => void handleSignOut()} className="mt-3 w-full rounded-lg border border-brand-line px-3 py-2 text-[10px] font-semibold text-brand-muted hover:bg-brand-ivory">로그아웃</button>
+              <button type="button" onClick={() => void handleSignOut()} className="mt-3 w-full rounded-lg border border-brand-line px-3 py-2 text-[11px] font-semibold text-brand-muted hover:bg-brand-ivory">로그아웃</button>
             </div>
           </div>
         </aside>
@@ -233,13 +233,13 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="relative flex min-h-[88px] shrink-0 items-center justify-between gap-4 border-b border-brand-line bg-brand-light/95 px-4 backdrop-blur sm:px-7 lg:px-8">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-brand-bronze">J&C Recruiting OS <span className="h-px w-5 bg-brand-gold/45" /></div>
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-bronze">J&C Recruiting OS <span className="h-px w-5 bg-brand-gold/45" /></div>
               <h1 className="font-editorial mt-1 truncate text-[22px] tracking-[-0.04em] text-brand-espresso sm:text-[24px]">{pageTitle}</h1>
-              <p className="mt-0.5 hidden text-[10px] text-brand-muted sm:block">{pageCaption}</p>
+              <p className="mt-0.5 hidden text-[11px] text-brand-muted sm:block">{pageCaption}</p>
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <div className="hidden rounded-lg border border-brand-line bg-white px-4 py-2.5 text-[10px] font-semibold text-brand-espresso shadow-card sm:block">
+              <div className="hidden rounded-lg border border-brand-line bg-white px-4 py-2.5 text-[11px] font-semibold text-brand-espresso shadow-card sm:block">
                 {session.name}<span className="ml-2 text-brand-muted">{session.role}</span>
               </div>
               <button
@@ -257,7 +257,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
               <div className="absolute left-0 right-0 top-full z-40 border-b border-brand-line bg-brand-light p-4 shadow-soft lg:hidden">
                 <div className="mb-3 rounded-lg border border-brand-line bg-white p-3 text-xs">
                   <div className="font-bold text-brand-espresso">{session.name}</div>
-                  <div className="mt-1 text-[10px] text-brand-muted">{session.role} · {session.organizationId || "전체 조직"}</div>
+                  <div className="mt-1 text-[11px] text-brand-muted">{session.role} · {session.organizationId || "전체 조직"}</div>
                 </div>
                 <nav className="space-y-1"><NavLinks mobile /></nav>
                 <Link href="/b2b-admin/candidates/new" onClick={() => setMobileOpen(false)} className="mt-3 flex items-center justify-between rounded-lg border border-brand-gold/30 bg-white px-3 py-3 text-xs font-bold text-brand-bronze">신규 후보자 등록 <span>＋</span></Link>
