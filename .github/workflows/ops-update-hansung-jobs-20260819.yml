@@ -1,0 +1,50 @@
+name: Ops Update Hansung Jobs 2026-08-19
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ops/update-hansung-jobs-20260819
+    paths:
+      - scripts/ops/update-hansung-jobs-20260819.cjs
+
+permissions:
+  contents: read
+
+jobs:
+  update-hansung-jobs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FIREBASE_ADMIN_PROJECT_ID: ${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}
+      FIREBASE_ADMIN_CLIENT_EMAIL: ${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}
+      FIREBASE_ADMIN_PRIVATE_KEY: ${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
+      APPLY: "true"
+
+    steps:
+      - name: Checkout ops branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify Firebase Admin secrets
+        shell: bash
+        run: |
+          missing=0
+          for key in FIREBASE_ADMIN_PROJECT_ID FIREBASE_ADMIN_CLIENT_EMAIL FIREBASE_ADMIN_PRIVATE_KEY; do
+            if [ -z "${!key}" ]; then
+              echo "MISSING_SECRET:$key"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Update existing Hansung reception jobs
+        run: node scripts/ops/update-hansung-jobs-20260819.cjs
