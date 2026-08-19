@@ -67,6 +67,13 @@ body:has(input[placeholder="직무, 회사, 지역 검색"]) main h3.font-editor
   min-width: 0;
 }
 
+.b2b-workspace input,
+.b2b-workspace select,
+.b2b-workspace textarea,
+.b2b-workspace button {
+  max-width: 100%;
+}
+
 @media (min-width: 1024px) {
   .public-shell {
     --public-container: 1440px;
