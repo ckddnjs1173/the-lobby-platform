@@ -10,6 +10,7 @@ import {
 } from "../../../../lib/server/candidatePortalService";
 import {
   hasRegistrationConsentCookie,
+  isRegistrationConsentE2EBypassEnabled,
   recordCandidateRegistrationConsent,
 } from "../../../../lib/server/candidateRegistrationConsentService";
 import { recordPublicEvent } from "../../../../lib/server/publicEventService";
@@ -98,8 +99,12 @@ export async function POST(
   try {
     const authenticatedUser =
       await requireFirebaseUser(request);
+    const e2eBypass =
+      isRegistrationConsentE2EBypassEnabled();
+    const hasConsent =
+      hasRegistrationConsentCookie(request);
 
-    if (!hasRegistrationConsentCookie(request)) {
+    if (!hasConsent && !e2eBypass) {
       return NextResponse.json(
         {
           success: false,
@@ -119,9 +124,11 @@ export async function POST(
         body
       );
 
-    await recordCandidateRegistrationConsent(
-      result.profile.candidateId
-    );
+    if (!e2eBypass) {
+      await recordCandidateRegistrationConsent(
+        result.profile.candidateId
+      );
+    }
 
     if (result.created) {
       void recordPublicEvent("profile_created", "/register").catch((error) =>
