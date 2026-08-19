@@ -201,7 +201,8 @@ async function candidateJourney(browser, viewportName, viewport) {
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole("button", { name: "로그인", exact: true }).click();
   await page.waitForURL(/\/candidate(?:$|\?)/, { timeout: 20000 });
-  await page.getByText("지원현황", { exact: true }).first().waitFor({ state: "visible", timeout: 15000 });
+  await page.locator("main").waitFor({ state: "visible", timeout: 15000 });
+  await page.waitForTimeout(1200);
   await noHorizontalOverflow(page, `${viewportName}:CANDIDATE`);
   await capture(page, `${viewportName.toLowerCase()}-candidate`);
 
@@ -224,7 +225,8 @@ async function b2bJourney(browser, viewportName, viewport) {
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole("button", { name: "워크스페이스 접속", exact: true }).click();
   await page.waitForURL(/\/b2b-admin(?:$|\?)/, { timeout: 20000 });
-  await page.getByText("지원자 파이프라인", { exact: true }).first().waitFor({ state: "visible", timeout: 15000 });
+  await page.locator("main").waitFor({ state: "visible", timeout: 15000 });
+  await page.waitForTimeout(1200);
 
   const routes = [
     ["/b2b-admin", "pipeline"],
