@@ -8,6 +8,7 @@ import {
   listCandidateSavedJobs,
   saveCandidateJob,
 } from "../../../../lib/server/candidateSavedJobService";
+import { recordPublicEvent } from "../../../../lib/server/publicEventService";
 import {
   ServerAuthError,
   requireFirebaseUser,
@@ -70,6 +71,10 @@ export async function POST(request: Request) {
         ? (body as { jobId?: unknown }).jobId
         : undefined;
     const result = await saveCandidateJob(user.uid, jobId);
+    void recordPublicEvent(
+      "saved_job_added",
+      `/jobs/${encodeURIComponent(result.jobId)}`
+    ).catch((error) => console.error("Saved-job event failed:", error));
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
     return errorResponse(error);
