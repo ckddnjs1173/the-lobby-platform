@@ -29,6 +29,7 @@ const readinessRoute = read("src/app/api/readiness/route.ts");
 const publicHeader = read("src/components/public/PublicHeader.tsx");
 const featuredJobs = read("src/components/public/FeaturedJobs.tsx");
 const talentPoolPage = read("src/app/talent-pool/page.tsx");
+const talentPoolRegistrationEntry = read("src/app/talent-pool/register/page.tsx");
 
 console.log("STEP_1: CANDIDATE_AUTH_PROFILE_WORKFLOW");
 assert(
@@ -94,10 +95,13 @@ assert(
   publicHeader.includes('{ href: "/talent-pool", label: "인재풀" }') &&
     publicHeader.includes("인재풀 등록") &&
     featuredJobs.includes('href="/talent-pool"') &&
+    featuredJobs.includes('href="/talent-pool/register"') &&
     featuredJobs.includes("공고 없이 등록 가능") &&
-    talentPoolPage.includes('href="/register"') &&
+    talentPoolPage.includes('href="/talent-pool/register"') &&
     talentPoolPage.includes("공고가 없어도") &&
-    talentPoolPage.includes("Candidate Portal"),
+    talentPoolPage.includes("공개 여부") &&
+    talentPoolRegistrationEntry.includes('rememberCandidateReturnPath("/talent-pool/settings")') &&
+    talentPoolRegistrationEntry.includes('router.replace("/register")'),
   "PUBLIC_TALENT_POOL_ACQUISITION_PATH_INCOMPLETE"
 );
 
