@@ -1,0 +1,48 @@
+name: Final UI Production Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_URL: https://the-lobby-platform-ten.vercel.app
+    steps:
+      - name: Public pages and API readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_200() {
+            path="$1"
+            code="$(curl -sS -o /tmp/body -w '%{http_code}' "$BASE_URL$path")"
+            echo "$path -> $code"
+            test "$code" = "200"
+          }
+
+          for path in / /jobs /login /register /b2b-admin/login /api/health /api/readiness /api/public/jobs; do
+            check_200 "$path"
+          done
+
+          readiness="$(curl -fsS "$BASE_URL/api/readiness")"
+          echo "$readiness" | grep -q '"status":"ready"'
+          echo "$readiness" | grep -q '"firestore":true'
+          echo "$readiness" | grep -q '"candidateAuth":true'
+
+          public_jobs="$(curl -fsS "$BASE_URL/api/public/jobs")"
+          echo "$public_jobs" | grep -q '"success":true'
+
+          candidate_code="$(curl -sS -o /tmp/candidate-body -w '%{http_code}' "$BASE_URL/api/candidate/me")"
+          admin_code="$(curl -sS -o /tmp/admin-body -w '%{http_code}' "$BASE_URL/api/b2b/session")"
+          echo "/api/candidate/me anonymous -> $candidate_code"
+          echo "/api/b2b/session anonymous -> $admin_code"
+          test "$candidate_code" = "401"
+          test "$admin_code" = "401"
+
+          echo FINAL_UI_PRODUCTION_SMOKE_PASSED
