@@ -55,9 +55,11 @@ export default function CandidateHeader() {
         : "text-brand-ink/75 after:w-0 hover:text-brand-bronze hover:after:w-full"
     }`;
 
+  const talentPoolHref = authenticated ? "/talent-pool/settings" : "/talent-pool";
   const mobileItems = [
-    { href: "/jobs", label: "추천 채용" },
-    { href: "/register", label: "프로필 등록" },
+    { href: "/jobs", label: "채용공고" },
+    { href: talentPoolHref, label: authenticated ? "인재풀 설정" : "인재풀" },
+    { href: "/candidate/saved-jobs", label: "관심공고" },
     { href: "/candidate", label: "지원현황" },
     { href: "/b2b-admin/login", label: "기업서비스" },
   ];
@@ -77,9 +79,10 @@ export default function CandidateHeader() {
           </div>
         </Link>
 
-        <nav className="hidden items-center gap-8 lg:flex" aria-label="Candidate 메뉴">
-          <Link href="/jobs" className={navClass(pathname.startsWith("/jobs"))}>추천 채용</Link>
-          <Link href="/register" className={navClass(pathname === "/register")}>프로필 등록</Link>
+        <nav className="hidden items-center gap-7 lg:flex" aria-label="Candidate 메뉴">
+          <Link href="/jobs" className={navClass(pathname.startsWith("/jobs"))}>채용공고</Link>
+          <Link href={talentPoolHref} className={navClass(pathname.startsWith("/talent-pool"))}>{authenticated ? "인재풀 설정" : "인재풀"}</Link>
+          <Link href="/candidate/saved-jobs" className={navClass(pathname.startsWith("/candidate/saved-jobs"))}>관심공고</Link>
           <Link href="/candidate" className={navClass(pathname === "/candidate")}>지원현황</Link>
           <Link href="/b2b-admin/login" className={navClass(false)}>기업서비스</Link>
         </nav>
@@ -93,7 +96,7 @@ export default function CandidateHeader() {
           ) : authReady ? (
             <>
               <Link href="/login" className="hidden min-h-10 items-center rounded-lg border border-brand-gold/35 bg-white px-4 py-2.5 text-[13px] font-semibold text-brand-bronze transition hover:bg-brand-ivory sm:inline-flex">로그인</Link>
-              <Link href="/register" className="hidden min-h-10 items-center rounded-lg bg-brand-bronze px-4 py-2.5 text-[13px] font-semibold text-white shadow-card transition hover:bg-brand-espresso sm:inline-flex">지원 시작 →</Link>
+              <Link href="/talent-pool" className="hidden min-h-10 items-center rounded-lg bg-brand-bronze px-4 py-2.5 text-[13px] font-semibold text-white shadow-card transition hover:bg-brand-espresso sm:inline-flex">인재풀 등록 →</Link>
             </>
           ) : (
             <div className="hidden h-10 w-24 animate-pulse rounded-lg bg-brand-cream sm:block" />
@@ -125,7 +128,7 @@ export default function CandidateHeader() {
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   <Link href="/login" onClick={() => setMobileOpen(false)} className="rounded-lg border border-brand-line bg-white px-3 py-3 text-center text-[13px] font-semibold text-brand-bronze">로그인</Link>
-                  <Link href="/register" onClick={() => setMobileOpen(false)} className="rounded-lg bg-brand-bronze px-3 py-3 text-center text-[13px] font-semibold text-white">지원 시작</Link>
+                  <Link href="/talent-pool" onClick={() => setMobileOpen(false)} className="rounded-lg bg-brand-bronze px-3 py-3 text-center text-[13px] font-semibold text-white">인재풀 등록</Link>
                 </div>
               )}
             </div>
