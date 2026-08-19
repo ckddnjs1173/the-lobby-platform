@@ -15,6 +15,26 @@ test("public acquisition and legal routes render", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "The Lobby 이용약관" })).toBeVisible();
 });
 
+test("talent-pool onboarding requires explicit registration consent", async ({ page }) => {
+  await page.goto("/talent-pool/register");
+  await expect(page).toHaveURL(/\/register\/consent$/);
+  await expect(page.getByRole("heading", { name: "프로필 등록 전 확인해주세요" })).toBeVisible();
+
+  const checkboxes = page.getByRole("checkbox");
+  await expect(checkboxes).toHaveCount(2);
+  await checkboxes.nth(0).check();
+  await checkboxes.nth(1).check();
+
+  await page.getByRole("button", { name: "동의하고 프로필 등록 계속" }).click();
+  await expect(page).toHaveURL(/\/register$/);
+  await expect(page.getByText("프로필 등록").first()).toBeVisible();
+});
+
+test("direct registration is gated by consent", async ({ page }) => {
+  await page.goto("/register");
+  await expect(page).toHaveURL(/\/register\/consent$/);
+});
+
 test("search discovery endpoints are published", async ({ request }) => {
   const robots = await request.get("/robots.txt");
   expect(robots.ok()).toBeTruthy();
