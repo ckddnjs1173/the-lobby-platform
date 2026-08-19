@@ -29,7 +29,14 @@ function timestampToIso(value: unknown): string | null {
   }
 }
 
+function optionalString(value: unknown): string | undefined {
+  const normalized = stringValue(value);
+  return normalized || undefined;
+}
+
 function toPublicJob(jobId: string, data: DocumentData): PublicJobView {
+  const benefits = stringArray(data.benefits);
+
   return {
     jobId,
     displayCompany:
@@ -41,6 +48,18 @@ function toPublicJob(jobId: string, data: DocumentData): PublicJobView {
     salary: stringValue(data.salary),
     location: stringValue(data.location),
     employmentType: stringValue(data.employmentType),
+    workSchedule: optionalString(data.workSchedule),
+    workHours: optionalString(data.workHours),
+    breakTime: optionalString(data.breakTime),
+    contractPeriod: optionalString(data.contractPeriod),
+    conversionOpportunity: optionalString(data.conversionOpportunity),
+    experienceLevel: optionalString(data.experienceLevel),
+    educationLevel: optionalString(data.educationLevel),
+    headcount: optionalString(data.headcount),
+    benefits: benefits.length ? benefits : undefined,
+    nearbyTransit: optionalString(data.nearbyTransit),
+    detailedLocation: optionalString(data.detailedLocation),
+    applicationDeadline: optionalString(data.applicationDeadline),
     status: "OPEN",
     createdAt: timestampToIso(data.createdAt),
     updatedAt: timestampToIso(data.updatedAt),
