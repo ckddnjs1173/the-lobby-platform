@@ -76,6 +76,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
   const isJobsPage = pathname.startsWith("/b2b-admin/jobs");
   const isJobDetailsPage = pathname.startsWith("/b2b-admin/job-details");
   const isAnalyticsPage = pathname.startsWith("/b2b-admin/analytics");
+  const isAcquisitionPage = pathname.startsWith("/b2b-admin/acquisition");
 
   useEffect(() => {
     setMobileOpen(false);
@@ -147,37 +148,44 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
   const navItems = [
     { href: "/b2b-admin", label: "지원자 파이프라인", caption: "Applications", icon: "pipeline" as const, active: isApplicationsPage },
     ...(session.role === "ADMIN"
-      ? [{ href: "/b2b-admin/talent-pool", label: "J&C 공개 인재풀", caption: "Global Talent Pool", icon: "candidate" as const, active: isTalentPoolPage }]
+      ? [
+          { href: "/b2b-admin/talent-pool", label: "J&C 공개 인재풀", caption: "Global Talent Pool", icon: "candidate" as const, active: isTalentPoolPage },
+          { href: "/b2b-admin/acquisition", label: "공개 유입 분석", caption: "Acquisition", icon: "analytics" as const, active: isAcquisitionPage },
+        ]
       : []),
     { href: "/b2b-admin/candidates", label: "후보자 CRM", caption: "Organization Pool", icon: "candidate" as const, active: isCandidatesPage },
     { href: "/b2b-admin/jobs", label: "포지션 관리", caption: "Jobs", icon: "job" as const, active: isJobsPage },
     { href: "/b2b-admin/job-details", label: "공고 상세조건", caption: "Job Quality", icon: "job" as const, active: isJobDetailsPage },
-    { href: "/b2b-admin/analytics", label: "채용 분석", caption: "Analytics", icon: "analytics" as const, active: isAnalyticsPage },
+    { href: "/b2b-admin/analytics", label: "채용 분석", caption: "Recruiting Analytics", icon: "analytics" as const, active: isAnalyticsPage },
   ];
 
   const pageTitle = isTalentPoolPage
     ? "J&C 공개 인재풀"
-    : isCandidatesPage
-      ? "후보자 CRM"
-      : isJobDetailsPage
-        ? "공고 상세조건"
-        : isJobsPage
-          ? "포지션 관리"
-          : isAnalyticsPage
-            ? "채용 분석"
-            : "지원자 파이프라인";
+    : isAcquisitionPage
+      ? "공개 유입 분석"
+      : isCandidatesPage
+        ? "후보자 CRM"
+        : isJobDetailsPage
+          ? "공고 상세조건"
+          : isJobsPage
+            ? "포지션 관리"
+            : isAnalyticsPage
+              ? "채용 분석"
+              : "지원자 파이프라인";
 
   const pageCaption = isTalentPoolPage
     ? "직접 가입하고 공개에 동의한 후보자를 J&C 내부에서 검색합니다."
-    : isCandidatesPage
-      ? "조직에서 직접 발굴한 인재 프로필과 지원 이력을 관리합니다."
-      : isJobDetailsPage
-        ? "공개 공고의 근무조건·복리후생·마감일을 보완합니다."
-        : isJobsPage
-          ? "채용 포지션을 등록하고 공개 상태를 운영합니다."
-          : isAnalyticsPage
-            ? "채용 퍼널과 운영 지표를 데이터로 확인합니다."
-            : "지원자 진행 상황을 빠르게 파악하고 다음 액션을 관리합니다.";
+    : isAcquisitionPage
+      ? "개인 식별정보 없이 공개 사이트의 유입과 전환 방향을 확인합니다."
+      : isCandidatesPage
+        ? "조직에서 직접 발굴한 인재 프로필과 지원 이력을 관리합니다."
+        : isJobDetailsPage
+          ? "공개 공고의 근무조건·복리후생·마감일을 보완합니다."
+          : isJobsPage
+            ? "채용 포지션을 등록하고 공개 상태를 운영합니다."
+            : isAnalyticsPage
+              ? "채용 퍼널과 운영 지표를 데이터로 확인합니다."
+              : "지원자 진행 상황을 빠르게 파악하고 다음 액션을 관리합니다.";
 
   const handleSignOut = async () => {
     setMobileOpen(false);
@@ -220,7 +228,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
             </div>
           </div>
 
-          <nav className="flex-1 space-y-1.5 px-3 py-6">
+          <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-6">
             <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-brand-muted">Workspace</p>
             <NavLinks />
             <div className="my-5 border-t border-brand-line" />
