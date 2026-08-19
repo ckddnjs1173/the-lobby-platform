@@ -1,0 +1,5 @@
+{"phase":"BEFORE","jobId":"hansung-yuseong-reception-20260813","title":"한성자동차(주) 대전유성서비스센터 리셉션 채용","location":"대전 유성구 북유성대로 352","status":"OPEN"}
+{"phase":"BEFORE","jobId":"mM1tcG8eaqQV0w4QCqkD","title":"한성자동차㈜ 안성서비스센터 리셉션 채용","location":"경기 안성시 공도읍 서동대로 3976","status":"OPEN"}
+UPDATE_COMMITTED: 2 exact existing Hansung reception jobs updated atomically.
+{"phase":"AFTER","jobId":"hansung-yuseong-reception-20260813","title":"한성자동차㈜ 대전유성서비스센터 리셉션 채용","location":"대전 유성구","detailedLocation":"대전 유성구 북유성대로 352","workSchedule":"주 5일 근무(월~금) / 격주 토요일 4시간 근무","workHours":"월~금 08:30~17:30 / 격주 토요일 08:30~12:30","breakTime":"60분","contractPeriod":"1년","salary":"월 2,337,510원 · 월 성과 달성 시 66,700원 추가 · 연장근무/미사용 연차수당/퇴직금 별도","status":"OPEN"}
+{"phase":"AFTER","jobId":"mM1tcG8eaqQV0w4QCqkD","title":"한성자동차㈜ 안성서비스센터 리셉션 채용","location":"경기 안성시 공도읍","detailedLocation":"경기 안성시 공도읍 서동대로 3976","workSchedule":"주 5일 근무(월~금) / 격주 토요일 4시간 근무","workHours":"월~금 08:30~17:30 / 격주 토요일 08:00~12:00","breakTime":"60분","contractPeriod":"1년","salary":"월 2,337,510원 · 월 성과 달성 시 66,700원 추가 · 연장근무/미사용 연차수당/퇴직금 별도","status":"OPEN"}
