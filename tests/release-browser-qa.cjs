@@ -1,3 +1,4 @@
+// Final visual regression rerun after sparse jobs layout polish.
 const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
