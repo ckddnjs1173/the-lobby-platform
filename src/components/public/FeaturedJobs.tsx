@@ -28,6 +28,34 @@ function ArrowIcon() {
   );
 }
 
+function TalentPoolCard() {
+  return (
+    <Link
+      href="/talent-pool"
+      className="group relative flex min-h-[390px] flex-col overflow-hidden rounded-xl bg-brand-espresso p-6 text-white shadow-card transition duration-300 hover:-translate-y-1 hover:shadow-soft"
+    >
+      <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full border border-brand-gold/20" />
+      <div className="absolute -right-7 -top-7 h-36 w-36 rounded-full border border-brand-gold/15" />
+      <p className="relative text-[9px] font-bold uppercase tracking-[0.2em] text-brand-cream/65">Talent Pool</p>
+      <h3 className="font-editorial relative mt-5 break-keep text-[28px] font-bold leading-[1.35] tracking-[-0.035em]">
+        맞는 공고가 없어도 프로필은 먼저 준비할 수 있습니다.
+      </h3>
+      <p className="relative mt-5 break-keep text-[12px] leading-6 text-white/65">
+        리셉션·프론트·고객서비스 커리어 프로필을 한 번 등록하고, 새로운 공고를 볼 때 그대로 활용하세요.
+      </p>
+      <div className="relative mt-7 grid gap-2.5 text-[11px] text-white/70">
+        <span>· 공고 없이 등록 가능</span>
+        <span>· AI 이력서 구조화 또는 직접 입력</span>
+        <span>· 등록 후 Candidate Portal에서 수정</span>
+      </div>
+      <span className="relative mt-auto flex items-center justify-between border-t border-white/15 pt-5 text-[12px] font-bold text-brand-cream">
+        인재풀 알아보기
+        <ArrowIcon />
+      </span>
+    </Link>
+  );
+}
+
 export default function FeaturedJobs() {
   const [jobs, setJobs] = useState<PublicJobView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,19 +101,36 @@ export default function FeaturedJobs() {
 
   if (featuredJobs.length === 0) {
     return (
-      <div className="rounded-xl border border-brand-line bg-white px-6 py-12 text-center shadow-card">
-        <p className="font-editorial text-2xl text-brand-espresso">새로운 포지션을 준비하고 있습니다.</p>
-        <p className="mt-2 text-sm text-brand-muted">오픈 공고가 등록되면 이곳에서 가장 먼저 확인할 수 있습니다.</p>
-        <Link href="/jobs" className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-brand-bronze">
-          채용공고 전체 보기
-          <ArrowIcon />
-        </Link>
+      <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="flex min-h-[390px] flex-col justify-center rounded-xl border border-brand-line bg-white px-7 py-12 shadow-card sm:px-10">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-bronze">Open Positions</p>
+          <h3 className="font-editorial mt-4 max-w-[620px] break-keep text-[30px] font-bold leading-[1.35] tracking-[-0.03em] text-brand-espresso sm:text-[34px]">
+            현재 공개된 포지션을 준비하고 있습니다.
+          </h3>
+          <p className="mt-4 max-w-[620px] break-keep text-[13px] leading-6 text-brand-muted">
+            공고 수를 부풀리기보다 실제 지원 가능한 포지션만 공개합니다. 지금 맞는 공고가 없다면 인재풀 프로필을 먼저 만들어두세요.
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link href="/jobs" className="inline-flex items-center gap-2 rounded-lg border border-brand-line bg-brand-light px-5 py-3 text-[12px] font-bold text-brand-bronze">
+              채용공고 전체 보기
+              <ArrowIcon />
+            </Link>
+            <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-brand-bronze px-5 py-3 text-[12px] font-bold text-white">
+              인재풀 등록 시작
+              <ArrowIcon />
+            </Link>
+          </div>
+        </div>
+        <TalentPoolCard />
       </div>
     );
   }
 
+  const showTalentPoolCard = featuredJobs.length < 4;
+  const visibleCardCount = featuredJobs.length + (showTalentPoolCard ? 1 : 0);
+
   return (
-    <div className={gridClass(featuredJobs.length)}>
+    <div className={gridClass(visibleCardCount)}>
       {featuredJobs.map((job) => {
         const company = getJobDisplayCompany(job);
 
@@ -102,7 +147,7 @@ export default function FeaturedJobs() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-brand-espresso/70 via-brand-espresso/5 to-transparent" />
               <div className="absolute left-4 top-4 rounded-full border border-white/35 bg-white/92 px-3 py-1 text-[9px] font-bold tracking-[0.1em] text-brand-bronze backdrop-blur">
-                RECOMMENDED
+                OPEN POSITION
               </div>
               <div className="absolute bottom-4 left-4 right-4 min-w-0 text-white">
                 <p className="truncate text-[10px] font-semibold text-white/75">{company}</p>
@@ -134,6 +179,8 @@ export default function FeaturedJobs() {
           </Link>
         );
       })}
+
+      {showTalentPoolCard ? <TalentPoolCard /> : null}
     </div>
   );
 }
