@@ -2,17 +2,39 @@
 
 import { useState } from "react";
 import Link from "next/link";
-
-const CONSENT_VERSION = "2026-08-19";
+import toast from "react-hot-toast";
 
 export default function RegistrationConsentPage() {
   const [privacyConsent, setPrivacyConsent] = useState(false);
   const [termsConsent, setTermsConsent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const continueRegistration = () => {
-    if (!privacyConsent || !termsConsent) return;
-    document.cookie = `the_lobby_registration_consent=${encodeURIComponent(CONSENT_VERSION)}; Path=/; Max-Age=3600; SameSite=Lax`;
-    window.location.assign("/register");
+  const continueRegistration = async () => {
+    if (!privacyConsent || !termsConsent || submitting) return;
+    setSubmitting(true);
+
+    try {
+      const response = await fetch("/api/public/registration-consent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ privacyConsent: true, termsConsent: true }),
+      });
+
+      const payload = await response.json().catch(() => null) as {
+        success?: boolean;
+        error?: string;
+      } | null;
+
+      if (!response.ok || payload?.success !== true) {
+        throw new Error(payload?.error || "동의 정보를 저장하지 못했습니다.");
+      }
+
+      window.location.assign("/register");
+    } catch (error) {
+      console.error("Registration consent failed:", error);
+      toast.error(error instanceof Error ? error.message : "동의 처리 중 오류가 발생했습니다.");
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -53,11 +75,11 @@ export default function RegistrationConsentPage() {
 
         <button
           type="button"
-          onClick={continueRegistration}
-          disabled={!privacyConsent || !termsConsent}
+          onClick={() => void continueRegistration()}
+          disabled={!privacyConsent || !termsConsent || submitting}
           className="mt-7 w-full rounded-lg bg-brand-bronze px-5 py-3.5 text-sm font-bold text-white shadow-card disabled:cursor-not-allowed disabled:opacity-35"
         >
-          동의하고 프로필 등록 계속
+          {submitting ? "동의 처리 중..." : "동의하고 프로필 등록 계속"}
         </button>
         <Link href="/" className="mt-4 block text-center text-xs font-bold text-brand-muted">취소하고 홈으로</Link>
       </section>
