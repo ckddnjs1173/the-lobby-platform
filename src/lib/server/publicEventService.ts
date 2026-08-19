@@ -15,6 +15,7 @@ export async function recordPublicEvent(
   eventName: string,
   path: string
 ): Promise<void> {
+  if (process.env.PUBLIC_ANALYTICS_DISABLED === "true") return;
   if (!PUBLIC_EVENT_NAMES.has(eventName)) return;
 
   const normalizedPath =
