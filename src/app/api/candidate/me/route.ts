@@ -8,6 +8,7 @@ import {
   getCandidatePortalProfile,
   updateCandidatePortalProfile,
 } from "../../../../lib/server/candidatePortalService";
+import { recordPublicEvent } from "../../../../lib/server/publicEventService";
 
 import {
   ServerAuthError,
@@ -101,6 +102,12 @@ export async function POST(
         authenticatedUser.email,
         body
       );
+
+    if (result.created) {
+      void recordPublicEvent("profile_created", "/register").catch((error) =>
+        console.error("Profile conversion event failed:", error)
+      );
+    }
 
     return NextResponse.json(
       {
