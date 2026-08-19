@@ -1,0 +1,11 @@
+Scanned 5 jobs; 5 are OPEN.
+MATCH daejeon-yuseong: 1
+{"key":"daejeon-yuseong","jobId":"hansung-yuseong-reception-20260813","title":"한성자동차(주) 대전유성서비스센터 리셉션 채용","displayCompany":"한성자동차(주)","location":"대전 유성구 북유성대로 352"}
+MATCH anseong: 1
+{"key":"anseong","jobId":"mM1tcG8eaqQV0w4QCqkD","title":"한성자동차㈜ 안성서비스센터 리셉션 채용","displayCompany":"한성자동차㈜","location":"경기 안성시 공도읍 서동대로 3976"}
+MATCH incheon-seogu: 0
+HANSUNG_JOB_UPDATE_FAILED Error: 한성자동차 인천서구 서비스센터 리셉션: expected exactly 1 OPEN job, found 0. No writes performed.
+    at /home/runner/work/the-lobby-platform/the-lobby-platform/scripts/ops/update-hansung-jobs-20260819.cjs:209:13
+    at Array.map (<anonymous>)
+    at main (/home/runner/work/the-lobby-platform/the-lobby-platform/scripts/ops/update-hansung-jobs-20260819.cjs:190:28)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
