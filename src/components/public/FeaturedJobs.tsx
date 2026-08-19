@@ -115,7 +115,7 @@ export default function FeaturedJobs() {
               채용공고 전체 보기
               <ArrowIcon />
             </Link>
-            <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-brand-bronze px-5 py-3 text-[12px] font-bold text-white">
+            <Link href="/talent-pool/register" className="inline-flex items-center gap-2 rounded-lg bg-brand-bronze px-5 py-3 text-[12px] font-bold text-white">
               인재풀 등록 시작
               <ArrowIcon />
             </Link>
