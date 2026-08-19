@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
   { href: "/", label: "홈" },
-  { href: "/jobs", label: "추천 채용" },
-  { href: "/register", label: "프로필 등록" },
+  { href: "/jobs", label: "채용공고" },
+  { href: "/talent-pool", label: "인재풀" },
   { href: "/candidate", label: "지원현황" },
   { href: "/b2b-admin/login", label: "기업서비스" },
 ] as const;
@@ -68,7 +68,7 @@ export default function PublicHeader() {
             href="/register"
             className="hidden min-h-10 items-center gap-2 rounded-lg bg-brand-bronze px-4.5 py-2.5 text-[13px] font-semibold text-white shadow-card transition hover:bg-brand-espresso sm:inline-flex"
           >
-            지원 시작 <span aria-hidden="true">→</span>
+            인재풀 등록 <span aria-hidden="true">→</span>
           </Link>
           <button
             type="button"
@@ -108,7 +108,7 @@ export default function PublicHeader() {
                 onClick={() => setMobileOpen(false)}
                 className="rounded-lg bg-brand-bronze px-3 py-3 text-center text-[13px] font-semibold text-white"
               >
-                지원 시작
+                인재풀 등록
               </Link>
             </div>
           </nav>
