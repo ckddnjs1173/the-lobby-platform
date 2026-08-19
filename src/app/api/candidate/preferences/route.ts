@@ -8,6 +8,7 @@ import {
   getCandidatePreferences,
   updateCandidatePreferences,
 } from "../../../../lib/server/candidatePreferenceService";
+import { recordPublicEvent } from "../../../../lib/server/publicEventService";
 import {
   ServerAuthError,
   requireFirebaseUser,
@@ -71,6 +72,12 @@ export async function PATCH(request: Request) {
     }
 
     const result = await updateCandidatePreferences(user.uid, body);
+    void recordPublicEvent(
+      "talent_pool_settings_saved",
+      "/talent-pool/settings"
+    ).catch((error) =>
+      console.error("Talent-pool settings event failed:", error)
+    );
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     return errorResponse(error);
