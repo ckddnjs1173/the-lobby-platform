@@ -16,8 +16,10 @@ const globalPool = read("src/lib/server/globalTalentPoolService.ts");
 const tenantPool = read("src/lib/server/candidatePoolService.ts");
 assert(
   globalPool.includes('actor.role !== "ADMIN"') &&
-    globalPool.includes('.where("source", "==", "B2C_SELF")') &&
-    globalPool.includes('.where("talentPoolOptIn", "==", true)') &&
+    globalPool.includes('data.source === "B2C_SELF"') &&
+    globalPool.includes('data.accountStatus === "ACTIVE"') &&
+    globalPool.includes("data.talentPoolOptIn === true") &&
+    globalPool.includes("GLOBAL_SCAN_LIMIT") &&
     tenantPool.includes('.where("source", "==", "B2B_DIRECT")') &&
     tenantPool.includes('.where("authUid", "==", null)'),
   "GLOBAL_AND_TENANT_TALENT_POOLS_MUST_REMAIN_SEPARATE"
@@ -26,6 +28,9 @@ assert(
 console.log("STEP_2: CANDIDATE_PREFERENCES_AND_CONSENT");
 const preferenceService = read("src/lib/server/candidatePreferenceService.ts");
 const preferencePage = read("src/app/talent-pool/settings/page.tsx");
+const registrationConsentPage = read("src/app/register/consent/page.tsx");
+const registrationConsentRoute = read("src/app/api/public/registration-consent/route.ts");
+const proxy = read("src/proxy.ts");
 assert(
   preferenceService.includes("desiredJob") &&
     preferenceService.includes("desiredLocation") &&
@@ -36,7 +41,12 @@ assert(
     preferenceService.includes("talentPoolOptIn") &&
     preferenceService.includes("candidateConsents") &&
     preferencePage.includes('href="/privacy"') &&
-    preferencePage.includes('href="/terms"'),
+    preferencePage.includes('href="/terms"') &&
+    registrationConsentPage.includes("개인정보 수집·이용 동의") &&
+    registrationConsentPage.includes("이용약관 동의") &&
+    registrationConsentRoute.includes("response.cookies.set") &&
+    registrationConsentRoute.includes("httpOnly: true") &&
+    proxy.includes('matcher: ["/register"]'),
   "CANDIDATE_PREFERENCE_CONSENT_WORKFLOW_INCOMPLETE"
 );
 
@@ -79,8 +89,11 @@ assert(
     jobDetailsService.includes("benefits") &&
     jobDetailLayout.includes('"@type": "JobPosting"') &&
     jobDetailLayout.includes("validThrough") &&
+    jobDetailLayout.includes("schemaEmploymentType") &&
     robots.includes("sitemap.xml") &&
-    sitemap.includes("listPublicJobs"),
+    sitemap.includes("listPublicJobs") &&
+    sitemap.includes("await connection()") &&
+    sitemap.includes("serving static entries"),
   "JOB_QUALITY_OR_SEARCH_DISCOVERY_INCOMPLETE"
 );
 
@@ -95,14 +108,32 @@ assert(
   "LEGAL_DISCLOSURE_SCAFFOLD_INCOMPLETE"
 );
 
-console.log("STEP_7: PERMANENT_BROWSER_GATE");
+console.log("STEP_7: PRIVACY_MINIMAL_ACQUISITION_ANALYTICS");
+const eventService = read("src/lib/server/publicEventService.ts");
+const eventRoute = read("src/app/api/public/events/route.ts");
+const acquisitionService = read("src/lib/server/acquisitionAnalyticsService.ts");
+assert(
+  eventService.includes("eventName") &&
+    eventService.includes("path") &&
+    !eventService.includes("email") &&
+    !eventService.includes("uid") &&
+    eventService.includes('PUBLIC_ANALYTICS_DISABLED === "true"') &&
+    eventRoute.includes('new Set(["page_view"])') &&
+    acquisitionService.includes('actor.role !== "ADMIN"') &&
+    acquisitionService.includes("profileCreated") &&
+    acquisitionService.includes("applicationsSubmitted"),
+  "ACQUISITION_ANALYTICS_PRIVACY_BOUNDARY_INCOMPLETE"
+);
+
+console.log("STEP_8: PERMANENT_BROWSER_GATE");
 const browserWorkflow = read(".github/workflows/browser-e2e.yml");
 const browserSpec = read("tests/browser/public-launch.spec.cjs");
 assert(
   browserWorkflow.includes("npx playwright test") &&
     browserWorkflow.includes("pull_request") &&
     browserSpec.includes("/robots.txt") &&
-    browserSpec.includes("JobPosting"),
+    browserSpec.includes("JobPosting") &&
+    browserSpec.includes("explicit registration consent"),
   "PERMANENT_BROWSER_GATE_INCOMPLETE"
 );
 
