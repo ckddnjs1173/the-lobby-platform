@@ -1,14 +1,6 @@
 "use client";
 
-const ALLOWED_EVENTS = new Set([
-  "page_view",
-  "talent_pool_settings_saved",
-  "saved_job_added",
-  "saved_job_removed",
-]);
-
-export async function trackPublicEvent(eventName: string): Promise<void> {
-  if (!ALLOWED_EVENTS.has(eventName)) return;
+export async function trackPublicEvent(eventName: "page_view"): Promise<void> {
   if (typeof window === "undefined") return;
 
   try {
