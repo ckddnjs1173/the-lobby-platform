@@ -1,7 +1,9 @@
-import { FieldValue } from "firebase-admin/firestore";
 import { NextResponse } from "next/server";
 
-import { getFirebaseAdminDb } from "../../../../lib/server/firebaseAdmin";
+import {
+  PUBLIC_EVENT_NAMES,
+  recordPublicEvent,
+} from "../../../../lib/server/publicEventService";
 import {
   consumeRateLimit,
   createRateLimitHeaders,
@@ -10,7 +12,7 @@ import {
 
 export const runtime = "nodejs";
 
-const ALLOWED_EVENTS = new Set([
+const CLIENT_EVENT_NAMES = new Set([
   "page_view",
   "talent_pool_settings_saved",
   "saved_job_added",
@@ -52,7 +54,7 @@ export async function POST(request: Request) {
     : {};
   const eventName = typeof record.eventName === "string" ? record.eventName.trim() : "";
 
-  if (!ALLOWED_EVENTS.has(eventName)) {
+  if (!CLIENT_EVENT_NAMES.has(eventName) || !PUBLIC_EVENT_NAMES.has(eventName)) {
     return NextResponse.json(
       { success: false, error: "허용되지 않은 이벤트입니다.", code: "INVALID_EVENT_NAME" },
       { status: 400, headers: createRateLimitHeaders(rateLimit) }
@@ -60,12 +62,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await getFirebaseAdminDb().collection("publicEvents").add({
-      eventName,
-      path: normalizePath(record.path),
-      createdAt: FieldValue.serverTimestamp(),
-    });
-
+    await recordPublicEvent(eventName, normalizePath(record.path));
     return NextResponse.json(
       { success: true },
       { status: 201, headers: createRateLimitHeaders(rateLimit) }
