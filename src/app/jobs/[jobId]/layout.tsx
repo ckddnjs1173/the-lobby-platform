@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import SaveJobFloatingButton from "../../../components/candidate/SaveJobFloatingButton";
+import JobOperationalDetailsPanel from "../../../components/public/JobOperationalDetailsPanel";
 import { getPublicJob } from "../../../lib/server/publicJobService";
 
 interface JobLayoutProps {
@@ -73,6 +74,16 @@ export default async function JobDetailLayout({ children, params }: JobLayoutPro
             : "",
         ].filter(Boolean).join("\n"),
         datePosted: job.createdAt,
+        ...(job.applicationDeadline
+          ? { validThrough: `${job.applicationDeadline}T23:59:59+09:00` }
+          : {}),
+        ...(job.employmentType
+          ? { employmentType: job.employmentType }
+          : {}),
+        ...(job.workHours ? { workHours: job.workHours } : {}),
+        ...(job.benefits?.length
+          ? { jobBenefits: job.benefits.join(", ") }
+          : {}),
         hiringOrganization: {
           "@type": "Organization",
           name: job.displayCompany,
@@ -81,6 +92,9 @@ export default async function JobDetailLayout({ children, params }: JobLayoutPro
           "@type": "Place",
           address: {
             "@type": "PostalAddress",
+            ...(job.detailedLocation
+              ? { streetAddress: job.detailedLocation }
+              : {}),
             addressLocality: job.location || "대한민국",
             addressCountry: "KR",
           },
@@ -99,6 +113,7 @@ export default async function JobDetailLayout({ children, params }: JobLayoutPro
         />
       ) : null}
       {children}
+      {job ? <JobOperationalDetailsPanel job={job} /> : null}
       {job ? <SaveJobFloatingButton jobId={job.jobId} /> : null}
     </>
   );
