@@ -12,12 +12,7 @@ import {
 
 export const runtime = "nodejs";
 
-const CLIENT_EVENT_NAMES = new Set([
-  "page_view",
-  "talent_pool_settings_saved",
-  "saved_job_added",
-  "saved_job_removed",
-]);
+const CLIENT_EVENT_NAMES = new Set(["page_view"]);
 
 function normalizePath(value: unknown): string {
   if (typeof value !== "string") return "/";
