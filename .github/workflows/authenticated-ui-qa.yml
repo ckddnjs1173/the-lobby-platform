@@ -1,4 +1,4 @@
-# Authenticated visual QA uses isolated ephemeral Firebase fixtures and cleans them after capture.
+# Authenticated visual QA uses isolated ephemeral Firebase fixtures, responsive selectors, and cleanup after capture.
 name: Authenticated Internal UI QA
 
 on:
