@@ -196,7 +196,7 @@ export default function CandidatePoolPage() {
           </form>
         </div>
 
-        <p className="text-[10px] leading-5 text-slate-400">
+        <p className="text-[11px] leading-5 text-slate-500">
           검색은 현재 페이지가 아니라 조직의 최신 후보자 최대 500명을 서버에서 조회해 최대 50건을 반환합니다. 대규모 Talent Pool 전환 시 전용 검색 인덱스로 교체할 수 있도록 검색 경계는 서버에 유지합니다.
         </p>
 
@@ -212,7 +212,43 @@ export default function CandidatePoolPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="space-y-3 md:hidden">
+              {candidates.map((candidate) => (
+                <article key={`mobile-${candidate.candidateId}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <a href={`/b2b-admin/candidates/${encodeURIComponent(candidate.candidateId)}`} className="text-base font-bold text-slate-900">{candidate.name}</a>
+                      <p className="mt-1 text-xs text-slate-500">{candidate.phone}</p>
+                      <p className="mt-0.5 break-all text-xs text-slate-400">{candidate.email}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-lg font-bold text-brand-navy">{candidate.profileCompleteness}%</p>
+                      <p className="text-[11px] text-slate-400">{candidate.accountStatus}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-lg bg-slate-50 p-3">
+                    <p className="text-sm font-semibold text-slate-700">{candidate.headline || "등록된 헤드라인 없음"}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {candidate.skills.length > 0 ? candidate.skills.slice(0, 5).map((skill) => (
+                        <span key={`mobile-${candidate.candidateId}-${skill}`} className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600">{skill}</span>
+                      )) : <span className="text-xs text-slate-400">등록된 스킬 없음</span>}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                    <div className="text-[11px] text-slate-500">
+                      <p>등록 · {candidate.createdByName || candidate.createdBy}</p>
+                      <p className="mt-1">갱신 · {formatDate(candidate.updatedAt || candidate.createdAt)}</p>
+                    </div>
+                    <a href={`/b2b-admin/candidates/${encodeURIComponent(candidate.candidateId)}`} className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-brand-navy">상세 / 수정</a>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
             <table className="min-w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-100 text-xs text-slate-400">
@@ -275,7 +311,8 @@ export default function CandidatePoolPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
 
         {!loading && !searching && pagination.total > 0 ? (
