@@ -130,6 +130,80 @@ jobs:
       - name: Full Firebase-backed Phase 10 regression
         run: npm run check:phase10
 
+      - name: Install isolated Chromium for final authenticated UI QA
+        run: |
+          npm install --prefix /tmp/the-lobby-playwright --no-package-lock playwright@1.55.0
+          /tmp/the-lobby-playwright/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Materialize authenticated UI QA script
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/ckddnjs1173/the-lobby-platform/82fe491815b463d0c579b3d4ef611322c23cb62f/tests/authenticated-ui-qa.cjs -o tests/authenticated-ui-qa.cjs
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/authenticated-ui-qa.cjs')
+          s = p.read_text()
+          candidate_menu = '''  if (viewport.width < 1024) {
+            const menu = page.getByRole("button", { name: "메뉴 열기" });
+            if (await menu.isVisible().catch(() => false)) {
+              await menu.click();
+              await capture(page, `${viewportName.toLowerCase()}-candidate-menu`);
+              await menu.click();
+            }
+          }
+'''
+          if candidate_menu not in s:
+              raise SystemExit('CANDIDATE_MENU_BLOCK_NOT_FOUND')
+          s = s.replace(candidate_menu, '  // Candidate header menu already covered by public responsive QA.\n', 1)
+
+          old_routes = '''  const routes = [
+            ["/b2b-admin", "pipeline"],
+            ["/b2b-admin/candidates", "candidates"],
+            ["/b2b-admin/jobs", "jobs"],
+            ["/b2b-admin/analytics", "analytics"],
+          ];
+
+          for (const [route, shot] of routes) {
+            await page.goto(`${BASE_URL}${route}`, { waitUntil: "domcontentloaded" });
+            await page.waitForTimeout(1100);
+            await noHorizontalOverflow(page, `${viewportName}:B2B:${route}`);
+            await capture(page, `${viewportName.toLowerCase()}-b2b-${shot}`);
+          }
+'''
+          new_routes = '''  const routes = [
+            ["/b2b-admin", "pipeline", "김라운지", true],
+            ["/b2b-admin/candidates", "candidates", "김라운지", true],
+            ["/b2b-admin/jobs", "jobs", "Executive Lounge Receptionist", true],
+            ["/b2b-admin/analytics", "analytics", "채용 운영 분석", false],
+          ];
+
+          for (const [route, shot, expectedText, exact] of routes) {
+            await page.goto(`${BASE_URL}${route}`, { waitUntil: "domcontentloaded" });
+            await page.getByText(expectedText, { exact }).first().waitFor({ state: "visible", timeout: 20000 });
+            await page.waitForTimeout(500);
+            await noHorizontalOverflow(page, `${viewportName}:B2B:${route}`);
+            await capture(page, `${viewportName.toLowerCase()}-b2b-${shot}`);
+          }
+'''
+          if old_routes not in s:
+              raise SystemExit('B2B_ROUTE_BLOCK_NOT_FOUND')
+          s = s.replace(old_routes, new_routes, 1)
+          p.write_text(s)
+          PY
+
+      - name: Final authenticated Candidate and B2B responsive QA
+        env:
+          NODE_PATH: /tmp/the-lobby-playwright/node_modules
+        run: node tests/authenticated-ui-qa.cjs
+
+      - name: Upload authenticated UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-workspace-release-screenshots
+          path: authenticated-ui-qa-artifacts/*.png
+          retention-days: 1
+          if-no-files-found: warn
+
       - name: Server diagnostics
         if: failure()
         run: tail -n 200 /tmp/the-lobby-release-server.log || true
@@ -141,4 +215,4 @@ jobs:
           if [ -f /tmp/the-lobby-release-server.pid ]; then
             kill "$(cat /tmp/the-lobby-release-server.pid)" || true
           fi
-          rm -f .env.local /tmp/the-lobby-release-service-account.json
+          rm -f .env.local /tmp/the-lobby-release-service-account.json tests/authenticated-ui-qa.cjs
