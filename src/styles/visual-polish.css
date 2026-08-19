@@ -61,6 +61,37 @@ body:has(input[placeholder="직무, 회사, 지역 검색"]) main h3.font-editor
   letter-spacing: -0.025em;
 }
 
+/* Candidate Portal: readable information hierarchy without losing dashboard density. */
+body:has(#candidate-dashboard) .candidate-surface [class~="text-[9px]"] {
+  font-size: 10px !important;
+}
+
+body:has(#candidate-dashboard) .candidate-surface [class~="text-[10px]"] {
+  font-size: 11px !important;
+}
+
+body:has(#candidate-dashboard) .candidate-surface [class~="text-[11px]"] {
+  font-size: 12px !important;
+}
+
+body:has(#candidate-dashboard) .candidate-surface main h1.font-editorial,
+body:has(#candidate-dashboard) .candidate-surface main h2.font-editorial,
+body:has(#candidate-dashboard) .candidate-surface main h3.font-editorial {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+body:has(#candidate-dashboard) .candidate-surface input,
+body:has(#candidate-dashboard) .candidate-surface select,
+body:has(#candidate-dashboard) .candidate-surface textarea {
+  min-height: 42px;
+  font-size: 13px;
+}
+
+body:has(#candidate-dashboard) .candidate-surface section {
+  scroll-margin-top: 104px;
+}
+
 /* Authenticated workspaces must allow responsive grid/table children to shrink. */
 .b2b-workspace,
 .b2b-workspace > div {
@@ -78,6 +109,50 @@ body:has(input[placeholder="직무, 회사, 지역 검색"]) main h3.font-editor
   overflow-wrap: anywhere;
 }
 
+/* Recruiting OS: keep high information density, but remove micro-text fatigue. */
+body:has(.b2b-workspace) [class~="text-[9px]"] {
+  font-size: 10px !important;
+}
+
+body:has(.b2b-workspace) [class~="text-[10px]"] {
+  font-size: 11px !important;
+}
+
+body:has(.b2b-workspace) [class~="text-[11px]"] {
+  font-size: 12px !important;
+}
+
+body:has(.b2b-workspace) [class~="text-[12px]"] {
+  font-size: 13px !important;
+}
+
+.b2b-workspace input,
+.b2b-workspace select,
+.b2b-workspace textarea {
+  min-height: 40px;
+  font-size: 12px !important;
+  line-height: 1.45;
+}
+
+.b2b-workspace table th {
+  font-size: 12px !important;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.b2b-workspace table td {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.b2b-workspace section > [class*="border-b"] {
+  min-width: 0;
+}
+
+.b2b-workspace .font-editorial {
+  font-weight: 700;
+}
+
 @media (min-width: 1024px) {
   .public-shell {
     --public-container: 1440px;
@@ -92,5 +167,50 @@ body:has(input[placeholder="직무, 회사, 지역 검색"]) main h3.font-editor
     align-self: start;
     position: sticky;
     top: 96px;
+  }
+
+  body:has(#candidate-dashboard) #candidate-dashboard > div.grid {
+    grid-template-columns: 230px minmax(0, 1fr) 300px !important;
+    gap: 20px !important;
+  }
+
+  body:has(#candidate-dashboard) #candidate-dashboard > div.grid > aside:first-child,
+  body:has(#candidate-dashboard) #candidate-dashboard > div.grid > aside:last-child {
+    align-self: start;
+    position: sticky;
+    top: 96px;
+  }
+
+  body:has(.b2b-workspace) > body {
+    min-width: 0;
+  }
+
+  .b2b-workspace {
+    padding: 22px !important;
+  }
+
+  .b2b-workspace > div {
+    max-width: 1520px !important;
+  }
+}
+
+@media (max-width: 1279px) {
+  body:has(#candidate-dashboard) #candidate-dashboard > div.grid {
+    gap: 18px;
+  }
+}
+
+@media (max-width: 767px) {
+  body:has(#candidate-dashboard) .candidate-surface main {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .b2b-workspace {
+    padding: 14px !important;
+  }
+
+  .b2b-workspace section {
+    border-radius: 10px !important;
   }
 }
