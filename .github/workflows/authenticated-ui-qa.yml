@@ -50,6 +50,50 @@ jobs:
           done
           cat /tmp/the-lobby-auth-ui.log
           exit 1
+      - name: Instrument mobile overflow diagnostics
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/authenticated-ui-qa.cjs')
+          s = p.read_text()
+          old = '''async function noHorizontalOverflow(page, label) {
+            const metrics = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth, body: document.body.scrollWidth }));
+            assert(metrics.document <= metrics.viewport + 2 && metrics.body <= metrics.viewport + 2, `${label}:HORIZONTAL_OVERFLOW:${JSON.stringify(metrics)}`);
+          }'''
+          new = '''async function noHorizontalOverflow(page, label) {
+            const metrics = await page.evaluate(() => {
+              const viewport = innerWidth;
+              const offenders = Array.from(document.querySelectorAll("body *"))
+                .map((el) => {
+                  const rect = el.getBoundingClientRect();
+                  return {
+                    tag: el.tagName,
+                    cls: typeof el.className === "string" ? el.className.slice(0, 240) : "",
+                    text: (el.textContent || "").trim().replace(/\\s+/g, " ").slice(0, 100),
+                    left: Math.round(rect.left),
+                    right: Math.round(rect.right),
+                    width: Math.round(rect.width),
+                  };
+                })
+                .filter((item) => item.right > viewport + 2 || item.left < -2)
+                .slice(0, 25);
+              return { viewport, document: document.documentElement.scrollWidth, body: document.body.scrollWidth, offenders };
+            });
+            if (metrics.offenders.length) console.log(`${label}:OVERFLOW_OFFENDERS:${JSON.stringify(metrics.offenders)}`);
+            assert(metrics.document <= metrics.viewport + 2 && metrics.body <= metrics.viewport + 2, `${label}:HORIZONTAL_OVERFLOW:${JSON.stringify(metrics)}`);
+          }'''
+          if old not in s:
+              raise SystemExit('OVERFLOW_FUNCTION_TARGET_NOT_FOUND')
+          s = s.replace(old, new, 1)
+          old2 = '''  await noHorizontalOverflow(page, `${viewportName}:CANDIDATE`);
+            await capture(page, `${viewportName.toLowerCase()}-candidate`);'''
+          new2 = '''  await capture(page, `${viewportName.toLowerCase()}-candidate`);
+            await noHorizontalOverflow(page, `${viewportName}:CANDIDATE`);'''
+          if old2 not in s:
+              raise SystemExit('CANDIDATE_CAPTURE_TARGET_NOT_FOUND')
+          s = s.replace(old2, new2, 1)
+          p.write_text(s)
+          PY
       - name: Authenticated Candidate and B2B browser journeys
         env:
           NODE_PATH: /tmp/the-lobby-playwright/node_modules
