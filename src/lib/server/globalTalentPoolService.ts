@@ -1,8 +1,4 @@
-import {
-  FieldPath,
-  Timestamp,
-  type DocumentData,
-} from "firebase-admin/firestore";
+import type { DocumentData } from "firebase-admin/firestore";
 
 import type { JobSearchStatus } from "../candidatePreferenceTypes";
 import {
@@ -62,25 +58,15 @@ interface ListOptions {
   limit?: string | number;
 }
 
-interface CursorPayload {
-  seconds: number;
-  nanoseconds: number;
-  documentId: string;
-}
-
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
-const SEARCH_SCAN_LIMIT = 500;
+const GLOBAL_SCAN_LIMIT = 2_000;
 const SEARCH_RESULT_LIMIT = 50;
 const JOB_SEARCH_STATUSES = new Set<JobSearchStatus>([
   "ACTIVE",
   "OPEN",
   "NOT_LOOKING",
 ]);
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
 
 function stringValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -143,46 +129,29 @@ function normalizePageSize(value: string | number | undefined): number {
   return parsed;
 }
 
-function encodeCursor(data: DocumentData, documentId: string): string {
-  const updatedAt = data.updatedAt;
-  if (!(updatedAt instanceof Timestamp)) {
-    throw new GlobalTalentPoolServiceError(
-      "인재풀 pagination cursor를 생성할 수 없습니다.",
-      409,
-      "CANDIDATE_UPDATED_AT_MISSING"
-    );
-  }
-
+function encodeOffset(offset: number): string {
   return Buffer.from(
-    JSON.stringify({
-      seconds: updatedAt.seconds,
-      nanoseconds: updatedAt.nanoseconds,
-      documentId,
-    } satisfies CursorPayload),
+    JSON.stringify({ offset }),
     "utf8"
   ).toString("base64url");
 }
 
-function decodeCursor(value?: string): CursorPayload | null {
-  if (!value?.trim()) return null;
+function decodeOffset(value?: string): number {
+  if (!value?.trim()) return 0;
   try {
     const parsed = JSON.parse(
       Buffer.from(value.trim(), "base64url").toString("utf8")
-    ) as Partial<CursorPayload>;
+    ) as { offset?: unknown };
 
     if (
-      !Number.isInteger(parsed.seconds) ||
-      !Number.isInteger(parsed.nanoseconds) ||
-      !isNonEmptyString(parsed.documentId)
+      !Number.isInteger(parsed.offset) ||
+      (parsed.offset as number) < 0 ||
+      (parsed.offset as number) > GLOBAL_SCAN_LIMIT
     ) {
-      throw new Error("INVALID_CURSOR");
+      throw new Error("INVALID_OFFSET");
     }
 
-    return {
-      seconds: parsed.seconds as number,
-      nanoseconds: parsed.nanoseconds as number,
-      documentId: parsed.documentId.trim(),
-    };
+    return parsed.offset as number;
   } catch {
     throw new GlobalTalentPoolServiceError(
       "인재풀 페이지 cursor가 올바르지 않습니다.",
@@ -192,12 +161,12 @@ function decodeCursor(value?: string): CursorPayload | null {
   }
 }
 
-function baseQuery() {
-  return getFirebaseAdminDb()
-    .collection("candidates")
-    .where("source", "==", "B2C_SELF")
-    .where("accountStatus", "==", "ACTIVE")
-    .where("talentPoolOptIn", "==", true);
+function isVisibleGlobalCandidate(data: DocumentData): boolean {
+  return (
+    data.source === "B2C_SELF" &&
+    data.accountStatus === "ACTIVE" &&
+    data.talentPoolOptIn === true
+  );
 }
 
 async function hydrate(
@@ -248,47 +217,42 @@ async function hydrate(
     .filter((item): item is GlobalTalentPoolItem => item !== null);
 }
 
+async function loadVisibleGlobalCandidates() {
+  // Initial public release intentionally avoids a new composite-index dependency.
+  // Scan the latest candidates by the existing updatedAt single-field index, then
+  // enforce B2C + active + explicit talent-pool consent on the server. At scale,
+  // replace this bounded scan with a dedicated indexed/search-backed pool.
+  const snapshot = await getFirebaseAdminDb()
+    .collection("candidates")
+    .orderBy("updatedAt", "desc")
+    .limit(GLOBAL_SCAN_LIMIT)
+    .get();
+
+  return snapshot.docs.filter((document) =>
+    isVisibleGlobalCandidate(document.data())
+  );
+}
+
 export async function listGlobalTalentPool(
   actorUid: string,
   options: ListOptions = {}
 ): Promise<GlobalTalentPoolPageResult> {
   await requireAdmin(actorUid);
   const pageSize = normalizePageSize(options.limit);
-  const cursor = decodeCursor(options.cursor);
-  const query = baseQuery();
-
-  let pageQuery = query
-    .orderBy("updatedAt", "desc")
-    .orderBy(FieldPath.documentId(), "desc")
-    .limit(pageSize + 1);
-
-  if (cursor) {
-    pageQuery = pageQuery.startAfter(
-      new Timestamp(cursor.seconds, cursor.nanoseconds),
-      cursor.documentId
-    );
-  }
-
-  const [snapshot, countSnapshot] = await Promise.all([
-    pageQuery.get(),
-    query.count().get(),
-  ]);
-
-  const hasMore = snapshot.docs.length > pageSize;
-  const documents = snapshot.docs.slice(0, pageSize);
+  const offset = decodeOffset(options.cursor);
+  const visibleDocuments = await loadVisibleGlobalCandidates();
+  const documents = visibleDocuments.slice(offset, offset + pageSize);
   const items = await hydrate(documents);
-  const lastDocument = documents.length ? documents[documents.length - 1] : null;
+  const nextOffset = offset + pageSize;
+  const hasMore = nextOffset < visibleDocuments.length;
 
   return {
     items,
     pagination: {
-      total: countSnapshot.data().count,
+      total: visibleDocuments.length,
       limit: pageSize,
       hasMore,
-      nextCursor:
-        hasMore && lastDocument
-          ? encodeCursor(lastDocument.data(), lastDocument.id)
-          : null,
+      nextCursor: hasMore ? encodeOffset(nextOffset) : null,
     },
   };
 }
@@ -307,12 +271,8 @@ export async function searchGlobalTalentPool(
     );
   }
 
-  const snapshot = await baseQuery()
-    .orderBy("updatedAt", "desc")
-    .limit(SEARCH_SCAN_LIMIT)
-    .get();
-
-  const hydrated = await hydrate(snapshot.docs);
+  const visibleDocuments = await loadVisibleGlobalCandidates();
+  const hydrated = await hydrate(visibleDocuments);
   const matches = hydrated.filter((candidate) =>
     [
       candidate.name,
