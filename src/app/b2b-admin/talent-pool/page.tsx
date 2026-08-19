@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 
 import { useB2BSession } from "../../../components/b2b-admin/B2BSessionContext";
@@ -10,6 +10,11 @@ import {
   type GlobalTalentPoolItem,
   type GlobalTalentPoolPagination,
 } from "../../../lib/globalTalentPoolApi";
+import { fetchB2BJobs, type B2BJobView } from "../../../lib/jobApi";
+import {
+  createTalentOpportunityViaApi,
+  TalentOpportunityApiError,
+} from "../../../lib/talentOpportunityApi";
 
 const PAGE_SIZE = 20;
 
@@ -42,17 +47,37 @@ function PreferenceRow({ label, value }: { label: string; value: string }) {
 export default function GlobalTalentPoolPage() {
   const session = useB2BSession();
   const [items, setItems] = useState<GlobalTalentPoolItem[]>([]);
+  const [jobs, setJobs] = useState<B2BJobView[]>([]);
   const [loading, setLoading] = useState(true);
   const [queryText, setQueryText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [cursor, setCursor] = useState<string | null>(null);
   const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([]);
+  const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
+  const [offerJobId, setOfferJobId] = useState("");
+  const [offerNote, setOfferNote] = useState("");
+  const [creatingOffer, setCreatingOffer] = useState(false);
   const [pagination, setPagination] = useState<GlobalTalentPoolPagination>({
     total: 0,
     limit: PAGE_SIZE,
     hasMore: false,
     nextCursor: null,
   });
+
+  useEffect(() => {
+    if (session.role !== "ADMIN") return;
+    let cancelled = false;
+    fetchB2BJobs()
+      .then((result) => {
+        if (!cancelled) setJobs(result);
+      })
+      .catch((error) => {
+        if (!cancelled) console.error("Talent opportunity job list failed:", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session.role]);
 
   useEffect(() => {
     if (session.role !== "ADMIN") {
@@ -90,6 +115,11 @@ export default function GlobalTalentPoolPage() {
       cancelled = true;
     };
   }, [session.role, cursor, searchQuery]);
+
+  const openJobs = useMemo(
+    () => jobs.filter((job) => job.status === "OPEN"),
+    [jobs]
+  );
 
   if (session.role !== "ADMIN") {
     return (
@@ -141,6 +171,41 @@ export default function GlobalTalentPoolPage() {
     setCursor(previousCursor);
   };
 
+  const openOfferComposer = (candidateId: string) => {
+    setActiveCandidateId(candidateId);
+    setOfferJobId(openJobs[0]?.jobId || "");
+    setOfferNote("");
+  };
+
+  const createOffer = async (candidate: GlobalTalentPoolItem) => {
+    if (!offerJobId || creatingOffer) {
+      if (!offerJobId) toast.error("제안할 공개 포지션을 선택해주세요.");
+      return;
+    }
+
+    setCreatingOffer(true);
+    try {
+      const result = await createTalentOpportunityViaApi({
+        candidateId: candidate.candidateId,
+        jobId: offerJobId,
+        note: offerNote,
+      });
+      toast.success(`${candidate.name} 후보자에게 ${result.jobTitle} 검토 제안을 생성했습니다.`);
+      setActiveCandidateId(null);
+      setOfferJobId("");
+      setOfferNote("");
+    } catch (error) {
+      console.error("Talent opportunity create failed:", error);
+      toast.error(
+        error instanceof TalentOpportunityApiError
+          ? error.message
+          : "채용 제안을 생성하지 못했습니다."
+      );
+    } finally {
+      setCreatingOffer(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -171,7 +236,7 @@ export default function GlobalTalentPoolPage() {
           {searching ? <button type="button" onClick={clearSearch} className="rounded-lg border border-brand-line px-4 py-3 text-xs font-bold text-brand-muted">초기화</button> : null}
         </form>
         <p className="mt-3 text-[11px] leading-5 text-brand-muted">
-          일반 RECRUITER와 기업별 Candidate Pool에는 자동 노출되지 않습니다. 검색은 현재 최대 500명의 최신 공개 후보자를 대상으로 합니다.
+          일반 RECRUITER와 기업별 Candidate Pool에는 자동 노출되지 않습니다. 포지션 제안도 실제 지원으로 바로 생성되지 않고 후보자가 직접 수락한 뒤에만 지원 내역으로 전환됩니다.
         </p>
       </section>
 
@@ -211,9 +276,26 @@ export default function GlobalTalentPoolPage() {
                 {candidate.skills.length ? candidate.skills.slice(0, 8).map((skill) => <span key={`${candidate.candidateId}-${skill}`} className="rounded-full border border-brand-line bg-white px-2.5 py-1 text-[11px] text-brand-muted">{skill}</span>) : <span className="text-xs text-brand-muted">등록된 스킬 없음</span>}
               </div>
 
-              <div className="mt-5 border-t border-brand-line pt-4 text-[11px] leading-5 text-brand-muted">
-                후보자 공개 동의를 근거로 J&C 내부 검토용으로만 표시됩니다. 기업 추천 전에는 후보자에게 해당 포지션을 안내하고 진행 의사를 확인하세요.
-              </div>
+              {activeCandidateId === candidate.candidateId ? (
+                <div className="mt-5 rounded-xl border border-brand-gold/35 bg-brand-ivory p-4">
+                  <p className="text-xs font-bold text-brand-espresso">후보자 검토 제안 만들기</p>
+                  <p className="mt-1 text-[11px] leading-5 text-brand-muted">후보자에게 먼저 제안만 전달합니다. 후보자가 수락해야 실제 지원 파이프라인에 들어갑니다.</p>
+                  <select value={offerJobId} onChange={(event) => setOfferJobId(event.target.value)} className="mt-3 w-full rounded-lg border border-brand-line bg-white px-3 py-3 text-xs font-bold text-brand-espresso">
+                    <option value="">공개 포지션 선택</option>
+                    {openJobs.map((job) => <option key={job.jobId} value={job.jobId}>{job.displayCompany || job.company} · {job.title}</option>)}
+                  </select>
+                  <textarea value={offerNote} onChange={(event) => setOfferNote(event.target.value)} maxLength={1000} placeholder="후보자에게 보여줄 검토 메모 (선택)" className="mt-2 min-h-20 w-full resize-y rounded-lg border border-brand-line bg-white px-3 py-3 text-xs leading-5 text-brand-ink" />
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button type="button" onClick={() => setActiveCandidateId(null)} disabled={creatingOffer} className="rounded-lg border border-brand-line bg-white px-3 py-2 text-[11px] font-bold text-brand-muted">취소</button>
+                    <button type="button" onClick={() => void createOffer(candidate)} disabled={creatingOffer || !offerJobId} className="rounded-lg bg-brand-bronze px-4 py-2 text-[11px] font-bold text-white disabled:opacity-45">{creatingOffer ? "생성 중..." : "채용 제안 생성"}</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-5 flex flex-col gap-3 border-t border-brand-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-[11px] leading-5 text-brand-muted">공개 동의를 근거로 J&C 내부에서만 검토합니다. 기업 지원 처리 전 후보자의 명시적 수락이 필요합니다.</p>
+                  <button type="button" onClick={() => openOfferComposer(candidate.candidateId)} disabled={openJobs.length === 0 || candidate.jobSearchStatus === "NOT_LOOKING"} className="shrink-0 rounded-lg bg-brand-espresso px-4 py-2.5 text-[11px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-35">{openJobs.length === 0 ? "공개 포지션 없음" : candidate.jobSearchStatus === "NOT_LOOKING" ? "현재 구직 안 함" : "포지션 제안"}</button>
+                </div>
+              )}
             </article>
           ))}
         </div>
