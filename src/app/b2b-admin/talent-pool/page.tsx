@@ -1,0 +1,231 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+
+import { useB2BSession } from "../../../components/b2b-admin/B2BSessionContext";
+import {
+  fetchGlobalTalentPool,
+  GlobalTalentPoolApiError,
+  type GlobalTalentPoolItem,
+  type GlobalTalentPoolPagination,
+} from "../../../lib/globalTalentPoolApi";
+
+const PAGE_SIZE = 20;
+
+const STATUS_LABELS = {
+  ACTIVE: "적극 구직",
+  OPEN: "제안 검토",
+  NOT_LOOKING: "구직 안 함",
+} as const;
+
+function formatDate(value: string | null): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function PreferenceRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-3 text-xs">
+      <span className="font-semibold text-brand-muted">{label}</span>
+      <span className="break-keep font-bold text-brand-espresso">{value || "미입력"}</span>
+    </div>
+  );
+}
+
+export default function GlobalTalentPoolPage() {
+  const session = useB2BSession();
+  const [items, setItems] = useState<GlobalTalentPoolItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [queryText, setQueryText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([]);
+  const [pagination, setPagination] = useState<GlobalTalentPoolPagination>({
+    total: 0,
+    limit: PAGE_SIZE,
+    hasMore: false,
+    nextCursor: null,
+  });
+
+  useEffect(() => {
+    if (session.role !== "ADMIN") {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+
+    fetchGlobalTalentPool({
+      cursor: searchQuery ? null : cursor,
+      query: searchQuery || null,
+      limit: PAGE_SIZE,
+    })
+      .then((result) => {
+        if (cancelled) return;
+        setItems(result.items);
+        setPagination(result.pagination);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("Global talent pool load failed:", error);
+        toast.error(
+          error instanceof GlobalTalentPoolApiError
+            ? error.message
+            : "J&C 공개 인재풀을 불러오지 못했습니다."
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session.role, cursor, searchQuery]);
+
+  if (session.role !== "ADMIN") {
+    return (
+      <section className="rounded-xl border border-brand-line bg-white px-6 py-16 text-center shadow-card">
+        <p className="font-editorial text-3xl text-brand-espresso">J&C 공개 인재풀</p>
+        <p className="mt-3 text-sm text-brand-muted">후보자가 직접 공개에 동의한 프로필은 ADMIN 계정에서만 조회할 수 있습니다.</p>
+      </section>
+    );
+  }
+
+  const searching = Boolean(searchQuery);
+  const pageNumber = cursorHistory.length + 1;
+
+  const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalized = queryText.trim();
+    if (!normalized) {
+      setSearchQuery("");
+      setCursor(null);
+      setCursorHistory([]);
+      return;
+    }
+    if (normalized.length < 2) {
+      toast.error("검색어는 2자 이상 입력해주세요.");
+      return;
+    }
+    setSearchQuery(normalized);
+    setCursor(null);
+    setCursorHistory([]);
+  };
+
+  const clearSearch = () => {
+    setQueryText("");
+    setSearchQuery("");
+    setCursor(null);
+    setCursorHistory([]);
+  };
+
+  const nextPage = () => {
+    if (loading || searching || !pagination.hasMore || !pagination.nextCursor) return;
+    setCursorHistory((previous) => [...previous, cursor]);
+    setCursor(pagination.nextCursor);
+  };
+
+  const previousPage = () => {
+    if (loading || searching || cursorHistory.length === 0) return;
+    const previousCursor = cursorHistory[cursorHistory.length - 1];
+    setCursorHistory((previous) => previous.slice(0, -1));
+    setCursor(previousCursor);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold text-brand-espresso">J&C 공개 인재풀</h1>
+            <span className="rounded-full border border-brand-gold/30 bg-brand-ivory px-2.5 py-1 text-[10px] font-bold text-brand-bronze">ADMIN ONLY</span>
+          </div>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-brand-muted">
+            The Lobby에 직접 가입하고 J&C 인재풀 공개에 동의한 B2C 후보자입니다. 조직별 직접등록 후보자와 분리해 관리합니다.
+          </p>
+        </div>
+        <div className="rounded-lg border border-brand-line bg-white px-4 py-3 text-xs text-brand-muted shadow-card">
+          공개 동의 후보자 <strong className="ml-1 text-brand-espresso">{pagination.total}명</strong>
+        </div>
+      </div>
+
+      <section className="rounded-xl border border-brand-line bg-white p-4 shadow-card sm:p-5">
+        <form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="search"
+            value={queryText}
+            onChange={(event) => setQueryText(event.target.value)}
+            placeholder="이름, 연락처, 희망직무, 지역, 헤드라인, 스킬 검색"
+            className="min-w-0 flex-1 rounded-lg border border-brand-line px-4 py-3 text-sm outline-none focus:border-brand-bronze"
+          />
+          <button type="submit" disabled={loading} className="rounded-lg bg-brand-espresso px-5 py-3 text-xs font-bold text-white disabled:opacity-45">검색</button>
+          {searching ? <button type="button" onClick={clearSearch} className="rounded-lg border border-brand-line px-4 py-3 text-xs font-bold text-brand-muted">초기화</button> : null}
+        </form>
+        <p className="mt-3 text-[11px] leading-5 text-brand-muted">
+          일반 RECRUITER와 기업별 Candidate Pool에는 자동 노출되지 않습니다. 검색은 현재 최대 500명의 최신 공개 후보자를 대상으로 합니다.
+        </p>
+      </section>
+
+      {loading ? (
+        <div className="rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">공개 인재풀을 불러오는 중입니다...</div>
+      ) : items.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-brand-line bg-white py-20 text-center shadow-card">
+          <p className="text-sm font-bold text-brand-espresso">{searching ? "검색 조건에 맞는 후보자가 없습니다." : "아직 공개 동의한 후보자가 없습니다."}</p>
+          <p className="mt-2 text-xs text-brand-muted">후보자가 인재풀 설정에서 공개에 동의하면 이곳에 나타납니다.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {items.map((candidate) => (
+            <article key={candidate.candidateId} className="rounded-xl border border-brand-line bg-white p-5 shadow-card sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-lg font-bold text-brand-espresso">{candidate.name}</h2>
+                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${candidate.jobSearchStatus === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : candidate.jobSearchStatus === "NOT_LOOKING" ? "bg-slate-100 text-slate-500" : "bg-brand-ivory text-brand-bronze"}`}>{STATUS_LABELS[candidate.jobSearchStatus]}</span>
+                  </div>
+                  <p className="mt-1 text-sm font-semibold text-brand-ink">{candidate.headline || "등록된 프로필 헤드라인 없음"}</p>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-brand-muted"><span>{candidate.phone}</span><span className="break-all">{candidate.email}</span></div>
+                </div>
+                <div className="shrink-0 text-right"><p className="font-editorial text-3xl text-brand-espresso">{candidate.profileCompleteness}%</p><p className="text-[10px] text-brand-muted">프로필 완성도</p></div>
+              </div>
+
+              <div className="mt-5 grid gap-3 rounded-xl border border-brand-line bg-brand-light p-4 sm:grid-cols-2">
+                <PreferenceRow label="희망 직무" value={candidate.desiredJob} />
+                <PreferenceRow label="희망 지역" value={candidate.desiredLocation} />
+                <PreferenceRow label="희망 급여" value={candidate.desiredSalary} />
+                <PreferenceRow label="고용 형태" value={candidate.desiredEmploymentType} />
+                <PreferenceRow label="입사 가능" value={candidate.availableFrom} />
+                <PreferenceRow label="최근 갱신" value={formatDate(candidate.updatedAt)} />
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {candidate.skills.length ? candidate.skills.slice(0, 8).map((skill) => <span key={`${candidate.candidateId}-${skill}`} className="rounded-full border border-brand-line bg-white px-2.5 py-1 text-[11px] text-brand-muted">{skill}</span>) : <span className="text-xs text-brand-muted">등록된 스킬 없음</span>}
+              </div>
+
+              <div className="mt-5 border-t border-brand-line pt-4 text-[11px] leading-5 text-brand-muted">
+                후보자 공개 동의를 근거로 J&C 내부 검토용으로만 표시됩니다. 기업 추천 전에는 후보자에게 해당 포지션을 안내하고 진행 의사를 확인하세요.
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {!searching && !loading && pagination.total > 0 ? (
+        <div className="flex items-center justify-between rounded-xl border border-brand-line bg-white px-4 py-3 shadow-card">
+          <button type="button" onClick={previousPage} disabled={cursorHistory.length === 0} className="rounded-lg border border-brand-line px-4 py-2 text-xs font-bold text-brand-muted disabled:opacity-35">이전</button>
+          <span className="text-xs text-brand-muted">{pageNumber}페이지</span>
+          <button type="button" onClick={nextPage} disabled={!pagination.hasMore || !pagination.nextCursor} className="rounded-lg border border-brand-line px-4 py-2 text-xs font-bold text-brand-bronze disabled:opacity-35">다음</button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
