@@ -7,6 +7,7 @@ import {
   CandidateSavedJobServiceError,
   removeCandidateSavedJob,
 } from "../../../../../lib/server/candidateSavedJobService";
+import { recordPublicEvent } from "../../../../../lib/server/publicEventService";
 import {
   ServerAuthError,
   requireFirebaseUser,
@@ -45,6 +46,10 @@ export async function DELETE(
     const user = await requireFirebaseUser(request);
     const { jobId } = await context.params;
     const result = await removeCandidateSavedJob(user.uid, jobId);
+    void recordPublicEvent(
+      "saved_job_removed",
+      `/jobs/${encodeURIComponent(result.jobId)}`
+    ).catch((error) => console.error("Saved-job removal event failed:", error));
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     return errorResponse(error);
