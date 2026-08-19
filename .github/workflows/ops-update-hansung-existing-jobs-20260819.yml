@@ -1,0 +1,42 @@
+name: Ops Update Existing Hansung Jobs 2026-08-19
+
+on:
+  push:
+    branches:
+      - ops/update-hansung-existing-jobs-20260819
+    paths:
+      - scripts/ops/update-hansung-existing-jobs-20260819.cjs
+
+permissions:
+  contents: write
+
+jobs:
+  update-existing-hansung-jobs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FIREBASE_ADMIN_PROJECT_ID: ${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}
+      FIREBASE_ADMIN_CLIENT_EMAIL: ${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}
+      FIREBASE_ADMIN_PRIVATE_KEY: ${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Update exact existing jobs and persist result
+        shell: bash
+        run: |
+          mkdir -p ops-results
+          set +e
+          node scripts/ops/update-hansung-existing-jobs-20260819.cjs 2>&1 | tee ops-results/hansung-existing-jobs-20260819.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops-results/hansung-existing-jobs-20260819.txt
+          git commit -m "Ops result: existing Hansung job update" || true
+          git push origin HEAD:ops/update-hansung-existing-jobs-20260819
+          exit "$status"
