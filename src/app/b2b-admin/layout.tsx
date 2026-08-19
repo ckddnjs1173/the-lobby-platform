@@ -71,6 +71,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
 
   const isLoginPage = pathname === "/b2b-admin/login";
   const isApplicationsPage = pathname === "/b2b-admin";
+  const isTalentPoolPage = pathname.startsWith("/b2b-admin/talent-pool");
   const isCandidatesPage = pathname.startsWith("/b2b-admin/candidates");
   const isJobsPage = pathname.startsWith("/b2b-admin/jobs");
   const isAnalyticsPage = pathname.startsWith("/b2b-admin/analytics");
@@ -144,26 +145,33 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
 
   const navItems = [
     { href: "/b2b-admin", label: "지원자 파이프라인", caption: "Applications", icon: "pipeline" as const, active: isApplicationsPage },
-    { href: "/b2b-admin/candidates", label: "후보자 CRM", caption: "Candidate Pool", icon: "candidate" as const, active: isCandidatesPage },
+    ...(session.role === "ADMIN"
+      ? [{ href: "/b2b-admin/talent-pool", label: "J&C 공개 인재풀", caption: "Global Talent Pool", icon: "candidate" as const, active: isTalentPoolPage }]
+      : []),
+    { href: "/b2b-admin/candidates", label: "후보자 CRM", caption: "Organization Pool", icon: "candidate" as const, active: isCandidatesPage },
     { href: "/b2b-admin/jobs", label: "포지션 관리", caption: "Jobs", icon: "job" as const, active: isJobsPage },
     { href: "/b2b-admin/analytics", label: "채용 분석", caption: "Analytics", icon: "analytics" as const, active: isAnalyticsPage },
   ];
 
-  const pageTitle = isCandidatesPage
-    ? "후보자 CRM"
-    : isJobsPage
-      ? "포지션 관리"
-      : isAnalyticsPage
-        ? "채용 분석"
-        : "지원자 파이프라인";
+  const pageTitle = isTalentPoolPage
+    ? "J&C 공개 인재풀"
+    : isCandidatesPage
+      ? "후보자 CRM"
+      : isJobsPage
+        ? "포지션 관리"
+        : isAnalyticsPage
+          ? "채용 분석"
+          : "지원자 파이프라인";
 
-  const pageCaption = isCandidatesPage
-    ? "인재 프로필과 지원 이력을 한 곳에서 관리합니다."
-    : isJobsPage
-      ? "채용 포지션을 등록하고 공개 상태를 운영합니다."
-      : isAnalyticsPage
-        ? "채용 퍼널과 운영 지표를 데이터로 확인합니다."
-        : "지원자 진행 상황을 빠르게 파악하고 다음 액션을 관리합니다.";
+  const pageCaption = isTalentPoolPage
+    ? "직접 가입하고 공개에 동의한 후보자를 J&C 내부에서 검색합니다."
+    : isCandidatesPage
+      ? "조직에서 직접 발굴한 인재 프로필과 지원 이력을 관리합니다."
+      : isJobsPage
+        ? "채용 포지션을 등록하고 공개 상태를 운영합니다."
+        : isAnalyticsPage
+          ? "채용 퍼널과 운영 지표를 데이터로 확인합니다."
+          : "지원자 진행 상황을 빠르게 파악하고 다음 액션을 관리합니다.";
 
   const handleSignOut = async () => {
     setMobileOpen(false);
