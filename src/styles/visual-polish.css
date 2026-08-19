@@ -61,6 +61,12 @@ body:has(input[placeholder="직무, 회사, 지역 검색"]) main h3.font-editor
   letter-spacing: -0.025em;
 }
 
+/* Authenticated workspaces must allow responsive grid/table children to shrink. */
+.b2b-workspace,
+.b2b-workspace > div {
+  min-width: 0;
+}
+
 @media (min-width: 1024px) {
   .public-shell {
     --public-container: 1440px;
