@@ -5,6 +5,10 @@ import { getFirebaseAdminDb } from "./firebaseAdmin";
 
 export const REGISTRATION_CONSENT_COOKIE = "the_lobby_registration_consent";
 
+export function isRegistrationConsentE2EBypassEnabled(): boolean {
+  return process.env.E2E_ALLOW_REGISTRATION_WITHOUT_CONSENT === "true";
+}
+
 export function hasRegistrationConsentCookie(request: Request): boolean {
   const cookieHeader = request.headers.get("cookie") || "";
   const cookies = cookieHeader
