@@ -4,13 +4,16 @@ on:
   pull_request:
     branches:
       - main
-    types: [opened, reopened, synchronize]
+    types:
+      - opened
+      - reopened
+      - synchronize
 
 permissions:
   contents: read
 
 jobs:
-  authenticated-visual-gate:
+  b2b-visual-qa:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -36,80 +39,36 @@ jobs:
         run: |
           npm install --prefix /tmp/the-lobby-playwright --no-package-lock playwright@1.55.0
           /tmp/the-lobby-playwright/node_modules/.bin/playwright install --with-deps chromium
-      - name: Materialize authenticated visual QA script
+      - name: Materialize B2B-only authenticated QA script
         run: |
           curl -fsSL https://raw.githubusercontent.com/ckddnjs1173/the-lobby-platform/82fe491815b463d0c579b3d4ef611322c23cb62f/tests/authenticated-ui-qa.cjs -o tests/authenticated-ui-qa.cjs
           python - <<'PY'
           from pathlib import Path
           p = Path('tests/authenticated-ui-qa.cjs')
           s = p.read_text()
-
-          candidate_menu = '''  if (viewport.width < 1024) {
-            const menu = page.getByRole("button", { name: "메뉴 열기" });
-            if (await menu.isVisible().catch(() => false)) {
-              await menu.click();
-              await capture(page, `${viewportName.toLowerCase()}-candidate-menu`);
-              await menu.click();
-            }
-          }
-'''
-          if candidate_menu not in s:
-              raise SystemExit('CANDIDATE_MENU_BLOCK_NOT_FOUND')
-          s = s.replace(candidate_menu, '  // Candidate header menu already covered by public responsive QA.\n', 1)
-
-          old_routes = '''  const routes = [
-            ["/b2b-admin", "pipeline"],
-            ["/b2b-admin/candidates", "candidates"],
-            ["/b2b-admin/jobs", "jobs"],
-            ["/b2b-admin/analytics", "analytics"],
-          ];
-
-          for (const [route, shot] of routes) {
-            await page.goto(`${BASE_URL}${route}`, { waitUntil: "domcontentloaded" });
-            await page.waitForTimeout(1100);
-            await noHorizontalOverflow(page, `${viewportName}:B2B:${route}`);
-            await capture(page, `${viewportName.toLowerCase()}-b2b-${shot}`);
-          }
-'''
-          new_routes = '''  const routes = [
-            ["/b2b-admin", "pipeline", "김라운지", true],
-            ["/b2b-admin/candidates", "candidates", "김라운지", true],
-            ["/b2b-admin/jobs", "jobs", "Executive Lounge Receptionist", true],
-            ["/b2b-admin/analytics", "analytics", "채용 운영 분석", false],
-          ];
-
-          for (const [route, shot, expectedText, exact] of routes) {
-            await page.goto(`${BASE_URL}${route}`, { waitUntil: "domcontentloaded" });
-            await page.getByText(expectedText, { exact }).first().waitFor({ state: "visible", timeout: 20000 });
-            await page.waitForTimeout(500);
-            await noHorizontalOverflow(page, `${viewportName}:B2B:${route}`);
-            await capture(page, `${viewportName.toLowerCase()}-b2b-${shot}`);
-          }
-'''
-          if old_routes not in s:
-              raise SystemExit('B2B_ROUTE_BLOCK_NOT_FOUND')
-          s = s.replace(old_routes, new_routes, 1)
+          s = s.replace('    await candidateJourney(browser, "DESKTOP", { width: 1440, height: 1000 });\n', '')
+          s = s.replace('    await candidateJourney(browser, "MOBILE", { width: 390, height: 844 });\n', '')
           p.write_text(s)
           PY
-      - name: Start production build
+      - name: Start application
         shell: bash
         run: |
-          npm start > /tmp/the-lobby-auth-visual.log 2>&1 &
-          echo $! > /tmp/the-lobby-auth-visual.pid
+          npm start > /tmp/the-lobby-b2b-ui.log 2>&1 &
+          echo $! > /tmp/the-lobby-b2b-ui.pid
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:3000/api/health >/dev/null; then
-              echo AUTH_VISUAL_SERVER_READY
+              echo B2B_UI_SERVER_READY
               exit 0
             fi
             sleep 1
           done
-          cat /tmp/the-lobby-auth-visual.log
+          cat /tmp/the-lobby-b2b-ui.log
           exit 1
-      - name: Run authenticated Candidate and B2B journeys
+      - name: B2B authenticated browser journeys
         env:
           NODE_PATH: /tmp/the-lobby-playwright/node_modules
         run: node tests/authenticated-ui-qa.cjs
-      - name: Upload authenticated visual screenshots
+      - name: Upload B2B screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -119,10 +78,10 @@ jobs:
           if-no-files-found: warn
       - name: Server diagnostics
         if: failure()
-        run: tail -n 250 /tmp/the-lobby-auth-visual.log || true
+        run: tail -n 250 /tmp/the-lobby-b2b-ui.log || true
       - name: Stop application
         if: always()
         run: |
-          if [ -f /tmp/the-lobby-auth-visual.pid ]; then
-            kill "$(cat /tmp/the-lobby-auth-visual.pid)" || true
+          if [ -f /tmp/the-lobby-b2b-ui.pid ]; then
+            kill "$(cat /tmp/the-lobby-b2b-ui.pid)" || true
           fi
