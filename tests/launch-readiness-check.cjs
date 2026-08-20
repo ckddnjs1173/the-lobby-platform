@@ -97,7 +97,7 @@ assert(
     jobDetailsService.includes("expectedStartDate") &&
     jobDetailsService.includes("benefits") &&
     jobDetailPage.includes("근무·고용 핵심조건") &&
-    jobDetailPage.includes("J&C Recruiting") &&
+    jobDetailPage.includes("J&amp;C Recruiting") &&
     !jobDetailPage.includes("The Lobby Curation") &&
     jobDetailLayout.includes('"@type": "JobPosting"') &&
     jobDetailLayout.includes("validThrough") &&
