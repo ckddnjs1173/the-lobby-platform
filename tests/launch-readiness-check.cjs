@@ -83,6 +83,7 @@ const jobDetailPage = read("src/app/jobs/[jobId]/page.tsx");
 const jobDetailsService = read("src/lib/server/jobOperationalDetailsService.ts");
 const placementE2E = read("tests/candidate-multi-placement-check.cjs");
 const activityE2E = read("tests/application-activity-check.cjs");
+const authorizationStageE2E = read("tests/authorization-stage-check.cjs");
 const robots = read("src/app/robots.ts");
 const sitemap = read("src/app/sitemap.ts");
 assert(
@@ -101,6 +102,12 @@ assert(
     activityE2E.includes("CLEANUP_FINISHED") &&
     !activityE2E.includes("hansung-yuseong-reception-20260813") &&
     !activityE2E.includes("xnHT4sEYN2wFjOZIEIcP") &&
+    authorizationStageE2E.includes("e2e-authorization-stage-") &&
+    authorizationStageE2E.includes("isTestData: true") &&
+    authorizationStageE2E.includes("UNAUTHORIZED_STAGE_MUTATION_OCCURRED") &&
+    authorizationStageE2E.includes("CLEANUP_FINISHED") &&
+    !authorizationStageE2E.includes("hansung-yuseong-reception-20260813") &&
+    !authorizationStageE2E.includes("xnHT4sEYN2wFjOZIEIcP__") &&
     jobDetailsService.includes("workplaceName") &&
     jobDetailsService.includes("employingCompany") &&
     jobDetailsService.includes("salaryBase") &&
