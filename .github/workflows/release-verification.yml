@@ -105,6 +105,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Apply verified Hansung job content refresh
+        env:
+          APPLY_HANSUNG_JOB_REFRESH: "CONFIRMED"
+        run: node --env-file=.env.local scripts/update-hansung-public-jobs.cjs
+
       - name: Core workflow gate
         run: npm run check:core-workflows
 
