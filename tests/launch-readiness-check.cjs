@@ -82,6 +82,7 @@ const jobDetailLayout = read("src/app/jobs/[jobId]/layout.tsx");
 const jobDetailPage = read("src/app/jobs/[jobId]/page.tsx");
 const jobDetailsService = read("src/lib/server/jobOperationalDetailsService.ts");
 const placementE2E = read("tests/candidate-multi-placement-check.cjs");
+const activityE2E = read("tests/application-activity-check.cjs");
 const robots = read("src/app/robots.ts");
 const sitemap = read("src/app/sitemap.ts");
 assert(
@@ -95,6 +96,11 @@ assert(
     placementE2E.includes('status: "DRAFT"') &&
     placementE2E.includes("CLEANUP_ATTEMPT_FAILED") &&
     placementE2E.includes("CLEANUP_FATAL") &&
+    activityE2E.includes("e2e-application-activity-") &&
+    activityE2E.includes("isTestData: true") &&
+    activityE2E.includes("CLEANUP_FINISHED") &&
+    !activityE2E.includes("hansung-yuseong-reception-20260813") &&
+    !activityE2E.includes("xnHT4sEYN2wFjOZIEIcP") &&
     jobDetailsService.includes("workplaceName") &&
     jobDetailsService.includes("employingCompany") &&
     jobDetailsService.includes("salaryBase") &&
