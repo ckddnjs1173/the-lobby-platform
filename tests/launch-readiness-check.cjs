@@ -79,14 +79,26 @@ assert(
 console.log("STEP_5: JOB_QUALITY_AND_SEARCH_DISCOVERY");
 const publicJobService = read("src/lib/server/publicJobService.ts");
 const jobDetailLayout = read("src/app/jobs/[jobId]/layout.tsx");
+const jobDetailPage = read("src/app/jobs/[jobId]/page.tsx");
 const jobDetailsService = read("src/lib/server/jobOperationalDetailsService.ts");
 const robots = read("src/app/robots.ts");
 const sitemap = read("src/app/sitemap.ts");
 assert(
   publicJobService.includes("workSchedule") &&
     publicJobService.includes("applicationDeadline") &&
-    jobDetailsService.includes("nearbyTransit") &&
+    publicJobService.includes("isPubliclyActiveJob") &&
+    publicJobService.includes('timeZone: "Asia/Seoul"') &&
+    publicJobService.includes("deadline >= todayInSeoul()") &&
+    jobDetailsService.includes("workplaceName") &&
+    jobDetailsService.includes("employingCompany") &&
+    jobDetailsService.includes("salaryBase") &&
+    jobDetailsService.includes("salaryIncentive") &&
+    jobDetailsService.includes("interviewSchedule") &&
+    jobDetailsService.includes("expectedStartDate") &&
     jobDetailsService.includes("benefits") &&
+    jobDetailPage.includes("근무·고용 핵심조건") &&
+    jobDetailPage.includes("J&C Recruiting") &&
+    !jobDetailPage.includes("The Lobby Curation") &&
     jobDetailLayout.includes('"@type": "JobPosting"') &&
     jobDetailLayout.includes("validThrough") &&
     jobDetailLayout.includes("schemaEmploymentType") &&

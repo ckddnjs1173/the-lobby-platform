@@ -26,6 +26,12 @@ export class JobOperationalDetailsServiceError extends Error {
 export interface JobOperationalDetailsView {
   jobId: string;
   organizationId: string;
+  workplaceName: string;
+  employingCompany: string;
+  salaryBase: string;
+  salaryIncentive: string;
+  salaryAllowances: string;
+  severancePay: string;
   workSchedule: string;
   workHours: string;
   breakTime: string;
@@ -38,6 +44,9 @@ export interface JobOperationalDetailsView {
   nearbyTransit: string;
   detailedLocation: string;
   applicationDeadline: string;
+  interviewSchedule: string;
+  expectedStartDate: string;
+  hiringScheduleNote: string;
   updatedAt: string | null;
 }
 
@@ -79,34 +88,40 @@ function sanitizeBenefits(value: unknown): string[] {
     );
   }
 
-  return Array.from(new Set(value.map((item) => {
-    if (typeof item !== "string") {
-      throw new JobOperationalDetailsServiceError(
-        "복리후생 항목은 문자열이어야 합니다.",
-        400,
-        "INVALID_BENEFITS"
-      );
-    }
-    const normalized = item.trim();
-    if (normalized.length > 120) {
-      throw new JobOperationalDetailsServiceError(
-        "복리후생 개별 항목은 120자를 초과할 수 없습니다.",
-        400,
-        "BENEFIT_TOO_LONG"
-      );
-    }
-    return normalized;
-  }).filter(Boolean))).slice(0, 20);
+  return Array.from(
+    new Set(
+      value
+        .map((item) => {
+          if (typeof item !== "string") {
+            throw new JobOperationalDetailsServiceError(
+              "복리후생 항목은 문자열이어야 합니다.",
+              400,
+              "INVALID_BENEFITS"
+            );
+          }
+          const normalized = item.trim();
+          if (normalized.length > 120) {
+            throw new JobOperationalDetailsServiceError(
+              "복리후생 개별 항목은 120자를 초과할 수 없습니다.",
+              400,
+              "BENEFIT_TOO_LONG"
+            );
+          }
+          return normalized;
+        })
+        .filter(Boolean)
+    )
+  ).slice(0, 20);
 }
 
-function sanitizeDeadline(value: unknown): string {
-  const normalized = sanitizeString(value, "채용 마감일", 20);
+function sanitizeDate(value: unknown, label: string): string {
+  const normalized = sanitizeString(value, label, 20);
   if (!normalized) return "";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
     throw new JobOperationalDetailsServiceError(
-      "채용 마감일은 YYYY-MM-DD 형식이어야 합니다.",
+      `${label}은(는) YYYY-MM-DD 형식이어야 합니다.`,
       400,
-      "INVALID_APPLICATION_DEADLINE"
+      "INVALID_JOB_DATE_FIELD"
     );
   }
   return normalized;
@@ -146,6 +161,12 @@ function toView(jobId: string, data: DocumentData): JobOperationalDetailsView {
   return {
     jobId,
     organizationId: stringValue(data.organizationId),
+    workplaceName: stringValue(data.workplaceName),
+    employingCompany: stringValue(data.employingCompany),
+    salaryBase: stringValue(data.salaryBase),
+    salaryIncentive: stringValue(data.salaryIncentive),
+    salaryAllowances: stringValue(data.salaryAllowances),
+    severancePay: stringValue(data.severancePay),
     workSchedule: stringValue(data.workSchedule),
     workHours: stringValue(data.workHours),
     breakTime: stringValue(data.breakTime),
@@ -155,11 +176,18 @@ function toView(jobId: string, data: DocumentData): JobOperationalDetailsView {
     educationLevel: stringValue(data.educationLevel),
     headcount: stringValue(data.headcount),
     benefits: Array.isArray(data.benefits)
-      ? data.benefits.filter((item: unknown): item is string => typeof item === "string").map((item: string) => item.trim()).filter(Boolean).slice(0, 20)
+      ? data.benefits
+          .filter((item: unknown): item is string => typeof item === "string")
+          .map((item: string) => item.trim())
+          .filter(Boolean)
+          .slice(0, 20)
       : [],
     nearbyTransit: stringValue(data.nearbyTransit),
     detailedLocation: stringValue(data.detailedLocation),
     applicationDeadline: stringValue(data.applicationDeadline),
+    interviewSchedule: stringValue(data.interviewSchedule),
+    expectedStartDate: stringValue(data.expectedStartDate),
+    hiringScheduleNote: stringValue(data.hiringScheduleNote),
     updatedAt: timestampToIso(data.updatedAt),
   };
 }
@@ -219,6 +247,12 @@ export async function updateJobOperationalDetails(
 
   const { jobId, ref } = await loadJob(actorUid, jobIdInput);
   const update = {
+    workplaceName: sanitizeString(rawInput.workplaceName, "근무처명", 200),
+    employingCompany: sanitizeString(rawInput.employingCompany, "소속회사", 200),
+    salaryBase: sanitizeString(rawInput.salaryBase, "기본급여", 200),
+    salaryIncentive: sanitizeString(rawInput.salaryIncentive, "성과급", 300),
+    salaryAllowances: sanitizeString(rawInput.salaryAllowances, "기타수당", 500),
+    severancePay: sanitizeString(rawInput.severancePay, "퇴직금 안내", 200),
     workSchedule: sanitizeString(rawInput.workSchedule, "근무요일", 160),
     workHours: sanitizeString(rawInput.workHours, "근무시간", 160),
     breakTime: sanitizeString(rawInput.breakTime, "휴게시간", 160),
@@ -230,7 +264,10 @@ export async function updateJobOperationalDetails(
     benefits: sanitizeBenefits(rawInput.benefits),
     nearbyTransit: sanitizeString(rawInput.nearbyTransit, "인근 교통", 200),
     detailedLocation: sanitizeString(rawInput.detailedLocation, "상세 근무지", 300),
-    applicationDeadline: sanitizeDeadline(rawInput.applicationDeadline),
+    applicationDeadline: sanitizeDate(rawInput.applicationDeadline, "채용 마감일"),
+    interviewSchedule: sanitizeString(rawInput.interviewSchedule, "면접일정", 300),
+    expectedStartDate: sanitizeDate(rawInput.expectedStartDate, "입사 예정일"),
+    hiringScheduleNote: sanitizeString(rawInput.hiringScheduleNote, "채용일정 비고", 500),
     updatedAt: FieldValue.serverTimestamp(),
   };
 

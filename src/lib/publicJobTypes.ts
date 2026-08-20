@@ -1,11 +1,17 @@
 export interface PublicJobView {
   jobId: string;
   displayCompany: string;
+  workplaceName?: string;
+  employingCompany?: string;
   title: string;
   description: string;
   requirements: string[];
   preferredQualifications: string[];
   salary: string;
+  salaryBase?: string;
+  salaryIncentive?: string;
+  salaryAllowances?: string;
+  severancePay?: string;
   location: string;
   employmentType: string;
   workSchedule?: string;
@@ -20,6 +26,9 @@ export interface PublicJobView {
   nearbyTransit?: string;
   detailedLocation?: string;
   applicationDeadline?: string;
+  interviewSchedule?: string;
+  expectedStartDate?: string;
+  hiringScheduleNote?: string;
   status: "OPEN";
   createdAt: string | null;
   updatedAt: string | null;

@@ -5,6 +5,12 @@ import { auth } from "./firebase";
 export interface JobOperationalDetailsView {
   jobId: string;
   organizationId: string;
+  workplaceName: string;
+  employingCompany: string;
+  salaryBase: string;
+  salaryIncentive: string;
+  salaryAllowances: string;
+  severancePay: string;
   workSchedule: string;
   workHours: string;
   breakTime: string;
@@ -17,6 +23,9 @@ export interface JobOperationalDetailsView {
   nearbyTransit: string;
   detailedLocation: string;
   applicationDeadline: string;
+  interviewSchedule: string;
+  expectedStartDate: string;
+  hiringScheduleNote: string;
   updatedAt: string | null;
 }
 
@@ -54,10 +63,7 @@ export class JobOperationalDetailsApiError extends Error {
   }
 }
 
-async function request<T>(
-  jobId: string,
-  init?: RequestInit
-): Promise<T> {
+async function request<T>(jobId: string, init?: RequestInit): Promise<T> {
   const user = auth.currentUser;
   if (!user) {
     throw new JobOperationalDetailsApiError(
