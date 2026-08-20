@@ -8,9 +8,7 @@ if (process.env.APPLY_HANSUNG_JOB_REFRESH !== CONFIRMATION) {
 }
 
 const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-if (!serviceAccountPath) {
-  throw new Error("GOOGLE_APPLICATION_CREDENTIALS_NOT_SET");
-}
+if (!serviceAccountPath) throw new Error("GOOGLE_APPLICATION_CREDENTIALS_NOT_SET");
 
 const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
 initializeApp({
@@ -51,16 +49,7 @@ function chooseUnique(target, matches) {
   if (matches.length === 1) return matches[0];
   const openMatches = matches.filter((item) => item.data.status === "OPEN");
   if (openMatches.length === 1) return openMatches[0];
-  throw new Error(
-    `JOB_MATCH_NOT_UNIQUE:${target.key}:${JSON.stringify(
-      matches.map((item) => ({
-        jobId: item.id,
-        status: item.data.status || null,
-        title: item.data.title || null,
-        location: item.data.location || null,
-      }))
-    )}`
-  );
+  throw new Error(`JOB_MATCH_NOT_UNIQUE:${target.key}`);
 }
 
 const shared = {
@@ -145,6 +134,11 @@ const targets = [
   },
 ];
 
+const staleTestJobIds = [
+  "33AuT8C2KXmsjjqrJgXC",
+  "FQxHqPh6EGdxE7EzVLd9",
+];
+
 async function run() {
   const snapshot = await db
     .collection("jobs")
@@ -166,60 +160,76 @@ async function run() {
     const matches = documents.filter((document) => targetMatches(document, target));
     console.log(
       `JOB_MATCH_CANDIDATES:${target.key}:${JSON.stringify(
-        matches.map((item) => ({
-          jobId: item.id,
-          status: item.data.status || null,
-          title: item.data.title || null,
-          location: item.data.location || null,
-        }))
+        matches.map((item) => ({ jobId: item.id, status: item.data.status || null, title: item.data.title || null }))
       )}`
     );
-
-    if (matches.length === 0) {
-      throw new Error(`JOB_MATCH_NOT_FOUND:${target.key}`);
-    }
-
+    if (matches.length === 0) throw new Error(`JOB_MATCH_NOT_FOUND:${target.key}`);
     return { target, document: chooseUnique(target, matches) };
   });
 
   const uniqueIds = new Set(resolved.map((item) => item.document.id));
-  if (uniqueIds.size !== resolved.length) {
-    throw new Error("JOB_MATCH_OVERLAP");
-  }
+  if (uniqueIds.size !== resolved.length) throw new Error("JOB_MATCH_OVERLAP");
+
+  const staleTestJobs = staleTestJobIds.map((jobId) => {
+    const document = documents.find((item) => item.id === jobId);
+    if (!document) return null;
+    const title = String(document.data.title || "");
+    const company = String(document.data.company || document.data.displayCompany || "");
+    if (
+      document.data.organizationId !== ORGANIZATION_ID ||
+      !title.startsWith("Phase3 Placement Job ") ||
+      company !== "Phase3 Placement Company"
+    ) {
+      throw new Error(`STALE_TEST_JOB_IDENTITY_MISMATCH:${jobId}`);
+    }
+    return document;
+  }).filter(Boolean);
 
   const batch = db.batch();
   for (const { target, document } of resolved) {
-    console.log(
-      `JOB_MATCH_RESOLVED:${target.key}:${document.id}:${document.data.status || "UNKNOWN"}:${document.data.title || ""}`
-    );
+    console.log(`JOB_MATCH_RESOLVED:${target.key}:${document.id}:${document.data.title || ""}`);
     batch.update(document.ref, {
       ...target.update,
       updatedAt: FieldValue.serverTimestamp(),
     });
   }
+
+  for (const document of staleTestJobs) {
+    console.log(`STALE_TEST_JOB_CLOSING:${document.id}:${document.data.title}`);
+    batch.update(document.ref, {
+      status: "CLOSED",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
+
   await batch.commit();
 
   for (const { target, document } of resolved) {
     const readback = await document.ref.get();
     const data = readback.data();
     if (!data) throw new Error(`JOB_READBACK_MISSING:${target.key}`);
-
     const expected = target.update;
-    const checks = [
-      data.title === expected.title,
-      data.workplaceName === expected.workplaceName,
-      data.employingCompany === expected.employingCompany,
-      data.salaryBase === expected.salaryBase,
-      data.detailedLocation === expected.detailedLocation,
-    ];
-    if (checks.some((value) => !value)) {
+    if (
+      data.title !== expected.title ||
+      data.workplaceName !== expected.workplaceName ||
+      data.employingCompany !== expected.employingCompany ||
+      data.salaryBase !== expected.salaryBase ||
+      data.detailedLocation !== expected.detailedLocation
+    ) {
       throw new Error(`JOB_READBACK_MISMATCH:${target.key}:${document.id}`);
     }
-
     console.log(`JOB_REFRESH_APPLIED:${target.key}:${document.id}:${data.title}`);
   }
 
-  console.log("HANSUNG_EXISTING_JOB_REFRESH_APPLIED");
+  for (const document of staleTestJobs) {
+    const readback = await document.ref.get();
+    if (readback.data()?.status !== "CLOSED") {
+      throw new Error(`STALE_TEST_JOB_CLOSE_READBACK_FAILED:${document.id}`);
+    }
+    console.log(`STALE_TEST_JOB_CLOSED:${document.id}`);
+  }
+
+  console.log("HANSUNG_EXISTING_JOB_REFRESH_AND_TEST_CLEANUP_APPLIED");
 }
 
 run().catch((error) => {
