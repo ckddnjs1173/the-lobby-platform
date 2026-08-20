@@ -1,0 +1,74 @@
+name: Cleanup Activity E2E Notes
+
+on:
+  push:
+    branches:
+      - ops/cleanup-activity-e2e-20260820
+    paths:
+      - scripts/cleanup-live-activity-e2e-notes.cjs
+      - .github/workflows/cleanup-activity-e2e.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Materialize Firebase Admin credentials
+        env:
+          FIREBASE_ADMIN_PROJECT_ID: ${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}
+          FIREBASE_ADMIN_CLIENT_EMAIL: ${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}
+          FIREBASE_ADMIN_PRIVATE_KEY: ${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          service_account = {
+              "type": "service_account",
+              "project_id": os.environ["FIREBASE_ADMIN_PROJECT_ID"],
+              "private_key": os.environ["FIREBASE_ADMIN_PRIVATE_KEY"].replace("\\n", "\n"),
+              "client_email": os.environ["FIREBASE_ADMIN_CLIENT_EMAIL"],
+              "token_uri": "https://oauth2.googleapis.com/token",
+          }
+          path = Path("/tmp/the-lobby-activity-cleanup-service-account.json")
+          path.write_text(json.dumps(service_account), encoding="utf-8")
+          PY
+
+      - name: Clean exact legacy activity E2E notes
+        env:
+          FIREBASE_ADMIN_PROJECT_ID: ${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/the-lobby-activity-cleanup-service-account.json
+        run: |
+          mkdir -p ops-results
+          node scripts/cleanup-live-activity-e2e-notes.cjs | tee ops-results/activity-e2e-cleanup-20260820.txt
+
+      - name: Persist verified result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- ops-results/activity-e2e-cleanup-20260820.txt
+          if git diff --cached --quiet; then
+            echo "No result change to commit"
+          else
+            git commit -m "Ops result: verify activity E2E note cleanup"
+            git push
+          fi
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f /tmp/the-lobby-activity-cleanup-service-account.json
