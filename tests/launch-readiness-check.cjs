@@ -81,6 +81,7 @@ const publicJobService = read("src/lib/server/publicJobService.ts");
 const jobDetailLayout = read("src/app/jobs/[jobId]/layout.tsx");
 const jobDetailPage = read("src/app/jobs/[jobId]/page.tsx");
 const jobDetailsService = read("src/lib/server/jobOperationalDetailsService.ts");
+const placementE2E = read("tests/candidate-multi-placement-check.cjs");
 const robots = read("src/app/robots.ts");
 const sitemap = read("src/app/sitemap.ts");
 assert(
@@ -89,6 +90,11 @@ assert(
     publicJobService.includes("isPubliclyActiveJob") &&
     publicJobService.includes('timeZone: "Asia/Seoul"') &&
     publicJobService.includes("deadline >= todayInSeoul()") &&
+    publicJobService.includes("data.isTestData === true") &&
+    placementE2E.includes("isTestData: true") &&
+    placementE2E.includes('status: "DRAFT"') &&
+    placementE2E.includes("CLEANUP_ATTEMPT_FAILED") &&
+    placementE2E.includes("CLEANUP_FATAL") &&
     jobDetailsService.includes("workplaceName") &&
     jobDetailsService.includes("employingCompany") &&
     jobDetailsService.includes("salaryBase") &&

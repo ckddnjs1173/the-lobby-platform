@@ -46,6 +46,7 @@ function todayInSeoul(): string {
 
 export function isPubliclyActiveJob(data: DocumentData): boolean {
   if (data.status !== "OPEN") return false;
+  if (data.isTestData === true) return false;
   const deadline = stringValue(data.applicationDeadline);
   if (!deadline || !/^\d{4}-\d{2}-\d{2}$/.test(deadline)) return true;
   return deadline >= todayInSeoul();
