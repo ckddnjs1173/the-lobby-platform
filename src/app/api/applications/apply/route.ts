@@ -4,6 +4,7 @@ import {
   ApplicationServiceError,
   createB2CApplication,
 } from "../../../../lib/server/applicationService";
+import { recordPublicEvent } from "../../../../lib/server/publicEventService";
 
 import {
   ServerAuthError,
@@ -74,9 +75,6 @@ export async function POST(
   request: Request
 ) {
   try {
-    /**
-     * Firebase ID Token 검증.
-     */
     const authenticatedUser =
       await requireFirebaseUser(
         request
@@ -118,15 +116,17 @@ export async function POST(
       );
     }
 
-    /**
-     * candidateId/source/authUid 등은
-     * 클라이언트 Body에서 받지 않는다.
-     */
+    const jobId = body.jobId.trim();
     const result =
       await createB2CApplication(
         authenticatedUser.uid,
-        body.jobId
+        jobId
       );
+
+    void recordPublicEvent(
+      "application_submitted",
+      `/jobs/${encodeURIComponent(jobId)}`
+    ).catch((error) => console.error("Application conversion event failed:", error));
 
     return NextResponse.json(
       {

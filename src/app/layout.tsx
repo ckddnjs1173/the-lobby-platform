@@ -2,10 +2,17 @@ import type { Metadata } from "next";
 import { Toaster } from "react-hot-toast";
 
 import CandidateNavigationIntentTracker from "../components/candidate/CandidateNavigationIntentTracker";
+import PublicAnalyticsTracker from "../components/public/PublicAnalyticsTracker";
 import "../styles/globals.css";
 import "../styles/visual-polish.css";
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.PRODUCTION_BASE_URL ||
+  "https://the-lobby-platform-ten.vercel.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "The Lobby | Premium Reception Career Studio",
   description: "리셉션·프론트·VIP 고객서비스 전문 채용과 커리어를 연결하는 The Lobby",
 };
@@ -19,6 +26,7 @@ export default function RootLayout({
     <html lang="ko" data-scroll-behavior="smooth">
       <body>
         <CandidateNavigationIntentTracker />
+        <PublicAnalyticsTracker />
         {children}
         <Toaster
           position="bottom-center"

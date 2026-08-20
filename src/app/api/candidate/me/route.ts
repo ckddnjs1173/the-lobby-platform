@@ -8,6 +8,12 @@ import {
   getCandidatePortalProfile,
   updateCandidatePortalProfile,
 } from "../../../../lib/server/candidatePortalService";
+import {
+  hasRegistrationConsentCookie,
+  isRegistrationConsentE2EBypassEnabled,
+  recordCandidateRegistrationConsent,
+} from "../../../../lib/server/candidateRegistrationConsentService";
+import { recordPublicEvent } from "../../../../lib/server/publicEventService";
 
 import {
   ServerAuthError,
@@ -93,6 +99,22 @@ export async function POST(
   try {
     const authenticatedUser =
       await requireFirebaseUser(request);
+    const e2eBypass =
+      isRegistrationConsentE2EBypassEnabled();
+    const hasConsent =
+      hasRegistrationConsentCookie(request);
+
+    if (!hasConsent && !e2eBypass) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "프로필 생성 전 필수 개인정보 및 이용약관 동의가 필요합니다.",
+          code: "REGISTRATION_CONSENT_REQUIRED",
+        },
+        { status: 400 }
+      );
+    }
+
     const body =
       await readJsonBody(request);
     const result =
@@ -101,6 +123,18 @@ export async function POST(
         authenticatedUser.email,
         body
       );
+
+    if (!e2eBypass) {
+      await recordCandidateRegistrationConsent(
+        result.profile.candidateId
+      );
+    }
+
+    if (result.created) {
+      void recordPublicEvent("profile_created", "/register").catch((error) =>
+        console.error("Profile conversion event failed:", error)
+      );
+    }
 
     return NextResponse.json(
       {

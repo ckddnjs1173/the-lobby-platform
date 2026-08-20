@@ -26,6 +26,10 @@ const adminPage = read("src/app/b2b-admin/page.tsx");
 const adminSlideOver = read("src/components/b2b-admin/ApplicationSlideOver.tsx");
 const envValidator = read("scripts/validate-production-env.cjs");
 const readinessRoute = read("src/app/api/readiness/route.ts");
+const publicHeader = read("src/components/public/PublicHeader.tsx");
+const featuredJobs = read("src/components/public/FeaturedJobs.tsx");
+const talentPoolPage = read("src/app/talent-pool/page.tsx");
+const talentPoolRegistrationEntry = read("src/app/talent-pool/register/page.tsx");
 
 console.log("STEP_1: CANDIDATE_AUTH_PROFILE_WORKFLOW");
 assert(
@@ -47,7 +51,7 @@ assert(
     jdComponent.includes("parseJobDescriptionFileViaApi") &&
     !jdComponent.includes("firebase/firestore") &&
     !jdComponent.includes("addDoc") &&
-    jdClient.includes('"/api/b2b/jobs/parse"') &&
+    jdClient.includes('\"/api/b2b/jobs/parse\"') &&
     jdRoute.includes("requireFirebaseUser") &&
     jdRoute.includes("requireB2BActor") &&
     jdRoute.includes("consumeRateLimit") &&
@@ -84,6 +88,21 @@ assert(
     readinessRoute.includes('communicationMode: emailAutomation ? "RESEND" : "MANUAL"') &&
     readinessRoute.includes("aiResumeAndJobParsing"),
   "MANUAL_COMMUNICATION_RELEASE_MODE_INCOMPLETE"
+);
+
+console.log("STEP_5: PUBLIC_TALENT_POOL_ACQUISITION_PATH");
+assert(
+  publicHeader.includes('{ href: "/talent-pool", label: "인재풀" }') &&
+    publicHeader.includes("인재풀 등록") &&
+    featuredJobs.includes('href="/talent-pool"') &&
+    featuredJobs.includes('href="/talent-pool/register"') &&
+    featuredJobs.includes("공고 없이 등록 가능") &&
+    talentPoolPage.includes('href="/talent-pool/register"') &&
+    talentPoolPage.includes("공고가 없어도") &&
+    talentPoolPage.includes("공개 여부") &&
+    talentPoolRegistrationEntry.includes('rememberCandidateReturnPath("/talent-pool/settings")') &&
+    talentPoolRegistrationEntry.includes('router.replace("/register")'),
+  "PUBLIC_TALENT_POOL_ACQUISITION_PATH_INCOMPLETE"
 );
 
 console.log("CORE_WORKFLOWS_RELEASE_CHECK_PASSED");
