@@ -5,7 +5,12 @@ test("public acquisition and legal routes render", async ({ page }) => {
   await expect(page.getByText("THE LOBBY").first()).toBeVisible();
 
   await page.goto("/talent-pool");
-  await expect(page.getByRole("heading", { name: /공고가 없어도/ })).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: "공고가 없어도, 먼저 연결될 준비를 하세요.",
+    })
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: /인재풀 프로필 등록/ })).toBeVisible();
 
   await page.goto("/privacy");

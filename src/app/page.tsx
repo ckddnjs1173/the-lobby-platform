@@ -18,8 +18,8 @@ const VALUE_PROPS = [
     description: "리셉션·프론트·VIP 응대 직무에 집중해 경험과 커리어 맥락까지 함께 봅니다.",
   },
   {
-    title: "검증된 Candidate Pool",
-    description: "프로필과 지원 이력을 바탕으로 후보자와 포지션을 더 정교하게 연결합니다.",
+    title: "축적되는 Candidate Pool",
+    description: "프로필과 지원 이력을 바탕으로 다음 포지션 검토까지 이어갑니다.",
   },
   {
     title: "채용 전 과정 연결",
@@ -77,17 +77,17 @@ export default function Home() {
                 <ArrowIcon />
               </Link>
               <Link
-                href="/register"
+                href="/talent-pool/register"
                 className="inline-flex min-h-[50px] items-center gap-3 rounded-lg border border-brand-gold/35 bg-white px-6 py-3 text-[14px] font-bold text-brand-bronze transition hover:border-brand-gold/60 hover:bg-brand-ivory"
               >
-                간편 프로필 등록
+                인재풀 등록
               </Link>
             </div>
 
             <div className="mt-10 grid max-w-[610px] grid-cols-3 border-t border-brand-line pt-6">
               {[
                 ["전문 직무", "리셉션·프론트 중심"],
-                ["맞춤 연결", "프로필 기반 추천"],
+                ["맞춤 연결", "희망조건 기반 검토"],
                 ["진행 관리", "지원부터 입사까지"],
               ].map(([title, description], index) => (
                 <div key={title} className={index > 0 ? "border-l border-brand-line pl-4 sm:pl-6" : "pr-4"}>
@@ -224,9 +224,9 @@ export default function Home() {
       <section className="mx-auto max-w-[1440px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 xl:px-12">
         <div className="mb-9 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-bronze">Recommended Jobs</p>
-            <h2 className="font-editorial mt-3 text-[36px] font-bold leading-tight tracking-[-0.03em] text-brand-espresso sm:text-[42px]">지금 추천하는 채용</h2>
-            <p className="mt-3 text-[14px] leading-6 text-brand-muted">현재 OPEN 상태의 최신 포지션을 바로 확인하세요.</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-bronze">Open Positions</p>
+            <h2 className="font-editorial mt-3 text-[36px] font-bold leading-tight tracking-[-0.03em] text-brand-espresso sm:text-[42px]">현재 채용 중인 포지션</h2>
+            <p className="mt-3 text-[14px] leading-6 text-brand-muted">현재 실제 지원 가능한 OPEN 포지션을 바로 확인하세요.</p>
           </div>
           <Link href="/jobs" className="inline-flex items-center gap-2 text-[14px] font-bold text-brand-bronze transition hover:text-brand-espresso">
             전체 채용 보기
@@ -260,7 +260,7 @@ export default function Home() {
               리셉션·고객서비스 인재 채용을 후보자 발굴부터 면접, 입사까지 체계적으로 운영합니다.
             </p>
             <Link href="/b2b-admin/login" className="mt-8 inline-flex items-center gap-2 rounded-lg border border-brand-gold/45 px-5 py-3 text-[13px] font-bold text-brand-cream transition hover:bg-white/10">
-              기업 서비스 보기
+              기업 로그인
               <ArrowIcon />
             </Link>
           </div>
@@ -270,7 +270,7 @@ export default function Home() {
       <section className="mx-auto max-w-[1440px] px-5 py-10 sm:px-8 lg:px-10 xl:px-12">
         <div className="grid gap-4 rounded-xl border border-brand-line bg-white px-6 py-6 md:grid-cols-3 md:px-8">
           {[
-            ["엄선된 전문 포지션", "리셉션·고객서비스 직무에 집중합니다."],
+            ["전문 직무 포지션", "리셉션·고객서비스 직무에 집중합니다."],
             ["지원자 보호", "지원 정보와 내부 채용 데이터의 경계를 지킵니다."],
             ["커리어 연결", "지원 이후의 과정까지 계속 이어집니다."],
           ].map(([title, description]) => (

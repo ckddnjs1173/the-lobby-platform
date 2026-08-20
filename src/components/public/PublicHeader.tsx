@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { href: "/jobs", label: "채용공고" },
   { href: "/talent-pool", label: "인재풀" },
   { href: "/candidate", label: "지원현황" },
-  { href: "/b2b-admin/login", label: "기업서비스" },
+  { href: "/b2b-admin/login", label: "기업 로그인" },
 ] as const;
 
 function LobbyMark() {
@@ -65,7 +65,7 @@ export default function PublicHeader() {
             로그인
           </Link>
           <Link
-            href="/register"
+            href="/talent-pool/register"
             className="hidden min-h-10 items-center gap-2 rounded-lg bg-brand-bronze px-4.5 py-2.5 text-[13px] font-semibold text-white shadow-card transition hover:bg-brand-espresso sm:inline-flex"
           >
             인재풀 등록 <span aria-hidden="true">→</span>
@@ -104,7 +104,7 @@ export default function PublicHeader() {
                 로그인
               </Link>
               <Link
-                href="/register"
+                href="/talent-pool/register"
                 onClick={() => setMobileOpen(false)}
                 className="rounded-lg bg-brand-bronze px-3 py-3 text-center text-[13px] font-semibold text-white"
               >
