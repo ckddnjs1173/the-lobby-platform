@@ -184,6 +184,16 @@ async function run() {
   }));
 
   console.log(`JNC_JOB_SCAN_COUNT:${documents.length}`);
+  console.log(
+    `JNC_JOB_INVENTORY:${JSON.stringify(
+      documents.map((item) => ({
+        jobId: item.id,
+        status: item.data.status || null,
+        title: item.data.title || null,
+        location: item.data.location || null,
+      }))
+    )}`
+  );
 
   const resolved = targets.map((target) => {
     const matches = documents.filter((document) => targetMatches(document, target));
