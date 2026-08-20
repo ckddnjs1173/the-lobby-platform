@@ -49,19 +49,17 @@ function targetMatches(document, target) {
 
 function chooseUnique(target, matches) {
   if (matches.length === 1) return matches[0];
-
   const openMatches = matches.filter((item) => item.data.status === "OPEN");
   if (openMatches.length === 1) return openMatches[0];
-
-  const diagnostic = matches.map((item) => ({
-    jobId: item.id,
-    status: item.data.status || null,
-    title: item.data.title || null,
-    location: item.data.location || null,
-  }));
-
   throw new Error(
-    `JOB_MATCH_NOT_UNIQUE:${target.key}:${JSON.stringify(diagnostic)}`
+    `JOB_MATCH_NOT_UNIQUE:${target.key}:${JSON.stringify(
+      matches.map((item) => ({
+        jobId: item.id,
+        status: item.data.status || null,
+        title: item.data.title || null,
+        location: item.data.location || null,
+      }))
+    )}`
   );
 }
 
@@ -117,6 +115,7 @@ const targets = [
   },
   {
     key: "anseong",
+    explicitIds: ["mM1tcG8eaqQV0w4QCqkD"],
     signals: ["안성서비스센터", "서동대로3976", "공도읍서동대로3976"],
     update: {
       ...shared,
@@ -144,31 +143,6 @@ const targets = [
         "전형절차: 서류검토 → 면접 → 입사 / 일정은 채용 상황에 따라 변경될 수 있습니다.",
     },
   },
-  {
-    key: "incheon-seogu",
-    signals: ["인천서구서비스센터", "북항로178번길4"],
-    update: {
-      ...shared,
-      title: "한성자동차㈜ 인천서구 서비스센터 리셉션",
-      workplaceName: "한성자동차㈜ 인천서구 서비스센터",
-      location: "인천 서구",
-      detailedLocation: "인천 서구 북항로178번길 4",
-      description: [
-        "서비스센터 방문 고객 응대 및 안내",
-        "차량 AS 접수 및 일정 관리",
-        "센터 관련 전화 문의 및 예약 접수",
-        "센터 내 상품 문의 및 비용 안내",
-      ].join("\n"),
-      requirements: ["책임감 있게 고객 응대 업무를 수행할 수 있는 분"],
-      preferredQualifications: [
-        "서비스센터 및 고객응대 경험자",
-        "1년 이상 근무 가능자",
-      ],
-      workSchedule: "주 5일 근무(월~금) / 주말·공휴일 근무 필수",
-      workHours: "평일 08:30~17:30 / 주말·공휴일 08:30~12:30",
-      hiringScheduleNote: "전형절차: 서류전형 → 면접 → 입사",
-    },
-  },
 ];
 
 async function run() {
@@ -185,14 +159,7 @@ async function run() {
 
   console.log(`JNC_JOB_SCAN_COUNT:${documents.length}`);
   console.log(
-    `JNC_JOB_INVENTORY:${JSON.stringify(
-      documents.map((item) => ({
-        jobId: item.id,
-        status: item.data.status || null,
-        title: item.data.title || null,
-        location: item.data.location || null,
-      }))
-    )}`
+    "INCHON_SEOGU_REFRESH_SKIPPED:existing_job_not_found_and_no_duplicate_creation_allowed"
   );
 
   const resolved = targets.map((target) => {
@@ -212,10 +179,7 @@ async function run() {
       throw new Error(`JOB_MATCH_NOT_FOUND:${target.key}`);
     }
 
-    return {
-      target,
-      document: chooseUnique(target, matches),
-    };
+    return { target, document: chooseUnique(target, matches) };
   });
 
   const uniqueIds = new Set(resolved.map((item) => item.document.id));
@@ -223,14 +187,11 @@ async function run() {
     throw new Error("JOB_MATCH_OVERLAP");
   }
 
+  const batch = db.batch();
   for (const { target, document } of resolved) {
     console.log(
       `JOB_MATCH_RESOLVED:${target.key}:${document.id}:${document.data.status || "UNKNOWN"}:${document.data.title || ""}`
     );
-  }
-
-  const batch = db.batch();
-  for (const { target, document } of resolved) {
     batch.update(document.ref, {
       ...target.update,
       updatedAt: FieldValue.serverTimestamp(),
@@ -241,9 +202,7 @@ async function run() {
   for (const { target, document } of resolved) {
     const readback = await document.ref.get();
     const data = readback.data();
-    if (!data) {
-      throw new Error(`JOB_READBACK_MISSING:${target.key}`);
-    }
+    if (!data) throw new Error(`JOB_READBACK_MISSING:${target.key}`);
 
     const expected = target.update;
     const checks = [
@@ -253,17 +212,14 @@ async function run() {
       data.salaryBase === expected.salaryBase,
       data.detailedLocation === expected.detailedLocation,
     ];
-
     if (checks.some((value) => !value)) {
       throw new Error(`JOB_READBACK_MISMATCH:${target.key}:${document.id}`);
     }
 
-    console.log(
-      `JOB_REFRESH_APPLIED:${target.key}:${document.id}:${data.title}`
-    );
+    console.log(`JOB_REFRESH_APPLIED:${target.key}:${document.id}:${data.title}`);
   }
 
-  console.log("HANSUNG_PUBLIC_JOB_REFRESH_APPLIED");
+  console.log("HANSUNG_EXISTING_JOB_REFRESH_APPLIED");
 }
 
 run().catch((error) => {
