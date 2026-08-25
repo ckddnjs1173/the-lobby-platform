@@ -1,7 +1,6 @@
 import Link from "next/link";
 
-const operatorName =
-  process.env.NEXT_PUBLIC_SERVICE_OPERATOR_NAME?.trim() || "제이앤씨";
+const operatorName = "박창원";
 const privacyContact =
   process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL?.trim() || "";
 
@@ -12,12 +11,12 @@ export default function PrivacyPage() {
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-brand-bronze">Privacy Policy</p>
         <h1 className="font-editorial mt-3 text-[38px] text-brand-espresso">개인정보 처리방침</h1>
         <p className="mt-4 text-sm leading-7 text-brand-muted">
-          {operatorName}가 운영하는 The Lobby는 후보자 채용 지원과 인재풀 운영에 필요한 개인정보를 아래 목적 범위에서 처리합니다.
+          {operatorName}이 개인 운영자로서 운영하는 The Lobby는 후보자 채용 지원과 인재풀 운영에 필요한 개인정보를 아래 목적 범위에서 처리합니다.
         </p>
 
         {!privacyContact ? (
           <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-800">
-            공개 운영 전 개인정보 보호 담당 연락처를 환경설정 <code>NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL</code>에 확정해야 합니다. 현재 페이지는 제품 구조와 고지 항목 검토용입니다.
+            서비스 운영자는 박창원으로 확정되어 있습니다. 공개 운영 전 개인정보 보호 담당 연락처를 환경설정 <code>NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL</code>에 확정해야 합니다. 현재 페이지는 제품 구조와 고지 항목 검토용입니다.
           </div>
         ) : null}
 

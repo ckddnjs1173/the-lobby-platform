@@ -1,7 +1,6 @@
 import Link from "next/link";
 
-const operatorName =
-  process.env.NEXT_PUBLIC_SERVICE_OPERATOR_NAME?.trim() || "제이앤씨";
+const operatorName = "박창원";
 
 export default function TermsPage() {
   return (
@@ -10,7 +9,7 @@ export default function TermsPage() {
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-brand-bronze">Terms of Service</p>
         <h1 className="font-editorial mt-3 text-[38px] text-brand-espresso">The Lobby 이용약관</h1>
         <p className="mt-4 text-sm leading-7 text-brand-muted">
-          본 약관은 {operatorName}가 운영하는 The Lobby Candidate 서비스의 기본 이용조건을 정합니다. 실제 공개 운영 전 사업자 정보와 분쟁처리 연락처를 최종 검토해야 합니다.
+          본 약관은 {operatorName}이 개인 운영자로서 운영하는 The Lobby Candidate 서비스의 기본 이용조건을 정합니다. 공개 운영 전 운영자 주소·연락처 및 사업자등록정보(해당하는 경우)를 최종 확인해야 합니다.
         </p>
 
         <div className="mt-9 space-y-8 text-sm leading-7 text-brand-ink/85">
@@ -21,7 +20,8 @@ export default function TermsPage() {
           <section><h2 className="text-base font-bold text-brand-espresso">5. 금지행위</h2><p className="mt-2">서비스의 정상 운영을 방해하는 자동화 요청, 타인의 개인정보 수집, 권한 없는 관리자 화면 접근 시도, 악성 코드 전송, 허위·불법 채용정보 또는 지원정보 등록 등은 금지됩니다.</p></section>
           <section><h2 className="text-base font-bold text-brand-espresso">6. 서비스 변경 및 중단</h2><p className="mt-2">보안, 유지보수, 시스템 장애, 외부 서비스 장애 또는 운영상 필요한 사유가 있는 경우 서비스 일부가 변경되거나 일시 중단될 수 있습니다.</p></section>
           <section><h2 className="text-base font-bold text-brand-espresso">7. 개인정보</h2><p className="mt-2">개인정보 처리에 관한 사항은 별도의 <Link href="/privacy" className="font-bold text-brand-bronze underline">개인정보 처리방침</Link>에 따릅니다.</p></section>
-          <section><h2 className="text-base font-bold text-brand-espresso">8. 약관 변경</h2><p className="mt-2">서비스 운영상 필요한 경우 관련 법령에 따라 약관을 변경할 수 있으며, 중요한 변경사항은 서비스 화면을 통해 고지합니다.</p></section>
+          <section><h2 className="text-base font-bold text-brand-espresso">8. 운영자 정보</h2><p className="mt-2">운영자: {operatorName}</p><p>주소·연락처 및 사업자등록정보(해당하는 경우)는 공개 운영 전 최종 확정하여 고지합니다.</p></section>
+          <section><h2 className="text-base font-bold text-brand-espresso">9. 약관 변경</h2><p className="mt-2">서비스 운영상 필요한 경우 관련 법령에 따라 약관을 변경할 수 있으며, 중요한 변경사항은 서비스 화면을 통해 고지합니다.</p></section>
         </div>
 
         <div className="mt-10 flex flex-wrap gap-3 border-t border-brand-line pt-6">
