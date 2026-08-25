@@ -1,0 +1,184 @@
+name: Ops Isolate Open E2E Jobs 2026-08-25
+
+on:
+  push:
+    branches:
+      - ops/isolate-open-e2e-jobs-20260825
+    paths:
+      - .github/workflows/ops-isolate-open-e2e-jobs-20260825.yml
+
+permissions:
+  contents: write
+
+jobs:
+  isolate-open-e2e-jobs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout product PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/launch-pool-foundation
+          fetch-depth: 0
+
+      - name: Guard expected head
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "689fe34ec0493207b489602e213c57b3ff6c86ec"
+
+      - name: Patch write-capable E2E job fixtures
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def read(path):
+              return Path(path).read_text(encoding="utf-8")
+
+          def write(path, text):
+              Path(path).write_text(text, encoding="utf-8")
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
+
+          def harden_outer_cleanup(path):
+              text = read(path)
+              start = text.find("async function cleanup() {")
+              end_marker = "\n}\n\nasync function run"
+              end = text.find(end_marker, start)
+              if end < 0:
+                  raise SystemExit(f"{path}: cleanup function boundary not found")
+              end += 2
+              block = text[start:end]
+              if "CLEANUP_FAILED:" not in block:
+                  raise SystemExit(f"{path}: CLEANUP_FAILED marker missing")
+              block = block.replace("CLEANUP_FAILED:", "CLEANUP_FATAL:", 1)
+              tail = "\n  }\n}"
+              pos = block.rfind(tail)
+              if pos < 0:
+                  raise SystemExit(f"{path}: cleanup catch tail missing")
+              block = block[:pos] + "\n    throw error;" + block[pos:]
+              write(path, text[:start] + block + text[end:])
+
+          # Phase 2 job-management: remain DRAFT until test flag is set; API PATCH still tests OPEN transition.
+          path = "tests/job-management-check.cjs"
+          text = read(path)
+          text = replace_once(
+              text,
+              "  createdJobId = created.jobId;\n\n  console.log(",
+              "  createdJobId = created.jobId;\n\n  await db\n    .collection(\"jobs\")\n    .doc(createdJobId)\n    .update({\n      isTestData: true,\n    });\n\n  console.log(",
+              "job-management test flag insertion",
+          )
+          write(path, text)
+          harden_outer_cleanup(path)
+
+          # Phase 2 direct application: never create a publicly visible OPEN test job.
+          path = "tests/b2b-direct-application-check.cjs"
+          text = read(path)
+          text = replace_once(text, '      status: "OPEN",', '      status: "DRAFT",', "b2b-direct DRAFT")
+          text = replace_once(
+              text,
+              "  createdJobId =\n    jobResult.parsed.data.jobId;\n\n  console.log(",
+              "  createdJobId =\n    jobResult.parsed.data.jobId;\n\n  await db\n    .collection(\"jobs\")\n    .doc(createdJobId)\n    .update({\n      isTestData: true,\n      status: \"OPEN\",\n    });\n\n  console.log(",
+              "b2b-direct isolated OPEN",
+          )
+          write(path, text)
+          harden_outer_cleanup(path)
+
+          # Phase 2 operations: same DRAFT -> test marker + OPEN sequence.
+          path = "tests/application-operations-check.cjs"
+          text = read(path)
+          text = replace_once(text, '      status: "OPEN",', '      status: "DRAFT",', "operations DRAFT")
+          text = replace_once(
+              text,
+              "  createdJobId =\n    jobResult.parsed.data.jobId;\n\n  console.log(",
+              "  createdJobId =\n    jobResult.parsed.data.jobId;\n\n  await db\n    .collection(\"jobs\")\n    .doc(createdJobId)\n    .update({\n      isTestData: true,\n      status: \"OPEN\",\n      updatedAt: FieldValue.serverTimestamp(),\n    });\n\n  console.log(",
+              "operations isolated OPEN",
+          )
+          write(path, text)
+          harden_outer_cleanup(path)
+
+          # Phase 3 CRM profile: same isolation; this was the fixture caught by Browser #74.
+          path = "tests/candidate-crm-profile-check.cjs"
+          text = read(path)
+          text = replace_once(text, '      status: "OPEN",', '      status: "DRAFT",', "crm-profile DRAFT")
+          text = replace_once(
+              text,
+              "  createdJobId =\n    jobResult.parsed.data.jobId;\n\n  const candidateResult = await callApi(",
+              "  createdJobId =\n    jobResult.parsed.data.jobId;\n\n  await db\n    .collection(\"jobs\")\n    .doc(createdJobId)\n    .update({\n      isTestData: true,\n      status: \"OPEN\",\n      updatedAt: FieldValue.serverTimestamp(),\n    });\n\n  const candidateResult = await callApi(",
+              "crm-profile isolated OPEN",
+          )
+          write(path, text)
+          harden_outer_cleanup(path)
+
+          # Phase 8 public-apply fixture may stay OPEN because applicationService reads the job directly,
+          # but it must be excluded from public discovery from the moment it is created.
+          path = "tests/phase8-candidate-portal-e2e.cjs"
+          text = read(path)
+          text = replace_once(
+              text,
+              '      employmentType: "정규직",\n      status: "OPEN",',
+              '      employmentType: "정규직",\n      isTestData: true,\n      status: "OPEN",',
+              "phase8 isTestData",
+          )
+          text = replace_once(
+              text,
+              '    console.error(\n      "PHASE8_FIRESTORE_CLEANUP_FAILED:",\n      error\n    );',
+              '    console.error(\n      "PHASE8_FIRESTORE_CLEANUP_FATAL:",\n      error\n    );\n    process.exitCode = 1;',
+              "phase8 firestore cleanup hard fail",
+          )
+          text = replace_once(
+              text,
+              '        console.error(\n          "PHASE8_AUTH_CLEANUP_FAILED:",\n          uid,\n          error\n        );',
+              '        console.error(\n          "PHASE8_AUTH_CLEANUP_FATAL:",\n          uid,\n          error\n        );\n        process.exitCode = 1;',
+              "phase8 auth cleanup hard fail",
+          )
+          write(path, text)
+
+          # Permanent launch gate: every release test that can open a job must prove public isolation.
+          path = "tests/launch-readiness-check.cjs"
+          text = read(path)
+          text = replace_once(
+              text,
+              'const placementE2E = read("tests/candidate-multi-placement-check.cjs");\nconst activityE2E = read("tests/application-activity-check.cjs");',
+              'const placementE2E = read("tests/candidate-multi-placement-check.cjs");\nconst jobManagementE2E = read("tests/job-management-check.cjs");\nconst directApplicationE2E = read("tests/b2b-direct-application-check.cjs");\nconst applicationOperationsE2E = read("tests/application-operations-check.cjs");\nconst candidateCrmE2E = read("tests/candidate-crm-profile-check.cjs");\nconst phase8CandidatePortalE2E = read("tests/phase8-candidate-portal-e2e.cjs");\nconst activityE2E = read("tests/application-activity-check.cjs");',
+              "launch gate E2E reads",
+          )
+          text = replace_once(
+              text,
+              '    placementE2E.includes("CLEANUP_FATAL") &&\n    activityE2E.includes("e2e-application-activity-") &&',
+              '    placementE2E.includes("CLEANUP_FATAL") &&\n    jobManagementE2E.includes("isTestData: true") &&\n    jobManagementE2E.includes(\'status: "DRAFT"\') &&\n    jobManagementE2E.includes("CLEANUP_FATAL") &&\n    directApplicationE2E.includes("isTestData: true") &&\n    directApplicationE2E.includes(\'status: "DRAFT"\') &&\n    directApplicationE2E.includes("CLEANUP_FATAL") &&\n    applicationOperationsE2E.includes("isTestData: true") &&\n    applicationOperationsE2E.includes(\'status: "DRAFT"\') &&\n    applicationOperationsE2E.includes("CLEANUP_FATAL") &&\n    candidateCrmE2E.includes("isTestData: true") &&\n    candidateCrmE2E.includes(\'status: "DRAFT"\') &&\n    candidateCrmE2E.includes("CLEANUP_FATAL") &&\n    phase8CandidatePortalE2E.includes("isTestData: true") &&\n    phase8CandidatePortalE2E.includes("PHASE8_FIRESTORE_CLEANUP_FATAL") &&\n    activityE2E.includes("e2e-application-activity-") &&',
+              "launch gate isolation assertions",
+          )
+          write(path, text)
+          PY
+
+      - name: Verify patched test syntax and static launch gate
+        shell: bash
+        run: |
+          node --check tests/job-management-check.cjs
+          node --check tests/b2b-direct-application-check.cjs
+          node --check tests/application-operations-check.cjs
+          node --check tests/candidate-crm-profile-check.cjs
+          node --check tests/phase8-candidate-portal-e2e.cjs
+          node --check tests/launch-readiness-check.cjs
+          node tests/launch-readiness-check.cjs
+          git diff --check
+
+      - name: Commit product-branch isolation fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- \
+            tests/job-management-check.cjs \
+            tests/b2b-direct-application-check.cjs \
+            tests/application-operations-check.cjs \
+            tests/candidate-crm-profile-check.cjs \
+            tests/phase8-candidate-portal-e2e.cjs \
+            tests/launch-readiness-check.cjs
+          git commit -m "Test: isolate all release OPEN job fixtures"
+          git push origin HEAD:agent/launch-pool-foundation
