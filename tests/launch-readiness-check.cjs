@@ -195,4 +195,31 @@ assert(
   "PERMANENT_BROWSER_GATE_INCOMPLETE"
 );
 
+
+const publicRegisterSource = fs.readFileSync("src/app/register/page.tsx", "utf8");
+const publicResumeRouteSource = fs.readFileSync("src/app/api/ai-parse-resume/route.ts", "utf8");
+const privacyPolicySource = fs.readFileSync("src/app/privacy/page.tsx", "utf8");
+
+for (const requiredSnippet of [
+  "aiTransferConsent",
+  "AI 이력서 분석 및 국외 처리 동의",
+  "Groq LLC",
+  "최대 30일",
+  "직접 입력",
+]) {
+  if (!publicRegisterSource.includes(requiredSnippet)) {
+    throw new Error(`PUBLIC_AI_RESUME_TRANSFER_DISCLOSURE_MISSING:${requiredSnippet}`);
+  }
+}
+
+if (!publicResumeRouteSource.includes("Groq LLC의 미국 인프라")) {
+  throw new Error("PUBLIC_AI_RESUME_API_NOTICE_MISSING");
+}
+
+for (const requiredSnippet of ["AI 이력서 분석 시 국외 처리", "Groq LLC", "최대 30일"]) {
+  if (!privacyPolicySource.includes(requiredSnippet)) {
+    throw new Error(`PRIVACY_AI_TRANSFER_DISCLOSURE_MISSING:${requiredSnippet}`);
+  }
+}
+
 console.log("LAUNCH_READINESS_CHECK_PASSED");

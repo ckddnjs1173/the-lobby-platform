@@ -142,7 +142,7 @@ export async function POST(request: Request) {
         data: result.parsed,
         source: result.source,
         notice:
-          "입력한 이력서 원문과 업로드 원본 파일은 프로필 구조화에만 사용되며 The Lobby Firestore에는 저장하지 않습니다.",
+          "입력한 이력서 원문은 Groq LLC의 미국 인프라에서 AI 구조화에 사용될 수 있으며, 업로드 원본 파일 자체와 이력서 원문은 The Lobby Firestore에 저장하지 않습니다.",
       },
       {
         headers: rateLimitHeaders,
