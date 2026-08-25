@@ -146,9 +146,9 @@ test("public inventory contains only current publishable positions", async ({ re
 
     if (/^\d{4}-\d{2}-\d{2}$/.test(job.applicationDeadline || "")) {
       expect(
-        job.applicationDeadline,
+        job.applicationDeadline >= today,
         `Expired OPEN job leaked publicly: ${job.jobId}`
-      ).toBeGreaterThanOrEqual(today);
+      ).toBeTruthy();
     }
   }
 });
