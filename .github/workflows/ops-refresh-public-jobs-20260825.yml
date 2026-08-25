@@ -1,0 +1,42 @@
+name: Ops Refresh Public Jobs 2026-08-25
+
+on:
+  push:
+    branches:
+      - ops/refresh-public-jobs-20260825
+    paths:
+      - scripts/ops/refresh-public-jobs-20260825.cjs
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-public-jobs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FIREBASE_ADMIN_PROJECT_ID: ${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}
+      FIREBASE_ADMIN_CLIENT_EMAIL: ${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}
+      FIREBASE_ADMIN_PRIVATE_KEY: ${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Refresh exact public jobs and persist audit result
+        shell: bash
+        run: |
+          mkdir -p ops-results
+          set +e
+          node scripts/ops/refresh-public-jobs-20260825.cjs 2>&1 | tee ops-results/public-jobs-refresh-20260825.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops-results/public-jobs-refresh-20260825.txt
+          git commit -m "Ops result: public job refresh 2026-08-25" || true
+          git push origin HEAD:ops/refresh-public-jobs-20260825
+          exit "$status"
