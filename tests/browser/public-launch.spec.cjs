@@ -36,6 +36,47 @@ async function expectNoHorizontalOverflow(page) {
   ).toBeLessThanOrEqual(metrics.viewportWidth + 1);
 }
 
+async function expectReadableTypography(page, label) {
+  const violations = await page.evaluate(() => {
+    const candidates = Array.from(document.querySelectorAll("header *, main *"));
+
+    return candidates
+      .filter((element) => {
+        if (["SCRIPT", "STYLE", "NOSCRIPT", "SVG", "PATH"].includes(element.tagName)) return false;
+        const directText = Array.from(element.childNodes)
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.textContent || "")
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (!directText) return false;
+
+        const style = window.getComputedStyle(element);
+        if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) return false;
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      })
+      .map((element) => {
+        const style = window.getComputedStyle(element);
+        const directText = Array.from(element.childNodes)
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.textContent || "")
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim();
+        return {
+          tag: element.tagName.toLowerCase(),
+          text: directText.slice(0, 80),
+          fontSize: Number.parseFloat(style.fontSize),
+        };
+      })
+      .filter((item) => Number.isFinite(item.fontSize) && item.fontSize < 10.5)
+      .slice(0, 20);
+  });
+
+  expect(violations, `${label} has visible text below the 10.5px readability floor`).toEqual([]);
+}
+
 test("public acquisition and legal routes render", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("THE LOBBY").first()).toBeVisible();
@@ -54,6 +95,17 @@ test("public acquisition and legal routes render", async ({ page }) => {
 
   await page.goto("/terms");
   await expect(page.getByRole("heading", { name: "The Lobby 이용약관" })).toBeVisible();
+});
+
+test("public typography keeps visible copy above the readability floor", async ({ page, request }) => {
+  const routes = ["/", "/jobs", "/talent-pool", "/privacy", "/terms"];
+  const jobs = await fetchOpenJobs(request);
+  if (jobs[0]?.jobId) routes.push(`/jobs/${encodeURIComponent(jobs[0].jobId)}`);
+
+  for (const route of routes) {
+    await page.goto(route);
+    await expectReadableTypography(page, route);
+  }
 });
 
 test("talent-pool onboarding requires explicit registration consent", async ({ page }) => {
@@ -197,6 +249,7 @@ test.describe("mobile public journey", () => {
       page.getByRole("heading", { level: 1, name: /리셉션·고객서비스/ })
     ).toBeVisible();
     await expectNoHorizontalOverflow(page);
+    await expectReadableTypography(page, "mobile home");
 
     await page.getByRole("button", { name: "메뉴 열기" }).click();
     const mobileNav = page.getByRole("navigation", { name: "모바일 주요 메뉴" });
@@ -208,6 +261,7 @@ test.describe("mobile public journey", () => {
     await expect(page).toHaveURL(/\/jobs$/);
     await expect(page.getByRole("heading", { level: 1, name: "채용공고 탐색" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
+    await expectReadableTypography(page, "mobile jobs");
 
     const jobs = await fetchOpenJobs(request);
     expect(jobs.length).toBeGreaterThan(0);
@@ -217,5 +271,6 @@ test.describe("mobile public journey", () => {
     await expect(page.getByRole("heading", { name: job.title })).toBeVisible();
     await expect(page.getByText("근무·고용 핵심조건")).toBeVisible();
     await expectNoHorizontalOverflow(page);
+    await expectReadableTypography(page, "mobile job detail");
   });
 });
