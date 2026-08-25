@@ -15,6 +15,7 @@ function staticEntries(siteUrl: string): MetadataRoute.Sitemap {
   return [
     { url: `${siteUrl}/`, changeFrequency: "weekly", priority: 1 },
     { url: `${siteUrl}/jobs`, changeFrequency: "daily", priority: 0.9 },
+    { url: `${siteUrl}/careers`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${siteUrl}/talent-pool`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${siteUrl}/privacy`, changeFrequency: "monthly", priority: 0.3 },
     { url: `${siteUrl}/terms`, changeFrequency: "monthly", priority: 0.3 },

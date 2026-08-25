@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 const NAV_ITEMS = [
   { href: "/", label: "홈" },
   { href: "/jobs", label: "채용공고" },
+  { href: "/careers", label: "커리어 가이드" },
   { href: "/talent-pool", label: "인재풀" },
   { href: "/candidate", label: "지원현황" },
   { href: "/b2b-admin/login", label: "기업 로그인" },
@@ -41,7 +42,7 @@ export default function PublicHeader() {
           </div>
         </Link>
 
-        <nav className="hidden items-center gap-8 xl:flex" aria-label="주요 메뉴">
+        <nav className="hidden items-center gap-6 xl:flex" aria-label="주요 메뉴">
           {NAV_ITEMS.map((item) => (
             <Link
               key={`${item.href}-${item.label}`}
