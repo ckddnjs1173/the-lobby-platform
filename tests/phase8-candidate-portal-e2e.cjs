@@ -327,9 +327,10 @@ async function cleanup() {
     await batch.commit();
   } catch (error) {
     console.error(
-      "PHASE8_FIRESTORE_CLEANUP_FAILED:",
+      "PHASE8_FIRESTORE_CLEANUP_FATAL:",
       error
     );
+    process.exitCode = 1;
   }
 
   for (const uid of [
@@ -343,10 +344,11 @@ async function cleanup() {
         error?.code !== "auth/user-not-found"
       ) {
         console.error(
-          "PHASE8_AUTH_CLEANUP_FAILED:",
+          "PHASE8_AUTH_CLEANUP_FATAL:",
           uid,
           error
         );
+        process.exitCode = 1;
       }
     }
   }
@@ -496,6 +498,7 @@ async function main() {
       salary: "협의",
       location: "서울",
       employmentType: "정규직",
+      isTestData: true,
       status: "OPEN",
       recruiterId: "e2e-recruiter-jnc",
       createdAt: Timestamp.fromMillis(now),

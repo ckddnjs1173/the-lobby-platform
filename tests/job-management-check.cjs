@@ -144,11 +144,12 @@ async function cleanup() {
     );
   } catch (error) {
     console.error(
-      "CLEANUP_FAILED:",
+      "CLEANUP_FATAL:",
       error instanceof Error
         ? error.message
         : error
     );
+    throw error;
   }
 }
 
@@ -237,6 +238,13 @@ async function run() {
   }
 
   createdJobId = created.jobId;
+
+  await db
+    .collection("jobs")
+    .doc(createdJobId)
+    .update({
+      isTestData: true,
+    });
 
   console.log(
     "CREATED_JOB_ID:",

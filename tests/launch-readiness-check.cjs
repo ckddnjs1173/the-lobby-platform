@@ -82,6 +82,11 @@ const jobDetailLayout = read("src/app/jobs/[jobId]/layout.tsx");
 const jobDetailPage = read("src/app/jobs/[jobId]/page.tsx");
 const jobDetailsService = read("src/lib/server/jobOperationalDetailsService.ts");
 const placementE2E = read("tests/candidate-multi-placement-check.cjs");
+const jobManagementE2E = read("tests/job-management-check.cjs");
+const directApplicationE2E = read("tests/b2b-direct-application-check.cjs");
+const applicationOperationsE2E = read("tests/application-operations-check.cjs");
+const candidateCrmE2E = read("tests/candidate-crm-profile-check.cjs");
+const phase8CandidatePortalE2E = read("tests/phase8-candidate-portal-e2e.cjs");
 const activityE2E = read("tests/application-activity-check.cjs");
 const authorizationStageE2E = read("tests/authorization-stage-check.cjs");
 const robots = read("src/app/robots.ts");
@@ -97,6 +102,20 @@ assert(
     placementE2E.includes('status: "DRAFT"') &&
     placementE2E.includes("CLEANUP_ATTEMPT_FAILED") &&
     placementE2E.includes("CLEANUP_FATAL") &&
+    jobManagementE2E.includes("isTestData: true") &&
+    jobManagementE2E.includes('status: "DRAFT"') &&
+    jobManagementE2E.includes("CLEANUP_FATAL") &&
+    directApplicationE2E.includes("isTestData: true") &&
+    directApplicationE2E.includes('status: "DRAFT"') &&
+    directApplicationE2E.includes("CLEANUP_FATAL") &&
+    applicationOperationsE2E.includes("isTestData: true") &&
+    applicationOperationsE2E.includes('status: "DRAFT"') &&
+    applicationOperationsE2E.includes("CLEANUP_FATAL") &&
+    candidateCrmE2E.includes("isTestData: true") &&
+    candidateCrmE2E.includes('status: "DRAFT"') &&
+    candidateCrmE2E.includes("CLEANUP_FATAL") &&
+    phase8CandidatePortalE2E.includes("isTestData: true") &&
+    phase8CandidatePortalE2E.includes("PHASE8_FIRESTORE_CLEANUP_FATAL") &&
     activityE2E.includes("e2e-application-activity-") &&
     activityE2E.includes("isTestData: true") &&
     activityE2E.includes("CLEANUP_FINISHED") &&

@@ -323,11 +323,12 @@ async function cleanup() {
     );
   } catch (error) {
     console.error(
-      "CLEANUP_FAILED:",
+      "CLEANUP_FATAL:",
       error instanceof Error
         ? error.stack || error.message
         : error
     );
+    throw error;
   }
 }
 
@@ -366,7 +367,7 @@ async function run() {
       salary: "협의",
       location: "서울",
       employmentType: "정규직",
-      status: "OPEN",
+      status: "DRAFT",
     }
   );
 
@@ -387,6 +388,15 @@ async function run() {
 
   createdJobId =
     jobResult.parsed.data.jobId;
+
+  await db
+    .collection("jobs")
+    .doc(createdJobId)
+    .update({
+      isTestData: true,
+      status: "OPEN",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
 
   console.log(
     "STEP_2: CREATE_PASSIVE_CANDIDATE"
