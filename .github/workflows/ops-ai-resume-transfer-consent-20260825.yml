@@ -1,4 +1,4 @@
-name: Ops AI Resume Transfer Consent 2026-08-25
+name: Ops Firestore Location Audit 2026-08-25
 
 on:
   push:
@@ -6,107 +6,65 @@ on:
       - ops/ai-resume-transfer-consent-20260825
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch-product-branch:
+  firestore-location:
     runs-on: ubuntu-latest
     env:
-      NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyDUMMYBUILDONLY000000000000000000
-      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: dummy.firebaseapp.com
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: dummy-build-project
-      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: dummy-build-project.appspot.com
-      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
-      NEXT_PUBLIC_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000000000"
-      GROQ_API_KEY: build-only
+      FIREBASE_ADMIN_PROJECT_ID: ${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}
+      FIREBASE_ADMIN_CLIENT_EMAIL: ${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}
+      FIREBASE_ADMIN_PRIVATE_KEY: ${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
     steps:
-      - name: Checkout product branch
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          ref: agent/launch-pool-foundation
-          fetch-depth: 0
+          node-version: 22
+          cache: npm
 
-      - name: Guard expected head
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Read default Firestore database metadata
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = "01f01f1a0e36e13b224cf215489a48472caaa8c1"
+          node - <<'NODE'
+          const { initializeApp, cert, deleteApp } = require('firebase-admin/app');
 
-      - name: Enforce AI transfer consent at API boundary
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
+          const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
+          const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+          const privateKey = (process.env.FIREBASE_ADMIN_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+          if (!projectId || !clientEmail || !privateKey) {
+            throw new Error('FIREBASE_ADMIN_SECRETS_MISSING');
+          }
 
-          register = Path('src/app/register/page.tsx')
-          text = register.read_text(encoding='utf-8')
-          old = '        headers: { "Content-Type": "application/json" },\n        body: JSON.stringify({ resumeText: source }),' 
-          new = '        headers: { "Content-Type": "application/json", "X-AI-Transfer-Consent": "groq-us-2026-08-25" },\n        body: JSON.stringify({ resumeText: source }),' 
-          if old not in text or '"X-AI-Transfer-Consent": "groq-us-2026-08-25"' in text:
-              raise SystemExit('REGISTER_JSON_HEADER_GUARD_FAILED')
-          text = text.replace(old, new, 1)
+          const app = initializeApp({
+            credential: cert({ projectId, clientEmail, privateKey }),
+            projectId,
+          });
 
-          old = '''      const response = await fetch("/api/ai-parse-resume", {\n        method: "POST",\n        body: formData,\n      });'''
-          new = '''      const response = await fetch("/api/ai-parse-resume", {\n        method: "POST",\n        headers: { "X-AI-Transfer-Consent": "groq-us-2026-08-25" },\n        body: formData,\n      });'''
-          if old not in text:
-              raise SystemExit('REGISTER_FILE_HEADER_GUARD_FAILED')
-          text = text.replace(old, new, 1)
-          register.write_text(text, encoding='utf-8')
-
-          route = Path('src/app/api/ai-parse-resume/route.ts')
-          text = route.read_text(encoding='utf-8')
-          old = 'const MAX_MULTIPART_REQUEST_BYTES = MAX_RESUME_FILE_BYTES + 1024 * 1024;\n'
-          new = old + 'const AI_TRANSFER_CONSENT_HEADER = "x-ai-transfer-consent";\nconst AI_TRANSFER_CONSENT_VERSION = "groq-us-2026-08-25";\n'
-          if old not in text or 'AI_TRANSFER_CONSENT_REQUIRED' in text:
-              raise SystemExit('ROUTE_CONSTANT_GUARD_FAILED')
-          text = text.replace(old, new, 1)
-
-          old = '''export async function POST(request: Request) {\n  const clientKey = getRequestClientKey(request);'''
-          new = '''export async function POST(request: Request) {\n  if (\n    request.headers.get(AI_TRANSFER_CONSENT_HEADER) !==\n    AI_TRANSFER_CONSENT_VERSION\n  ) {\n    return NextResponse.json(\n      {\n        success: false,\n        error: "AI 이력서 분석을 이용하려면 미국 국외 처리 안내에 동의해야 합니다.",\n        code: "AI_TRANSFER_CONSENT_REQUIRED",\n      },\n      { status: 400 }\n    );\n  }\n\n  const clientKey = getRequestClientKey(request);'''
-          if old not in text:
-              raise SystemExit('ROUTE_POST_GUARD_FAILED')
-          text = text.replace(old, new, 1)
-          route.write_text(text, encoding='utf-8')
-
-          browser = Path('tests/browser/public-launch.spec.cjs')
-          text = browser.read_text(encoding='utf-8')
-          old = '''  await expect(page).toHaveURL(/\\/register$/);\n  await expect(page.getByText("프로필 등록").first()).toBeVisible();\n});'''
-          new = '''  await expect(page).toHaveURL(/\\/register$/);\n  await expect(page.getByText("프로필 등록").first()).toBeVisible();\n  await expect(page.getByText("AI 이력서 분석 및 국외 처리 동의 (선택)")).toBeVisible();\n  await expect(page.getByRole("checkbox")).toHaveCount(1);\n});'''
-          if old not in text:
-              raise SystemExit('BROWSER_UI_DISCLOSURE_GUARD_FAILED')
-          text = text.replace(old, new, 1)
-
-          marker = 'test("search discovery endpoints are published", async ({ request }) => {'
-          test_block = '''test("AI resume parser rejects missing overseas-transfer consent", async ({ request }) => {\n  const response = await request.post("/api/ai-parse-resume", {\n    data: { resumeText: "이름: 테스트 후보자" },\n  });\n  expect(response.status()).toBe(400);\n  const payload = await response.json();\n  expect(payload?.code).toBe("AI_TRANSFER_CONSENT_REQUIRED");\n});\n\n'''
-          if marker not in text or 'AI resume parser rejects missing overseas-transfer consent' in text:
-              raise SystemExit('BROWSER_API_CONSENT_GUARD_FAILED')
-          text = text.replace(marker, test_block + marker, 1)
-          browser.write_text(text, encoding='utf-8')
-
-          launch = Path('tests/launch-readiness-check.cjs')
-          text = launch.read_text(encoding='utf-8')
-          marker = 'console.log("LAUNCH_READINESS_CHECK_PASSED");'
-          guard = '''\nif (\n  !publicRegisterSource.includes("X-AI-Transfer-Consent") ||\n  !publicRegisterSource.includes("groq-us-2026-08-25") ||\n  !publicResumeRouteSource.includes("AI_TRANSFER_CONSENT_REQUIRED") ||\n  !publicResumeRouteSource.includes("AI_TRANSFER_CONSENT_VERSION")\n) {\n  throw new Error("PUBLIC_AI_RESUME_SERVER_CONSENT_ENFORCEMENT_MISSING");\n}\n\nconst browserGateSource = fs.readFileSync("tests/browser/public-launch.spec.cjs", "utf8");\nif (\n  !browserGateSource.includes("AI resume parser rejects missing overseas-transfer consent") ||\n  !browserGateSource.includes("AI_TRANSFER_CONSENT_REQUIRED")\n) {\n  throw new Error("PUBLIC_AI_RESUME_CONSENT_BROWSER_GATE_MISSING");\n}\n\n'''
-          if marker not in text or 'PUBLIC_AI_RESUME_SERVER_CONSENT_ENFORCEMENT_MISSING' in text:
-              raise SystemExit('LAUNCH_SERVER_GATE_GUARD_FAILED')
-          text = text.replace(marker, guard + marker, 1)
-          launch.write_text(text, encoding='utf-8')
-          PY
-
-      - name: Verify syntax, launch gate and production build
-        shell: bash
-        run: |
-          node --check tests/launch-readiness-check.cjs
-          node --check tests/browser/public-launch.spec.cjs
-          npm ci
-          npm run check:launch-readiness
-          npm run build
-
-      - name: Commit product branch change
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/app/register/page.tsx src/app/api/ai-parse-resume/route.ts tests/browser/public-launch.spec.cjs tests/launch-readiness-check.cjs
-          git diff --cached --check
-          git commit -m "Privacy: enforce AI resume transfer consent"
-          git push origin HEAD:agent/launch-pool-foundation
+          (async () => {
+            try {
+              const token = await app.options.credential.getAccessToken();
+              const response = await fetch(
+                `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)`,
+                { headers: { Authorization: `Bearer ${token.access_token}` } }
+              );
+              const body = await response.json();
+              if (!response.ok) {
+                throw new Error(`FIRESTORE_DATABASE_METADATA_FAILED:${response.status}:${body?.error?.message || 'unknown'}`);
+              }
+              console.log('FIRESTORE_LOCATION_ID:', body.locationId || 'UNKNOWN');
+              console.log('FIRESTORE_DATABASE_TYPE:', body.type || 'UNKNOWN');
+              console.log('FIRESTORE_DELETE_PROTECTION:', body.deleteProtectionState || 'UNKNOWN');
+            } finally {
+              await deleteApp(app);
+            }
+          })().catch((error) => {
+            console.error(error instanceof Error ? error.message : error);
+            process.exit(1);
+          });
+          NODE
