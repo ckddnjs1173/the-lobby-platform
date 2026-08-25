@@ -199,7 +199,7 @@ export default function RegisterProfilePage() {
     try {
       const response = await fetch("/api/ai-parse-resume", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-AI-Transfer-Consent": "groq-us-2026-08-25" },
         body: JSON.stringify({ resumeText: source }),
       });
       await parseResponse(response);
@@ -252,6 +252,7 @@ export default function RegisterProfilePage() {
       formData.set("file", resumeFile);
       const response = await fetch("/api/ai-parse-resume", {
         method: "POST",
+        headers: { "X-AI-Transfer-Consent": "groq-us-2026-08-25" },
         body: formData,
       });
       await parseResponse(response);

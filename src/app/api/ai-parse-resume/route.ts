@@ -21,6 +21,8 @@ export const runtime = "nodejs";
 const PUBLIC_RESUME_PARSE_LIMIT = 5;
 const PUBLIC_RESUME_PARSE_WINDOW_MS = 60_000;
 const MAX_MULTIPART_REQUEST_BYTES = MAX_RESUME_FILE_BYTES + 1024 * 1024;
+const AI_TRANSFER_CONSENT_HEADER = "x-ai-transfer-consent";
+const AI_TRANSFER_CONSENT_VERSION = "groq-us-2026-08-25";
 
 function isResumeUploadFile(value: unknown): value is ResumeUploadFile {
   if (typeof value !== "object" || value === null) return false;
@@ -106,6 +108,20 @@ async function parseMultipartResume(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (
+    request.headers.get(AI_TRANSFER_CONSENT_HEADER) !==
+    AI_TRANSFER_CONSENT_VERSION
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "AI 이력서 분석을 이용하려면 미국 국외 처리 안내에 동의해야 합니다.",
+        code: "AI_TRANSFER_CONSENT_REQUIRED",
+      },
+      { status: 400 }
+    );
+  }
+
   const clientKey = getRequestClientKey(request);
   const rateLimit = consumeRateLimit(
     `public-resume-parse:${clientKey}`,

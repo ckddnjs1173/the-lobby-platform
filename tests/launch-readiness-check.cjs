@@ -222,4 +222,22 @@ for (const requiredSnippet of ["AI 이력서 분석 시 국외 처리", "Groq LL
   }
 }
 
+
+if (
+  !publicRegisterSource.includes("X-AI-Transfer-Consent") ||
+  !publicRegisterSource.includes("groq-us-2026-08-25") ||
+  !publicResumeRouteSource.includes("AI_TRANSFER_CONSENT_REQUIRED") ||
+  !publicResumeRouteSource.includes("AI_TRANSFER_CONSENT_VERSION")
+) {
+  throw new Error("PUBLIC_AI_RESUME_SERVER_CONSENT_ENFORCEMENT_MISSING");
+}
+
+const browserGateSource = fs.readFileSync("tests/browser/public-launch.spec.cjs", "utf8");
+if (
+  !browserGateSource.includes("AI resume parser rejects missing overseas-transfer consent") ||
+  !browserGateSource.includes("AI_TRANSFER_CONSENT_REQUIRED")
+) {
+  throw new Error("PUBLIC_AI_RESUME_CONSENT_BROWSER_GATE_MISSING");
+}
+
 console.log("LAUNCH_READINESS_CHECK_PASSED");

@@ -69,11 +69,22 @@ test("talent-pool onboarding requires explicit registration consent", async ({ p
   await page.getByRole("button", { name: "동의하고 프로필 등록 계속" }).click();
   await expect(page).toHaveURL(/\/register$/);
   await expect(page.getByText("프로필 등록").first()).toBeVisible();
+  await expect(page.getByText("AI 이력서 분석 및 국외 처리 동의 (선택)")).toBeVisible();
+  await expect(page.getByRole("checkbox")).toHaveCount(1);
 });
 
 test("direct registration is gated by consent", async ({ page }) => {
   await page.goto("/register");
   await expect(page).toHaveURL(/\/register\/consent$/);
+});
+
+test("AI resume parser rejects missing overseas-transfer consent", async ({ request }) => {
+  const response = await request.post("/api/ai-parse-resume", {
+    data: { resumeText: "이름: 테스트 후보자" },
+  });
+  expect(response.status()).toBe(400);
+  const payload = await response.json();
+  expect(payload?.code).toBe("AI_TRANSFER_CONSENT_REQUIRED");
 });
 
 test("search discovery endpoints are published", async ({ request }) => {
