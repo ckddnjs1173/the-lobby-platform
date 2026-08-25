@@ -164,7 +164,13 @@ assert(
     browserWorkflow.includes("pull_request") &&
     browserSpec.includes("/robots.txt") &&
     browserSpec.includes("JobPosting") &&
-    browserSpec.includes("explicit registration consent"),
+    browserSpec.includes("explicit registration consent") &&
+    browserSpec.includes("public inventory contains only current publishable positions") &&
+    browserSpec.includes("PUBLIC_JOB_AUDIT") &&
+    browserSpec.includes("toBeGreaterThan(0)") &&
+    browserSpec.includes("Expired OPEN job leaked publicly") &&
+    browserSpec.includes("viewport: { width: 390, height: 844 }") &&
+    browserSpec.includes("expectNoHorizontalOverflow"),
   "PERMANENT_BROWSER_GATE_INCOMPLETE"
 );
 
