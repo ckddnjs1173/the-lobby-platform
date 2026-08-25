@@ -30,6 +30,16 @@ button {
   color: #756b61 !important;
 }
 
+/* Dark operational surfaces need their own muted contrast instead of the light-surface token. */
+.bg-brand-navy .text-slate-400,
+.bg-brand-navy .text-slate-500,
+.bg-brand-espresso .text-slate-400,
+.bg-brand-espresso .text-slate-500,
+.bg-slate-900 .text-slate-400,
+.bg-slate-900 .text-slate-500 {
+  color: #d8cdbf !important;
+}
+
 main [class~="text-[8px]"],
 main [class~="text-[8.5px]"],
 main [class~="text-[9px]"],
@@ -66,12 +76,9 @@ header button[class*="rounded-lg"] {
   min-height: 44px;
 }
 
-@media (max-width: 767px) {
-  header button[aria-label*="메뉴"] {
-    width: 44px !important;
-    height: 44px !important;
-    min-height: 44px !important;
-  }
+body:not(:has(.b2b-workspace)) main a[class*="rounded-lg"],
+body:not(:has(.b2b-workspace)) main button[class*="rounded-lg"] {
+  min-height: 40px;
 }
 
 /* Registration needs readable copy and a content-height companion panel. */
@@ -191,6 +198,10 @@ body:has(.b2b-workspace) [class~="text-[12px]"] {
   line-height: 1.5;
 }
 
+.b2b-workspace button[class*="rounded-lg"] {
+  min-height: 36px;
+}
+
 .b2b-workspace table th {
   font-size: 12.5px !important;
   font-weight: 700;
@@ -200,6 +211,30 @@ body:has(.b2b-workspace) [class~="text-[12px]"] {
 .b2b-workspace table td {
   font-size: 13px;
   line-height: 1.5;
+}
+
+/* Operational tables should scroll instead of crushing five-plus columns at tablet widths. */
+.b2b-workspace .overflow-x-auto > table {
+  min-width: 920px;
+}
+
+/* Kanban gains a little breathing room after the typography scale increase. */
+.b2b-workspace [class~="min-w-[260px]"][class~="w-[260px]"] {
+  min-width: 280px !important;
+  width: 280px !important;
+}
+
+/* The application detail panel is information-dense; use the available desktop width. */
+.b2b-workspace .fixed.inset-0 > [class~="max-w-xl"] {
+  max-width: 640px !important;
+}
+
+.b2b-workspace .fixed.inset-0 button[aria-label="패널 닫기"] {
+  display: inline-flex;
+  min-height: 44px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
 }
 
 .b2b-workspace section > [class*="border-b"] {
@@ -258,6 +293,25 @@ body:has(.b2b-workspace) [class~="text-[12px]"] {
 }
 
 @media (max-width: 767px) {
+  header button[aria-label*="메뉴"] {
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  /* 16px prevents iOS Safari from zooming the viewport when a field receives focus. */
+  main input:not([type="checkbox"]):not([type="radio"]),
+  main select,
+  main textarea {
+    min-height: 44px;
+    font-size: 16px !important;
+  }
+
+  main button[class*="rounded-lg"],
+  main a[class*="rounded-lg"] {
+    min-height: 44px;
+  }
+
   body:has(#candidate-dashboard) .candidate-surface main {
     padding-left: 16px !important;
     padding-right: 16px !important;
@@ -269,5 +323,9 @@ body:has(.b2b-workspace) [class~="text-[12px]"] {
 
   .b2b-workspace section {
     border-radius: 10px !important;
+  }
+
+  .b2b-workspace .fixed.inset-0 > [class~="max-w-xl"] {
+    max-width: 100% !important;
   }
 }
