@@ -131,6 +131,15 @@ test("public inventory contains only current publishable positions", async ({ re
       })
     );
 
+    expect(
+      missingStructuredFields,
+      `Public job is missing structured launch fields: ${job.jobId}`
+    ).toEqual([]);
+    expect(
+      expectedStartDatePast,
+      `Public job has a past expected start date: ${job.jobId}`
+    ).toBeFalsy();
+
     expect(String(job.jobId || "").trim()).not.toBe("");
     expect(String(job.title || "").trim()).not.toBe("");
     expect(String(job.location || "").trim()).not.toBe("");

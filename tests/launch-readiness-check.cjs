@@ -168,6 +168,8 @@ assert(
     browserSpec.includes("public inventory contains only current publishable positions") &&
     browserSpec.includes("PUBLIC_JOB_AUDIT") &&
     browserSpec.includes("toBeGreaterThan(0)") &&
+    browserSpec.includes("Public job is missing structured launch fields") &&
+    browserSpec.includes("Public job has a past expected start date") &&
     browserSpec.includes("Expired OPEN job leaked publicly") &&
     browserSpec.includes("viewport: { width: 390, height: 844 }") &&
     browserSpec.includes("expectNoHorizontalOverflow"),
