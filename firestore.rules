@@ -99,8 +99,9 @@ service cloud.firestore {
     // ========================================================================
 
     match /jobs/{jobId} {
-      // Public discovery uses /api/public/jobs. Raw Job documents contain
-      // organizationId, recruiterId and internal employing-company fields.
+      // Public job discovery는 Firebase Admin 기반 /api/public/jobs를 사용한다.
+      // Raw Job documents contain organizationId, recruiterId and internal
+      // employing-company fields, so anonymous Client SDK reads stay disabled.
       allow read: if isActiveB2BUser()
         && hasTenantAccess(resource.data.organizationId);
 
