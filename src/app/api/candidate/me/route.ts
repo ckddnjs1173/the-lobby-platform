@@ -12,6 +12,7 @@ import {
   hasRegistrationConsentCookie,
   isRegistrationConsentE2EBypassEnabled,
   recordCandidateRegistrationConsent,
+  rollbackNewCandidateRegistration,
 } from "../../../../lib/server/candidateRegistrationConsentService";
 import { recordPublicEvent } from "../../../../lib/server/publicEventService";
 
@@ -125,9 +126,27 @@ export async function POST(
       );
 
     if (!e2eBypass) {
-      await recordCandidateRegistrationConsent(
-        result.profile.candidateId
-      );
+      try {
+        await recordCandidateRegistrationConsent(
+          result.profile.candidateId
+        );
+      } catch (consentError) {
+        if (result.created) {
+          try {
+            await rollbackNewCandidateRegistration(
+              result.profile.candidateId,
+              authenticatedUser.uid
+            );
+          } catch (rollbackError) {
+            console.error(
+              "Candidate registration rollback failed:",
+              rollbackError
+            );
+          }
+        }
+
+        throw consentError;
+      }
     }
 
     if (result.created) {
