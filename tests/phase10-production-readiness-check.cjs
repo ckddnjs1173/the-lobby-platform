@@ -17,6 +17,8 @@ const packageJson = JSON.parse(read("package.json"));
 const envExample = read(".env.example");
 const envValidator = read("scripts/validate-production-env.cjs");
 const workflow = read(".github/workflows/ci.yml");
+const browserWorkflow = read(".github/workflows/browser-e2e.yml");
+const releaseWorkflow = read(".github/workflows/release-verification.yml");
 const healthRoute = read("src/app/api/health/route.ts");
 const readinessRoute = read("src/app/api/readiness/route.ts");
 const smoke = read("tests/phase10-production-smoke.cjs");
@@ -97,8 +99,13 @@ assert(
 console.log("STEP_2: CI_BUILD_GATE");
 
 assert(
-  workflow.includes("actions/checkout@v4") &&
-    workflow.includes("actions/setup-node@v4") &&
+  workflow.includes("actions/checkout@v6") &&
+    workflow.includes("actions/setup-node@v6") &&
+    browserWorkflow.includes("actions/checkout@v6") &&
+    browserWorkflow.includes("actions/setup-node@v6") &&
+    releaseWorkflow.includes("actions/checkout@v6") &&
+    releaseWorkflow.includes("actions/setup-node@v6") &&
+    releaseWorkflow.includes("actions/setup-java@v5") &&
     workflow.includes("npm ci") &&
     workflow.includes("npm run check:final:integration") &&
     workflow.includes("npm audit --omit=dev --audit-level=high") &&
