@@ -79,3 +79,54 @@ export async function recordCandidateRegistrationConsent(
       { merge: true }
     );
 }
+
+/**
+ * Compensating cleanup for a brand-new registration when the consent audit
+ * write fails after Candidate/Profile/AuthLink creation. Existing candidates
+ * are never removed by this helper. If another concurrent request has already
+ * written consent, cleanup is skipped.
+ */
+export async function rollbackNewCandidateRegistration(
+  candidateId: string,
+  authUid: string
+): Promise<void> {
+  const db = getFirebaseAdminDb();
+  const candidateRef = db.collection("candidates").doc(candidateId);
+  const profileRef = db.collection("profile").doc(candidateId);
+  const linkRef = db.collection("candidateAuthLinks").doc(authUid);
+  const consentRef = db.collection("candidateConsents").doc(candidateId);
+
+  await db.runTransaction(async (transaction) => {
+    const [candidateSnapshot, linkSnapshot, consentSnapshot] =
+      await Promise.all([
+        transaction.get(candidateRef),
+        transaction.get(linkRef),
+        transaction.get(consentRef),
+      ]);
+
+    // Another request completed the consent audit; preserve the registration.
+    if (consentSnapshot.exists) {
+      return;
+    }
+
+    const candidate = candidateSnapshot.data();
+    if (!candidateSnapshot.exists || candidate?.authUid !== authUid) {
+      return;
+    }
+
+    const linkedCandidateId = linkSnapshot.data()?.candidateId;
+    if (
+      linkSnapshot.exists &&
+      linkedCandidateId !== candidateId
+    ) {
+      return;
+    }
+
+    transaction.delete(profileRef);
+    transaction.delete(candidateRef);
+
+    if (linkSnapshot.exists) {
+      transaction.delete(linkRef);
+    }
+  });
+}
