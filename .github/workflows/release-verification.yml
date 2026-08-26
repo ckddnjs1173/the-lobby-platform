@@ -105,6 +105,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Firestore Rules emulator regression
+        run: >-
+          npx --yes firebase-tools@15.28.1 emulators:exec
+          --only firestore
+          --project demo-the-lobby-rules
+          "node --test tests/firestore.rules.test.mjs"
+
       - name: Core workflow gate
         run: npm run check:core-workflows
 
