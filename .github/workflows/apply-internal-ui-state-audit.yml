@@ -1,0 +1,52 @@
+name: Apply Internal UI State Audit
+
+on:
+  push:
+    branches:
+      - ops/internal-ui-state-audit-20260826
+    paths:
+      - scripts/internal-ui-state-audit.patch
+      - .github/workflows/apply-internal-ui-state-audit.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-product-patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout audit branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Preserve patch and lock product head
+        shell: bash
+        run: |
+          cp scripts/internal-ui-state-audit.patch /tmp/internal-ui-state-audit.patch
+          git fetch origin agent/launch-pool-foundation
+          actual="$(git rev-parse origin/agent/launch-pool-foundation)"
+          expected="155e864658e77b81dd357f02017bf2371d4d41df"
+          if [ "$actual" != "$expected" ]; then
+            echo "PRODUCT_HEAD_MOVED expected=$expected actual=$actual"
+            exit 1
+          fi
+          git checkout -B agent/launch-pool-foundation origin/agent/launch-pool-foundation
+
+      - name: Apply and statically verify patch
+        shell: bash
+        run: |
+          git apply --check --recount /tmp/internal-ui-state-audit.patch
+          git apply --recount /tmp/internal-ui-state-audit.patch
+          git diff --check
+          node tests/p1-product-ux-check.cjs
+
+      - name: Commit product changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src tests
+          git commit -m "UX: harden candidate and admin states"
+          git push origin HEAD:agent/launch-pool-foundation
