@@ -135,6 +135,8 @@ service cloud.firestore {
     }
 
     match /communications/{communicationId} {
+      // 수신자, 본문, provider message id와 실패 원인은 서버 소유 데이터다.
+      // B2B Communication API가 Firebase Admin으로만 처리한다.
       allow read, create, update, delete: if false;
     }
 
