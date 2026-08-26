@@ -14,6 +14,7 @@ function assert(condition, message) {
 }
 
 const packageJson = JSON.parse(read("package.json"));
+const vercelConfig = JSON.parse(read("vercel.json"));
 const envExample = read(".env.example");
 const envValidator = read("scripts/validate-production-env.cjs");
 const workflow = read(".github/workflows/ci.yml");
@@ -115,7 +116,16 @@ assert(
   "CI_PRODUCTION_GATE_INCOMPLETE"
 );
 
-console.log("STEP_3: FIRESTORE_RELEASE_COMMANDS");
+console.log("STEP_3: VERCEL_FUNCTION_REGION");
+
+assert(
+  Array.isArray(vercelConfig.regions) &&
+    vercelConfig.regions.length === 1 &&
+    vercelConfig.regions[0] === "icn1",
+  "VERCEL_FUNCTION_REGION_NOT_PINNED_TO_SEOUL"
+);
+
+console.log("STEP_4: FIRESTORE_RELEASE_COMMANDS");
 
 const scripts = packageJson.scripts || {};
 
@@ -126,7 +136,7 @@ assert(
   "FIRESTORE_RELEASE_COMMANDS_INCOMPLETE"
 );
 
-console.log("STEP_4: PUBLIC_DATA_BOUNDARY");
+console.log("STEP_5: PUBLIC_DATA_BOUNDARY");
 
 assert(
   publicJobService.includes("displayCompany") &&
@@ -144,7 +154,7 @@ assert(
   "PUBLIC_JOB_DATA_BOUNDARY_INCOMPLETE"
 );
 
-console.log("STEP_5: AI_ABUSE_GATE");
+console.log("STEP_6: AI_ABUSE_GATE");
 
 assert(
   publicResumeParseRoute.includes("RATE_LIMITED") &&
@@ -153,7 +163,7 @@ assert(
   "PUBLIC_AI_HARDENING_INCOMPLETE"
 );
 
-console.log("STEP_6: HEALTH_READINESS_AND_SMOKE_GATE");
+console.log("STEP_7: HEALTH_READINESS_AND_SMOKE_GATE");
 
 assert(
   healthRoute.includes('status: "ok"') &&
@@ -176,7 +186,7 @@ assert(
   "PRODUCTION_HEALTH_READINESS_OR_SMOKE_GATE_MISSING"
 );
 
-console.log("STEP_7: RELEASE_RUNBOOK");
+console.log("STEP_8: RELEASE_RUNBOOK");
 
 assert(
   runbook.includes("Local release gate") &&
