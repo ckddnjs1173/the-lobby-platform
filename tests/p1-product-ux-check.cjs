@@ -17,7 +17,8 @@ const nextActionPanel = read("src/components/candidate/CandidateNextActionPanel.
 const candidateLayout = read("src/app/candidate/layout.tsx");
 assert(
   nextAction.includes("getCandidateNextAction") &&
-    nextAction.includes('application.stage === "INTERVIEW"') &&
+    nextAction.includes("const stage = application.stage") &&
+    nextAction.includes('stage === "INTERVIEW"') &&
     nextAction.includes("application.nextInterview") &&
     nextAction.includes("application.plannedStartDate") &&
     nextAction.includes("면접 일정이 등록되면 Candidate Portal에 표시됩니다") &&
