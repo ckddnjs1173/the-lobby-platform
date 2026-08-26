@@ -86,4 +86,64 @@ assert(
   "CAREER_GUIDES_MUST_HAVE_DETAIL_SEO_DISCOVERY_AND_MOBILE_QA"
 );
 
+console.log("STEP_4: UI_RESILIENCE_AND_ACCESSIBILITY");
+const publicHeader = read("src/components/public/PublicHeader.tsx");
+const candidateHeader = read("src/components/candidate/CandidateHeader.tsx");
+const jobsPage = read("src/app/jobs/page.tsx");
+const acquisitionPage = read("src/app/b2b-admin/acquisition/page.tsx");
+const uiBrowser = read("tests/browser/ui-quality.spec.cjs");
+
+assert(
+  publicHeader.includes('const MOBILE_NAV_ID = "public-mobile-navigation"') &&
+    publicHeader.includes("aria-controls={MOBILE_NAV_ID}") &&
+    publicHeader.includes('aria-current={active ? "page" : undefined}') &&
+    publicHeader.includes('event.key === "Escape"') &&
+    publicHeader.includes('text-[11px] font-semibold uppercase') &&
+    !publicHeader.includes("text-[8px]") &&
+    !publicHeader.includes("text-[8.5px]"),
+  "PUBLIC_NAVIGATION_MUST_EXPOSE_CONTROLLED_CURRENT_AND_READABLE_STATE"
+);
+
+assert(
+  candidateHeader.includes('const MOBILE_NAV_ID = "candidate-mobile-navigation"') &&
+    candidateHeader.includes("aria-controls={MOBILE_NAV_ID}") &&
+    candidateHeader.includes("aria-current=") &&
+    candidateHeader.includes('event.key === "Escape"') &&
+    !candidateHeader.includes("text-[8px]") &&
+    !candidateHeader.includes("text-[8.5px]"),
+  "CANDIDATE_NAVIGATION_MUST_EXPOSE_CONTROLLED_CURRENT_AND_READABLE_STATE"
+);
+
+assert(
+  jobsPage.includes("const [loadError, setLoadError]") &&
+    jobsPage.includes("const [loadAttempt, setLoadAttempt]") &&
+    jobsPage.includes('role="alert"') &&
+    jobsPage.includes("채용공고를 불러오지 못했습니다.") &&
+    jobsPage.includes("다시 불러오기") &&
+    jobsPage.includes("aria-pressed={active}") &&
+    jobsPage.includes('aria-live="polite"') &&
+    !jobsPage.includes("text-[9px]"),
+  "PUBLIC_JOBS_MUST_SEPARATE_ERROR_EMPTY_AND_FILTER_STATES"
+);
+
+assert(
+  acquisitionPage.includes("const [loadError, setLoadError]") &&
+    acquisitionPage.includes("const [reloadKey, setReloadKey]") &&
+    acquisitionPage.includes('role="alert"') &&
+    acquisitionPage.includes("다시 불러오기") &&
+    acquisitionPage.includes('role="status"'),
+  "ACQUISITION_ANALYTICS_MUST_SEPARATE_ERROR_AND_EMPTY_STATES"
+);
+
+assert(
+  uiBrowser.includes('aria-controls", "public-mobile-navigation"') &&
+    uiBrowser.includes('page.route("**/api/public/jobs"') &&
+    uiBrowser.includes("status: 503") &&
+    uiBrowser.includes("조건에 맞는 공고가 없습니다.") &&
+    uiBrowser.includes("채용공고를 불러오지 못했습니다.") &&
+    uiBrowser.includes('aria-pressed", "true"') &&
+    uiBrowser.includes("10.5"),
+  "UI_RESILIENCE_MUST_HAVE_BROWSER_REGRESSION_COVERAGE"
+);
+
 console.log("P1_PRODUCT_UX_CHECK_PASSED");

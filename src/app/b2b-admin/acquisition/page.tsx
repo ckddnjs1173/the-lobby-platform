@@ -35,7 +35,7 @@ function Metric({
 }) {
   return (
     <div className="rounded-xl border border-brand-line bg-white p-5 shadow-card">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-muted">{label}</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand-muted">{label}</p>
       <p className="font-editorial mt-2 text-[34px] text-brand-espresso">
         {value.toLocaleString("ko-KR")}
       </p>
@@ -48,26 +48,35 @@ export default function AcquisitionAnalyticsPage() {
   const session = useB2BSession();
   const [data, setData] = useState<AcquisitionAnalyticsView | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (session.role !== "ADMIN") {
       setLoading(false);
+      setLoadError(null);
       return;
     }
 
     let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+
     fetchAcquisitionAnalytics()
       .then((result) => {
-        if (!cancelled) setData(result);
+        if (cancelled) return;
+        setData(result);
       })
       .catch((error) => {
         if (cancelled) return;
         console.error("Acquisition analytics load failed:", error);
-        toast.error(
+        const message =
           error instanceof AcquisitionAnalyticsApiError
             ? error.message
-            : "공개 유입 분석을 불러오지 못했습니다."
-        );
+            : "공개 유입 분석을 불러오지 못했습니다.";
+        setData(null);
+        setLoadError(message);
+        toast.error(message);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -76,7 +85,7 @@ export default function AcquisitionAnalyticsPage() {
     return () => {
       cancelled = true;
     };
-  }, [session.role]);
+  }, [session.role, reloadKey]);
 
   if (session.role !== "ADMIN") {
     return (
@@ -89,16 +98,32 @@ export default function AcquisitionAnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">
+      <div role="status" aria-live="polite" className="rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">
         공개 유입 지표를 불러오는 중입니다...
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section role="alert" className="rounded-xl border border-brand-line bg-white px-6 py-16 text-center shadow-card">
+        <p className="font-editorial text-2xl text-brand-espresso">공개 유입 분석을 불러오지 못했습니다.</p>
+        <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-brand-muted">{loadError}</p>
+        <button
+          type="button"
+          onClick={() => setReloadKey((value) => value + 1)}
+          className="mt-6 rounded-lg bg-brand-bronze px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-espresso"
+        >
+          다시 불러오기
+        </button>
+      </section>
     );
   }
 
   if (!data) {
     return (
       <div className="rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">
-        표시할 유입 지표가 없습니다.
+        아직 집계 데이터가 없습니다.
       </div>
     );
   }
@@ -109,7 +134,7 @@ export default function AcquisitionAnalyticsPage() {
     <div className="space-y-7">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-brand-bronze">Acquisition & Conversion</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-brand-bronze">Acquisition & Conversion</p>
           <h1 className="mt-2 text-2xl font-bold text-brand-espresso">후보자 유입·전환 분석</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-brand-muted">
             개인 식별정보 없이 이벤트명·경로·시각만 집계합니다. 아래 수치는 최근 저장된 최대 2,000개 이벤트의 방향성 지표입니다.

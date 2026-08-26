@@ -54,6 +54,8 @@ export default function JobsPage() {
   const router = useRouter();
   const [jobs, setJobs] = useState<PublicJobView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(() => new Set());
@@ -99,15 +101,19 @@ export default function JobsPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
 
     fetchPublicJobs()
       .then((items) => {
-        if (!cancelled) setJobs(items);
+        if (cancelled) return;
+        setJobs(items);
+        setLoadError(null);
       })
       .catch((error) => {
         console.error("Public jobs load failed:", error);
         if (!cancelled) {
           setJobs([]);
+          setLoadError("채용 공고 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
           toast.error("채용 공고를 불러오지 못했습니다.");
         }
       })
@@ -118,7 +124,7 @@ export default function JobsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadAttempt]);
 
   const locationOptions = useMemo(
     () =>
@@ -177,6 +183,14 @@ export default function JobsPage() {
 
     const query = params.toString();
     router.replace(query ? `/jobs?${query}` : "/jobs", { scroll: false });
+  };
+
+  const resetFilters = () => {
+    setKeyword("");
+    setCategory("ALL");
+    setLocation("ALL");
+    setEmployment("ALL");
+    router.replace("/jobs", { scroll: false });
   };
 
   const handleApply = async (jobId: string) => {
@@ -242,7 +256,7 @@ export default function JobsPage() {
 
       <section className="border-b border-brand-line bg-white/35">
         <div className="mx-auto max-w-[1460px] px-5 pb-10 pt-14 sm:px-8 lg:px-10 lg:pb-12 lg:pt-16">
-          <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-bronze">Open Positions</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-brand-bronze">Open Positions</p>
           <div className="mt-4 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
             <div>
               <h1 className="font-editorial text-[42px] leading-tight tracking-[-0.045em] text-brand-espresso sm:text-[52px]">채용공고 탐색</h1>
@@ -260,13 +274,13 @@ export default function JobsPage() {
             <label className="flex min-h-[72px] items-center gap-3 border-b border-brand-line px-5 lg:border-b-0 lg:border-r">
               <span className="text-brand-bronze"><SearchIcon /></span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[9px] font-bold uppercase tracking-[0.16em] text-brand-muted">키워드</span>
+                <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-brand-muted">키워드</span>
                 <input value={keyword} onChange={(event) => setKeyword(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); syncFiltersToUrl(); } }} placeholder="직무, 회사, 지역 검색" className="mt-1 w-full bg-transparent text-sm font-semibold text-brand-espresso outline-none placeholder:font-normal placeholder:text-brand-muted/65" />
               </span>
             </label>
 
             <label className="border-b border-brand-line px-5 py-3.5 lg:border-b-0 lg:border-r">
-              <span className="block text-[9px] font-bold uppercase tracking-[0.16em] text-brand-muted">지역</span>
+              <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-brand-muted">지역</span>
               <select value={location} onChange={(event) => setLocation(event.target.value)} className="mt-1 w-full cursor-pointer bg-transparent text-sm font-semibold text-brand-espresso outline-none">
                 <option value="ALL">전체 지역</option>
                 {locationOptions.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -274,7 +288,7 @@ export default function JobsPage() {
             </label>
 
             <label className="px-5 py-3.5 lg:border-r">
-              <span className="block text-[9px] font-bold uppercase tracking-[0.16em] text-brand-muted">근무형태</span>
+              <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-brand-muted">근무형태</span>
               <select value={employment} onChange={(event) => setEmployment(event.target.value)} className="mt-1 w-full cursor-pointer bg-transparent text-sm font-semibold text-brand-espresso outline-none">
                 <option value="ALL">전체 형태</option>
                 {employmentOptions.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -284,11 +298,17 @@ export default function JobsPage() {
             <button type="button" onClick={() => syncFiltersToUrl()} aria-label="채용공고 검색" className="flex min-h-[64px] items-center justify-center bg-brand-bronze text-white transition hover:bg-brand-espresso lg:min-h-0"><SearchIcon /></button>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-5 flex flex-wrap gap-2" aria-label="직무 카테고리 필터">
             {CATEGORY_OPTIONS.map((option) => {
               const active = category === option.value;
               return (
-                <button key={option.value} type="button" onClick={() => { setCategory(option.value); syncFiltersToUrl(option.value); }} className={`rounded-full border px-4 py-2 text-xs font-bold transition ${active ? "border-brand-bronze bg-brand-bronze text-white" : "border-brand-line bg-white text-brand-ink hover:border-brand-gold/50 hover:text-brand-bronze"}`}>
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => { setCategory(option.value); syncFiltersToUrl(option.value); }}
+                  className={`rounded-full border px-4 py-2 text-xs font-bold transition ${active ? "border-brand-bronze bg-brand-bronze text-white" : "border-brand-line bg-white text-brand-ink hover:border-brand-gold/50 hover:text-brand-bronze"}`}
+                >
                   {option.label}
                 </button>
               );
@@ -297,28 +317,40 @@ export default function JobsPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1460px] px-5 py-10 sm:px-8 lg:px-10 lg:py-12">
+      <section className="mx-auto max-w-[1460px] px-5 py-10 sm:px-8 lg:px-10 lg:py-12" aria-busy={loading}>
         <div className="mb-6 flex items-center justify-between border-b border-brand-line pb-4">
           <div className="flex items-center gap-5 text-sm">
             <span className="font-bold text-brand-espresso">현재 채용 중</span>
             <span className="text-brand-muted">최신 공고</span>
             <span className="hidden text-brand-muted sm:inline">리셉션 · 고객서비스</span>
           </div>
-          <p className="text-xs text-brand-muted">총 <span className="font-bold text-brand-bronze">{filteredJobs.length}</span>건 · 최신순</p>
+          <p className="text-xs text-brand-muted" aria-live="polite">총 <span className="font-bold text-brand-bronze">{loadError ? 0 : filteredJobs.length}</span>건 · 최신순</p>
         </div>
 
         {loading ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 4 }, (_, index) => (
-              <div key={index} className="overflow-hidden rounded-xl border border-brand-line bg-white shadow-card"><div className="h-48 animate-pulse bg-brand-cream" /><div className="space-y-3 p-5"><div className="h-3 w-24 animate-pulse rounded bg-brand-cream" /><div className="h-5 w-3/4 animate-pulse rounded bg-brand-cream" /><div className="h-3 w-full animate-pulse rounded bg-brand-ivory" /></div></div>
-            ))}
+          <div role="status" aria-live="polite">
+            <span className="sr-only">채용공고를 불러오는 중입니다.</span>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-hidden="true">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div key={index} className="overflow-hidden rounded-xl border border-brand-line bg-white shadow-card"><div className="h-48 animate-pulse bg-brand-cream" /><div className="space-y-3 p-5"><div className="h-3 w-24 animate-pulse rounded bg-brand-cream" /><div className="h-5 w-3/4 animate-pulse rounded bg-brand-cream" /><div className="h-3 w-full animate-pulse rounded bg-brand-ivory" /></div></div>
+              ))}
+            </div>
           </div>
+        ) : loadError ? (
+          <section role="alert" className="rounded-xl border border-brand-line bg-white px-6 py-16 text-center shadow-card">
+            <p className="font-editorial text-3xl text-brand-espresso">채용공고를 불러오지 못했습니다.</p>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-brand-muted">{loadError}</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <button type="button" onClick={() => setLoadAttempt((value) => value + 1)} className="rounded-lg bg-brand-bronze px-5 py-3 text-sm font-bold text-white transition hover:bg-brand-espresso">다시 불러오기</button>
+              <Link href="/talent-pool" className="rounded-lg border border-brand-gold/35 bg-brand-light px-5 py-3 text-sm font-bold text-brand-bronze">인재풀 안내 보기</Link>
+            </div>
+          </section>
         ) : filteredJobs.length === 0 ? (
           <div className="rounded-xl border border-brand-line bg-white px-6 py-20 text-center shadow-card">
             <p className="font-editorial text-3xl text-brand-espresso">조건에 맞는 공고가 없습니다.</p>
             <p className="mt-3 text-sm text-brand-muted">검색어나 필터를 변경하거나 인재풀에 희망조건을 등록해두세요.</p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <button type="button" onClick={() => { setKeyword(""); setCategory("ALL"); setLocation("ALL"); setEmployment("ALL"); router.replace("/jobs", { scroll: false }); }} className="rounded-lg border border-brand-gold/35 bg-brand-light px-5 py-3 text-xs font-bold text-brand-bronze">필터 초기화</button>
+              <button type="button" onClick={resetFilters} className="rounded-lg border border-brand-gold/35 bg-brand-light px-5 py-3 text-xs font-bold text-brand-bronze">필터 초기화</button>
               <Link href="/talent-pool/register" className="rounded-lg bg-brand-bronze px-5 py-3 text-xs font-bold text-white">인재풀 등록</Link>
             </div>
           </div>
@@ -335,8 +367,8 @@ export default function JobsPage() {
                   <Link href={`/jobs/${job.jobId}`} className="relative block h-48 overflow-hidden bg-brand-cream">
                     <div className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-[1.035]" style={{ backgroundImage: `url('${getJobImage(job)}')` }} />
                     <div className="absolute inset-0 bg-gradient-to-t from-brand-espresso/75 via-brand-espresso/5 to-transparent" />
-                    <div className="absolute left-4 top-4 rounded-full border border-white/35 bg-white/92 px-3 py-1 text-[9px] font-bold tracking-[0.08em] text-brand-bronze backdrop-blur">{categoryLabel}</div>
-                    <div className="absolute bottom-4 left-4 right-4 text-white"><p className="truncate text-[10px] font-semibold text-white/70">{company}</p><h2 className="mt-1 line-clamp-2 break-keep text-[17px] font-bold leading-snug">{job.title}</h2></div>
+                    <div className="absolute left-4 top-4 rounded-full border border-white/35 bg-white/92 px-3 py-1 text-[11px] font-bold tracking-[0.06em] text-brand-bronze backdrop-blur">{categoryLabel}</div>
+                    <div className="absolute bottom-4 left-4 right-4 text-white"><p className="truncate text-[11px] font-semibold text-white/75">{company}</p><h2 className="mt-1 line-clamp-2 break-keep text-[17px] font-bold leading-snug">{job.title}</h2></div>
                   </Link>
 
                   <div className="flex flex-1 flex-col p-5">
@@ -362,7 +394,7 @@ export default function JobsPage() {
             <aside className="relative flex min-h-[380px] flex-col overflow-hidden rounded-xl bg-brand-espresso p-7 text-white shadow-card">
               <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full border border-brand-gold/20" />
               <div className="absolute -right-7 -top-7 h-36 w-36 rounded-full border border-brand-gold/15" />
-              <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-brand-cream/65">J&amp;C Recruiting Standard</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-brand-cream/70">J&amp;C Recruiting Standard</p>
               <h3 className="font-editorial mt-5 break-keep text-[30px] leading-[1.35] tracking-[-0.04em]">실제 지원 가능한 OPEN 포지션만 공개합니다.</h3>
               <div className="mt-8 grid gap-4 text-xs text-white/70">
                 <p>01 · 리셉션·고객서비스 직무 중심</p>

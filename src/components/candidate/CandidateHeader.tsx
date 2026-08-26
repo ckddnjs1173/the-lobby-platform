@@ -8,6 +8,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { auth } from "../../lib/firebase";
 import { consumeCandidateReturnPath } from "../../lib/candidateNavigationIntent";
 
+const MOBILE_NAV_ID = "candidate-mobile-navigation";
+
 function LobbyMark() {
   return (
     <div className="relative h-10 w-9 shrink-0 text-brand-bronze" aria-hidden="true">
@@ -41,6 +43,17 @@ export default function CandidateHeader() {
     setMobileOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileOpen]);
+
   const handleSignOut = async () => {
     setMobileOpen(false);
     await signOut(auth);
@@ -57,12 +70,14 @@ export default function CandidateHeader() {
 
   const talentPoolHref = authenticated ? "/talent-pool/settings" : "/talent-pool";
   const mobileItems = [
-    { href: "/jobs", label: "채용공고" },
-    { href: talentPoolHref, label: authenticated ? "인재풀 설정" : "인재풀" },
-    ...(authenticated ? [{ href: "/candidate/opportunities", label: "받은 채용 제안" }] : []),
-    { href: "/candidate/saved-jobs", label: "관심공고" },
-    { href: "/candidate", label: "지원현황" },
-    { href: "/b2b-admin/login", label: "기업서비스" },
+    { href: "/jobs", label: "채용공고", active: pathname.startsWith("/jobs") },
+    { href: talentPoolHref, label: authenticated ? "인재풀 설정" : "인재풀", active: pathname.startsWith("/talent-pool") },
+    ...(authenticated
+      ? [{ href: "/candidate/opportunities", label: "받은 채용 제안", active: pathname.startsWith("/candidate/opportunities") }]
+      : []),
+    { href: "/candidate/saved-jobs", label: "관심공고", active: pathname.startsWith("/candidate/saved-jobs") },
+    { href: "/candidate", label: "지원현황", active: pathname === "/candidate" },
+    { href: "/b2b-admin/login", label: "기업서비스", active: false },
   ];
 
   return (
@@ -74,18 +89,18 @@ export default function CandidateHeader() {
             <div className="font-editorial text-[20px] font-bold tracking-[0.055em] text-brand-espresso transition group-hover:text-brand-bronze">
               THE LOBBY
             </div>
-            <div className="mt-1.5 text-[8px] font-semibold uppercase tracking-[0.16em] text-brand-muted sm:text-[8.5px]">
+            <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-muted">
               Premium Reception Career Studio
             </div>
           </div>
         </Link>
 
         <nav className="hidden items-center gap-5 xl:flex" aria-label="Candidate 메뉴">
-          <Link href="/jobs" className={navClass(pathname.startsWith("/jobs"))}>채용공고</Link>
-          <Link href={talentPoolHref} className={navClass(pathname.startsWith("/talent-pool"))}>{authenticated ? "인재풀 설정" : "인재풀"}</Link>
-          {authenticated ? <Link href="/candidate/opportunities" className={navClass(pathname.startsWith("/candidate/opportunities"))}>채용제안</Link> : null}
-          <Link href="/candidate/saved-jobs" className={navClass(pathname.startsWith("/candidate/saved-jobs"))}>관심공고</Link>
-          <Link href="/candidate" className={navClass(pathname === "/candidate")}>지원현황</Link>
+          <Link href="/jobs" aria-current={pathname.startsWith("/jobs") ? "page" : undefined} className={navClass(pathname.startsWith("/jobs"))}>채용공고</Link>
+          <Link href={talentPoolHref} aria-current={pathname.startsWith("/talent-pool") ? "page" : undefined} className={navClass(pathname.startsWith("/talent-pool"))}>{authenticated ? "인재풀 설정" : "인재풀"}</Link>
+          {authenticated ? <Link href="/candidate/opportunities" aria-current={pathname.startsWith("/candidate/opportunities") ? "page" : undefined} className={navClass(pathname.startsWith("/candidate/opportunities"))}>채용제안</Link> : null}
+          <Link href="/candidate/saved-jobs" aria-current={pathname.startsWith("/candidate/saved-jobs") ? "page" : undefined} className={navClass(pathname.startsWith("/candidate/saved-jobs"))}>관심공고</Link>
+          <Link href="/candidate" aria-current={pathname === "/candidate" ? "page" : undefined} className={navClass(pathname === "/candidate")}>지원현황</Link>
           <Link href="/b2b-admin/login" className={navClass(false)}>기업서비스</Link>
         </nav>
 
@@ -101,13 +116,14 @@ export default function CandidateHeader() {
               <Link href="/talent-pool" className="hidden min-h-10 items-center rounded-lg bg-brand-bronze px-4 py-2.5 text-[13px] font-semibold text-white shadow-card transition hover:bg-brand-espresso sm:inline-flex">인재풀 등록 →</Link>
             </>
           ) : (
-            <div className="hidden h-10 w-24 animate-pulse rounded-lg bg-brand-cream sm:block" />
+            <div aria-hidden="true" className="hidden h-10 w-24 animate-pulse rounded-lg bg-brand-cream sm:block" />
           )}
 
           <button
             type="button"
             aria-label={mobileOpen ? "메뉴 닫기" : "메뉴 열기"}
             aria-expanded={mobileOpen}
+            aria-controls={MOBILE_NAV_ID}
             onClick={() => setMobileOpen((value) => !value)}
             className="flex h-10 w-10 items-center justify-center rounded-lg border border-brand-line bg-white text-brand-espresso xl:hidden"
           >
@@ -117,10 +133,20 @@ export default function CandidateHeader() {
       </div>
 
       {mobileOpen ? (
-        <div className="border-t border-brand-line bg-brand-light px-6 py-4 shadow-card xl:hidden sm:px-8">
+        <div id={MOBILE_NAV_ID} className="border-t border-brand-line bg-brand-light px-6 py-4 shadow-card xl:hidden sm:px-8">
           <nav className="mx-auto grid max-w-[1440px] gap-1" aria-label="Candidate 모바일 메뉴">
             {mobileItems.map((item) => (
-              <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-3 text-[14px] font-semibold text-brand-espresso hover:bg-brand-ivory hover:text-brand-bronze">
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={item.active ? "page" : undefined}
+                onClick={() => setMobileOpen(false)}
+                className={`rounded-lg px-3 py-3 text-[14px] font-semibold ${
+                  item.active
+                    ? "bg-brand-ivory text-brand-bronze"
+                    : "text-brand-espresso hover:bg-brand-ivory hover:text-brand-bronze"
+                }`}
+              >
                 {item.label}
               </Link>
             ))}

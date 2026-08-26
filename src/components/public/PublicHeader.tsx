@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -13,6 +13,8 @@ const NAV_ITEMS = [
   { href: "/b2b-admin/login", label: "기업 로그인" },
 ] as const;
 
+const MOBILE_NAV_ID = "public-mobile-navigation";
+
 function LobbyMark() {
   return (
     <div className="relative h-10 w-9 shrink-0 text-brand-bronze" aria-hidden="true">
@@ -23,9 +25,24 @@ function LobbyMark() {
   );
 }
 
+function isActivePath(pathname: string, href: string): boolean {
+  return pathname === href || (href !== "/" && pathname.startsWith(href));
+}
+
 export default function PublicHeader() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileOpen]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-brand-line/80 bg-brand-light/95 backdrop-blur-xl">
@@ -36,26 +53,30 @@ export default function PublicHeader() {
             <div className="font-editorial text-[20px] font-bold tracking-[0.055em] text-brand-espresso transition group-hover:text-brand-bronze">
               THE LOBBY
             </div>
-            <div className="mt-1.5 text-[8px] font-semibold uppercase tracking-[0.16em] text-brand-muted sm:text-[8.5px]">
+            <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-muted">
               Premium Reception Career Studio
             </div>
           </div>
         </Link>
 
         <nav className="hidden items-center gap-6 xl:flex" aria-label="주요 메뉴">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={`${item.href}-${item.label}`}
-              href={item.href}
-              className={`relative py-2.5 text-[13px] font-semibold transition after:absolute after:bottom-0 after:left-0 after:h-px after:bg-brand-bronze after:transition-all ${
-                pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
-                  ? "text-brand-bronze after:w-full"
-                  : "text-brand-ink/80 after:w-0 hover:text-brand-bronze hover:after:w-full"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {NAV_ITEMS.map((item) => {
+            const active = isActivePath(pathname, item.href);
+            return (
+              <Link
+                key={`${item.href}-${item.label}`}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`relative py-2.5 text-[13px] font-semibold transition after:absolute after:bottom-0 after:left-0 after:h-px after:bg-brand-bronze after:transition-all ${
+                  active
+                    ? "text-brand-bronze after:w-full"
+                    : "text-brand-ink/80 after:w-0 hover:text-brand-bronze hover:after:w-full"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="flex items-center gap-2.5">
@@ -75,6 +96,7 @@ export default function PublicHeader() {
             type="button"
             aria-label={mobileOpen ? "메뉴 닫기" : "메뉴 열기"}
             aria-expanded={mobileOpen}
+            aria-controls={MOBILE_NAV_ID}
             onClick={() => setMobileOpen((value) => !value)}
             className="flex h-10 w-10 items-center justify-center rounded-lg border border-brand-line bg-white text-brand-espresso xl:hidden"
           >
@@ -84,18 +106,26 @@ export default function PublicHeader() {
       </div>
 
       {mobileOpen ? (
-        <div className="border-t border-brand-line bg-brand-light px-6 py-4 shadow-card xl:hidden sm:px-8">
+        <div id={MOBILE_NAV_ID} className="border-t border-brand-line bg-brand-light px-6 py-4 shadow-card xl:hidden sm:px-8">
           <nav className="mx-auto grid max-w-[1440px] gap-1" aria-label="모바일 주요 메뉴">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={`mobile-${item.href}-${item.label}`}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className="rounded-lg px-3 py-3 text-[14px] font-semibold text-brand-espresso hover:bg-brand-ivory hover:text-brand-bronze"
-              >
-                {item.label}
-              </Link>
-            ))}
+            {NAV_ITEMS.map((item) => {
+              const active = isActivePath(pathname, item.href);
+              return (
+                <Link
+                  key={`mobile-${item.href}-${item.label}`}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => setMobileOpen(false)}
+                  className={`rounded-lg px-3 py-3 text-[14px] font-semibold ${
+                    active
+                      ? "bg-brand-ivory text-brand-bronze"
+                      : "text-brand-espresso hover:bg-brand-ivory hover:text-brand-bronze"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
             <div className="mt-2 grid grid-cols-2 gap-2 border-t border-brand-line pt-3">
               <Link
                 href="/login"
