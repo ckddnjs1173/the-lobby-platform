@@ -100,7 +100,7 @@ export async function POST(
     const authenticatedUser =
       await requireFirebaseUser(request);
     const e2eBypass =
-      isRegistrationConsentE2EBypassEnabled();
+      isRegistrationConsentE2EBypassEnabled(request);
     const hasConsent =
       hasRegistrationConsentCookie(request);
 

@@ -5,8 +5,39 @@ import { getFirebaseAdminDb } from "./firebaseAdmin";
 
 export const REGISTRATION_CONSENT_COOKIE = "the_lobby_registration_consent";
 
-export function isRegistrationConsentE2EBypassEnabled(): boolean {
-  return process.env.E2E_ALLOW_REGISTRATION_WITHOUT_CONSENT === "true";
+const LOOPBACK_HOSTS = new Set([
+  "localhost",
+  "127.0.0.1",
+  "::1",
+  "[::1]",
+]);
+
+/**
+ * Synthetic registration-consent bypass is intentionally limited to automated
+ * CI requests against a loopback server. An accidentally configured production
+ * environment variable must never disable the public registration-consent gate.
+ */
+export function isRegistrationConsentE2EBypassEnabled(
+  request: Request
+): boolean {
+  if (process.env.E2E_ALLOW_REGISTRATION_WITHOUT_CONSENT !== "true") {
+    return false;
+  }
+
+  if (process.env.CI !== "true") {
+    return false;
+  }
+
+  if (process.env.VERCEL_ENV === "production") {
+    return false;
+  }
+
+  try {
+    const hostname = new URL(request.url).hostname.toLowerCase();
+    return LOOPBACK_HOSTS.has(hostname);
+  } catch {
+    return false;
+  }
 }
 
 export function hasRegistrationConsentCookie(request: Request): boolean {
