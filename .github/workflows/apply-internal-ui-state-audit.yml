@@ -25,6 +25,20 @@ jobs:
         shell: bash
         run: |
           cp scripts/apply-internal-ui-state-audit.py /tmp/apply-internal-ui-state-audit.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('/tmp/apply-internal-ui-state-audit.py')
+          text = path.read_text(encoding='utf-8')
+          old = "replace_once(path, 'mt-0.5 truncate text-[10px]', 'mt-0.5 truncate text-[11px]')"
+          new = '''replace_once(
+              path,
+              '            <div className={`mt-0.5 truncate text-[10px] ${item.active ? "text-white/65" : "text-brand-muted"}`}>{item.caption}</div>',
+              '            <div className={`mt-0.5 truncate text-[11px] ${item.active ? "text-white/70" : "text-brand-muted"}`}>{item.caption}</div>',
+          )'''
+          if text.count(old) != 1:
+              raise SystemExit('TEMP_TRANSFORMER_CAPTION_PATCH_MISMATCH')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
           git fetch origin agent/launch-pool-foundation
           actual="$(git rev-parse origin/agent/launch-pool-foundation)"
           expected="155e864658e77b81dd357f02017bf2371d4d41df"
