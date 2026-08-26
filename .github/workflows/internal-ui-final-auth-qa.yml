@@ -121,9 +121,7 @@ jobs:
           exit 1
 
       - name: Run isolated authenticated journeys
-        env:
-          NODE_PATH: /tmp/the-lobby-playwright/node_modules
-        run: node /tmp/authenticated-ui-qa.cjs
+        run: NODE_PATH="$GITHUB_WORKSPACE/node_modules:/tmp/the-lobby-playwright/node_modules" node /tmp/authenticated-ui-qa.cjs
 
       - name: Upload QA screenshots
         if: always()
