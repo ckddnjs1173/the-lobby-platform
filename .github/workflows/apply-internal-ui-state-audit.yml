@@ -37,8 +37,8 @@ jobs:
       - name: Apply and statically verify patch
         shell: bash
         run: |
-          git apply --check --recount /tmp/internal-ui-state-audit.patch
-          git apply --recount /tmp/internal-ui-state-audit.patch
+          patch -p1 --dry-run --forward < /tmp/internal-ui-state-audit.patch
+          patch -p1 --forward < /tmp/internal-ui-state-audit.patch
           git diff --check
           node tests/p1-product-ux-check.cjs
 
