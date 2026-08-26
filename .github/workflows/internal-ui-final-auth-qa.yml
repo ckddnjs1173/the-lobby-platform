@@ -26,6 +26,7 @@ jobs:
       FIREBASE_ADMIN_PRIVATE_KEY: ${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       PUBLIC_ANALYTICS_DISABLED: "true"
+      E2E_ALLOW_REGISTRATION_WITHOUT_CONSENT: "true"
     steps:
       - name: Checkout audited product head
         uses: actions/checkout@v4
