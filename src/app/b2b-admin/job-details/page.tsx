@@ -78,10 +78,16 @@ export default function JobOperationalDetailsPage() {
   const [benefitsText, setBenefitsText] = useState("");
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [jobsReloadKey, setJobsReloadKey] = useState(0);
+  const [detailsReloadKey, setDetailsReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setLoadingJobs(true);
+    setJobsError(null);
     fetchB2BJobs()
       .then((items) => {
         if (cancelled) return;
@@ -92,7 +98,11 @@ export default function JobOperationalDetailsPage() {
       .catch((error) => {
         if (cancelled) return;
         console.error("Job details job list failed:", error);
-        toast.error("공고 목록을 불러오지 못했습니다.");
+        const message = "공고 목록을 불러오지 못했습니다.";
+        setJobs([]);
+        setJobId("");
+        setJobsError(message);
+        toast.error(message);
       })
       .finally(() => {
         if (!cancelled) setLoadingJobs(false);
@@ -101,7 +111,7 @@ export default function JobOperationalDetailsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [jobsReloadKey]);
 
   useEffect(() => {
     if (!jobId) {
@@ -112,6 +122,9 @@ export default function JobOperationalDetailsPage() {
 
     let cancelled = false;
     setLoadingDetails(true);
+    setDetailsError(null);
+    setForm(EMPTY);
+    setBenefitsText("");
     fetchJobOperationalDetails(jobId)
       .then((details) => {
         if (cancelled) return;
@@ -144,11 +157,14 @@ export default function JobOperationalDetailsPage() {
       .catch((error) => {
         if (cancelled) return;
         console.error("Job details load failed:", error);
-        toast.error(
+        const message =
           error instanceof JobOperationalDetailsApiError
             ? error.message
-            : "공고 상세조건을 불러오지 못했습니다."
-        );
+            : "공고 상세조건을 불러오지 못했습니다.";
+        setForm(EMPTY);
+        setBenefitsText("");
+        setDetailsError(message);
+        toast.error(message);
       })
       .finally(() => {
         if (!cancelled) setLoadingDetails(false);
@@ -157,7 +173,7 @@ export default function JobOperationalDetailsPage() {
     return () => {
       cancelled = true;
     };
-  }, [jobId]);
+  }, [detailsReloadKey, jobId]);
 
   const selectedJob = useMemo(
     () => jobs.find((job) => job.jobId === jobId) || null,
@@ -239,7 +255,7 @@ export default function JobOperationalDetailsPage() {
         <select
           value={jobId}
           onChange={(event) => setJobId(event.target.value)}
-          disabled={loadingJobs}
+          disabled={loadingJobs || Boolean(jobsError)}
           className="mt-2 w-full rounded-lg border border-brand-line bg-white px-4 py-3 text-sm font-bold text-brand-espresso outline-none focus:border-brand-bronze"
         >
           <option value="">포지션을 선택하세요</option>
@@ -249,6 +265,16 @@ export default function JobOperationalDetailsPage() {
             </option>
           ))}
         </select>
+        {loadingJobs ? (
+          <p role="status" aria-live="polite" className="mt-3 text-xs text-brand-muted">포지션 목록을 불러오는 중입니다...</p>
+        ) : jobsError ? (
+          <div role="alert" className="mt-4 rounded-lg border border-brand-line bg-brand-light p-4 text-xs text-brand-muted">
+            <p>{jobsError}</p>
+            <button type="button" onClick={() => setJobsReloadKey((value) => value + 1)} className="mt-3 font-bold text-brand-bronze">다시 불러오기</button>
+          </div>
+        ) : jobs.length === 0 ? (
+          <p className="mt-3 text-xs text-brand-muted">등록된 포지션이 없습니다.</p>
+        ) : null}
         {selectedJob ? (
           <div className="mt-4 grid gap-2 rounded-lg border border-brand-line bg-brand-light p-4 text-xs text-brand-muted sm:grid-cols-3">
             <span><strong className="text-brand-espresso">근무지</strong> · {selectedJob.location || "미입력"}</span>
@@ -261,7 +287,13 @@ export default function JobOperationalDetailsPage() {
       {jobId ? (
         <section className="rounded-xl border border-brand-line bg-white p-5 shadow-card sm:p-7">
           {loadingDetails ? (
-            <div className="py-16 text-center text-sm text-brand-muted">상세조건을 불러오는 중입니다...</div>
+            <div role="status" aria-live="polite" className="py-16 text-center text-sm text-brand-muted">상세조건을 불러오는 중입니다...</div>
+          ) : detailsError ? (
+            <div role="alert" className="py-16 text-center">
+              <p className="text-sm font-bold text-brand-espresso">상세조건을 불러오지 못했습니다.</p>
+              <p className="mt-2 text-xs text-brand-muted">{detailsError}</p>
+              <button type="button" onClick={() => setDetailsReloadKey((value) => value + 1)} className="mt-5 rounded-lg bg-brand-bronze px-4 py-3 text-xs font-bold text-white">다시 불러오기</button>
+            </div>
           ) : (
             <>
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">

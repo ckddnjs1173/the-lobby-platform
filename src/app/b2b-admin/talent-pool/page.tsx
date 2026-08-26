@@ -53,6 +53,10 @@ export default function GlobalTalentPoolPage() {
   const [items, setItems] = useState<GlobalTalentPoolItem[]>([]);
   const [jobs, setJobs] = useState<B2BJobView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [poolError, setPoolError] = useState<string | null>(null);
+  const [jobsLoadError, setJobsLoadError] = useState<string | null>(null);
+  const [poolReloadKey, setPoolReloadKey] = useState(0);
+  const [jobsReloadKey, setJobsReloadKey] = useState(0);
   const [queryText, setQueryText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [cursor, setCursor] = useState<string | null>(null);
@@ -72,17 +76,21 @@ export default function GlobalTalentPoolPage() {
   useEffect(() => {
     if (session.role !== "ADMIN") return;
     let cancelled = false;
+    setJobsLoadError(null);
     fetchB2BJobs()
       .then((result) => {
         if (!cancelled) setJobs(result);
       })
       .catch((error) => {
-        if (!cancelled) console.error("Talent opportunity job list failed:", error);
+        if (cancelled) return;
+        console.error("Talent opportunity job list failed:", error);
+        setJobs([]);
+        setJobsLoadError("OPEN 포지션 목록을 불러오지 못했습니다.");
       });
     return () => {
       cancelled = true;
     };
-  }, [session.role]);
+  }, [jobsReloadKey, session.role]);
 
   useEffect(() => {
     if (session.role !== "ADMIN") {
@@ -92,6 +100,7 @@ export default function GlobalTalentPoolPage() {
 
     let cancelled = false;
     setLoading(true);
+    setPoolError(null);
 
     fetchGlobalTalentPool({
       cursor: searchQuery ? null : cursor,
@@ -106,11 +115,13 @@ export default function GlobalTalentPoolPage() {
       .catch((error) => {
         if (cancelled) return;
         console.error("Global talent pool load failed:", error);
-        toast.error(
+        const message =
           error instanceof GlobalTalentPoolApiError
             ? error.message
-            : "J&C 공개 인재풀을 불러오지 못했습니다."
-        );
+            : "J&C 공개 인재풀을 불러오지 못했습니다.";
+        setItems([]);
+        setPoolError(message);
+        toast.error(message);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -119,7 +130,7 @@ export default function GlobalTalentPoolPage() {
     return () => {
       cancelled = true;
     };
-  }, [session.role, cursor, searchQuery]);
+  }, [session.role, cursor, poolReloadKey, searchQuery]);
 
   const openJobs = useMemo(
     () => jobs.filter((job) => job.status === "OPEN"),
@@ -239,7 +250,7 @@ export default function GlobalTalentPoolPage() {
           </p>
         </div>
         <div className="rounded-lg border border-brand-line bg-white px-4 py-3 text-xs text-brand-muted shadow-card">
-          공개 동의 후보자 <strong className="ml-1 text-brand-espresso">{pagination.total}명</strong>
+          공개 동의 후보자 <strong className="ml-1 text-brand-espresso">{poolError ? "—" : `${pagination.total}명`}</strong>
         </div>
       </div>
 
@@ -268,6 +279,12 @@ export default function GlobalTalentPoolPage() {
             <p className="mt-1 max-w-3xl text-[12px] leading-5 text-brand-muted">
               AI 점수가 아니라 후보자가 직접 입력한 희망조건과 현재 OPEN 포지션을 비교한 설명 가능한 신호입니다. 이 신호만으로 자동 추천·지원·제안하지 않습니다.
             </p>
+            {jobsLoadError ? (
+              <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-brand-line bg-white px-3 py-2 text-xs text-brand-muted">
+                <span>{jobsLoadError}</span>
+                <button type="button" onClick={() => setJobsReloadKey((value) => value + 1)} className="font-bold text-brand-bronze">다시 불러오기</button>
+              </div>
+            ) : null}
           </div>
           <label className="min-w-0 lg:w-[420px]">
             <span className="mb-1.5 block text-[11px] font-bold text-brand-muted">비교할 OPEN 포지션</span>
@@ -277,7 +294,7 @@ export default function GlobalTalentPoolPage() {
               disabled={openJobs.length === 0}
               className="w-full rounded-lg border border-brand-line bg-white px-3 py-3 text-xs font-bold text-brand-espresso disabled:opacity-50"
             >
-              {openJobs.length === 0 ? <option value="">공개 포지션 없음</option> : null}
+              {openJobs.length === 0 ? <option value="">{jobsLoadError ? "포지션 목록 오류" : "공개 포지션 없음"}</option> : null}
               {openJobs.map((job) => (
                 <option key={`match-${job.jobId}`} value={job.jobId}>
                   {job.displayCompany || job.company} · {job.title}
@@ -296,7 +313,13 @@ export default function GlobalTalentPoolPage() {
       </section>
 
       {loading ? (
-        <div className="rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">공개 인재풀을 불러오는 중입니다...</div>
+        <div role="status" aria-live="polite" className="rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">공개 인재풀을 불러오는 중입니다...</div>
+      ) : poolError ? (
+        <div role="alert" className="rounded-xl border border-brand-line bg-white px-6 py-16 text-center shadow-card">
+          <p className="text-sm font-bold text-brand-espresso">J&C 공개 인재풀을 불러오지 못했습니다.</p>
+          <p className="mt-2 text-xs text-brand-muted">{poolError}</p>
+          <button type="button" onClick={() => { setLoading(true); setPoolReloadKey((value) => value + 1); }} className="mt-5 rounded-lg bg-brand-bronze px-4 py-3 text-xs font-bold text-white">다시 불러오기</button>
+        </div>
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-brand-line bg-white py-20 text-center shadow-card">
           <p className="text-sm font-bold text-brand-espresso">{searching ? "검색 조건에 맞는 후보자가 없습니다." : "아직 공개 동의한 후보자가 없습니다."}</p>

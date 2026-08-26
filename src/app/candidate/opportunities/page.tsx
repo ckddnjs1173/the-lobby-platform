@@ -36,7 +36,9 @@ export default function CandidateOpportunitiesPage() {
   const router = useRouter();
   const [items, setItems] = useState<TalentOpportunityView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (user) => {
@@ -46,6 +48,7 @@ export default function CandidateOpportunitiesPage() {
         return;
       }
 
+      setLoadError(null);
       try {
         const opportunities = await fetchCandidateTalentOpportunities();
         setItems(opportunities);
@@ -58,16 +61,18 @@ export default function CandidateOpportunitiesPage() {
           router.replace("/register");
           return;
         }
-        toast.error(
+        const message =
           error instanceof TalentOpportunityApiError
             ? error.message
-            : "채용 제안을 불러오지 못했습니다."
-        );
+            : "채용 제안을 불러오지 못했습니다.";
+        setItems([]);
+        setLoadError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }
     });
-  }, [router]);
+  }, [reloadKey, router]);
 
   const respond = async (
     opportunityId: string,
@@ -118,7 +123,13 @@ export default function CandidateOpportunitiesPage() {
         </div>
 
         {loading ? (
-          <div className="mt-7 rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">채용 제안을 불러오는 중입니다...</div>
+          <div role="status" aria-live="polite" className="mt-7 rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">채용 제안을 불러오는 중입니다...</div>
+        ) : loadError ? (
+          <section role="alert" className="mt-7 rounded-xl border border-brand-line bg-white px-6 py-16 text-center shadow-card">
+            <p className="text-sm font-bold text-brand-espresso">채용 제안을 불러오지 못했습니다.</p>
+            <p className="mt-2 text-xs leading-5 text-brand-muted">{loadError}</p>
+            <button type="button" onClick={() => { setLoading(true); setReloadKey((value) => value + 1); }} className="mt-5 rounded-lg bg-brand-bronze px-4 py-3 text-xs font-bold text-white">다시 불러오기</button>
+          </section>
         ) : items.length === 0 ? (
           <div className="mt-7 rounded-xl border border-dashed border-brand-line bg-white px-6 py-20 text-center shadow-card">
             <p className="text-sm font-bold text-brand-espresso">현재 받은 채용 제안이 없습니다.</p>

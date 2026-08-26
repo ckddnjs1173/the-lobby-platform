@@ -159,6 +159,7 @@ export default function B2BAdminPage() {
   const session = useB2BSession();
   const [applications, setApplications] = useState<ApplicationView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<"TABLE" | "KANBAN">("TABLE");
   const [searchQuery, setSearchQuery] = useState("");
@@ -175,11 +176,16 @@ export default function B2BAdminPage() {
 
   const refreshApplications = useCallback(
     async ({ initial = false, silent = false }: { initial?: boolean; silent?: boolean } = {}) => {
-      if (initial) setLoading(true);
-      else setRefreshing(true);
+      if (initial) {
+        setLoading(true);
+        setLoadError(null);
+      } else {
+        setRefreshing(true);
+      }
 
       try {
         setApplications(await fetchB2BApplications());
+        if (initial) setLoadError(null);
       } catch (error) {
         console.error("B2B application list API error:", error);
         if (error instanceof ApplicationApiError) {
@@ -188,9 +194,12 @@ export default function B2BAdminPage() {
             router.replace("/b2b-admin/login");
             return;
           }
+          if (initial) setLoadError(error.message);
           if (!silent) toast.error(error.message);
-        } else if (!silent) {
-          toast.error("권한이 있는 지원 내역을 불러오지 못했습니다.");
+        } else {
+          const message = "권한이 있는 지원 내역을 불러오지 못했습니다.";
+          if (initial) setLoadError(message);
+          if (!silent) toast.error(message);
         }
         if (initial) setApplications([]);
       } finally {
@@ -436,9 +445,19 @@ export default function B2BAdminPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[520px] items-center justify-center rounded-xl border border-brand-line bg-white text-sm font-medium text-brand-muted shadow-card">
+      <div role="status" aria-live="polite" className="flex min-h-[520px] items-center justify-center rounded-xl border border-brand-line bg-white text-sm font-medium text-brand-muted shadow-card">
         서버 권한 기준으로 지원 내역을 불러오는 중입니다...
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section role="alert" className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-brand-line bg-white px-6 text-center shadow-card">
+        <h2 className="text-base font-bold text-brand-espresso">지원자 파이프라인을 불러오지 못했습니다.</h2>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-brand-muted">{loadError}</p>
+        <button type="button" onClick={() => void refreshApplications({ initial: true })} className="mt-5 rounded-lg bg-brand-bronze px-4 py-3 text-xs font-bold text-white">다시 불러오기</button>
+      </section>
     );
   }
 
@@ -467,17 +486,17 @@ export default function B2BAdminPage() {
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => void refreshApplications()} disabled={refreshing} className="rounded-lg border border-brand-line bg-white px-3 py-2.5 text-[11px] font-bold text-brand-muted hover:bg-brand-ivory disabled:opacity-50">{refreshing ? "갱신 중..." : "새로고침"}</button>
             <div className="flex rounded-lg border border-brand-line bg-brand-ivory p-1">
-              {(["TABLE", "KANBAN"] as const).map((mode) => <button key={mode} type="button" onClick={() => setViewMode(mode)} className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-[11px] font-bold ${viewMode === mode ? "bg-white text-brand-bronze shadow-sm" : "text-brand-muted"}`}><ViewIcon mode={mode} />{mode === "TABLE" ? "Table" : "Pipeline"}</button>)}
+              {(["TABLE", "KANBAN"] as const).map((mode) => <button key={mode} type="button" aria-pressed={viewMode === mode} onClick={() => setViewMode(mode)} className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-[11px] font-bold ${viewMode === mode ? "bg-white text-brand-bronze shadow-sm" : "text-brand-muted"}`}><ViewIcon mode={mode} />{mode === "TABLE" ? "Table" : "Pipeline"}</button>)}
             </div>
           </div>
         </div>
 
         <div className="mt-4 grid gap-2 xl:grid-cols-[minmax(240px,1.2fr)_160px_minmax(210px,1fr)_210px_160px_auto]">
-          <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="지원자, 연락처, 이메일, 공고, 기업, 담당자 검색" className="w-full rounded-lg border border-brand-line px-3.5 py-2.5 text-xs outline-none focus:border-brand-bronze" />
-          <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value as ApplicationStage | "ALL")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 단계</option>{Object.entries(STAGE_LABELS).map(([stage, label]) => <option key={stage} value={stage}>{label}</option>)}</select>
-          <select value={jobFilter} onChange={(event) => setJobFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 공고</option>{jobOptions.map((job) => <option key={job.jobId} value={job.jobId}>{job.label}</option>)}</select>
-          <select value={recruiterFilter} onChange={(event) => setRecruiterFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 담당자</option>{recruiters.map((recruiter) => <option key={recruiter.uid} value={recruiter.uid}>{recruiter.name} · {recruiter.email}</option>)}</select>
-          <select value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as "ALL" | "STALE")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 처리상태</option><option value="STALE">3일+ 미처리</option></select>
+          <input aria-label="지원자 파이프라인 검색" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="지원자, 연락처, 이메일, 공고, 기업, 담당자 검색" className="w-full rounded-lg border border-brand-line px-3.5 py-2.5 text-xs outline-none focus:border-brand-bronze" />
+          <select aria-label="지원 단계 필터" value={stageFilter} onChange={(event) => setStageFilter(event.target.value as ApplicationStage | "ALL")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 단계</option>{Object.entries(STAGE_LABELS).map(([stage, label]) => <option key={stage} value={stage}>{label}</option>)}</select>
+          <select aria-label="공고 필터" value={jobFilter} onChange={(event) => setJobFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 공고</option>{jobOptions.map((job) => <option key={job.jobId} value={job.jobId}>{job.label}</option>)}</select>
+          <select aria-label="담당자 필터" value={recruiterFilter} onChange={(event) => setRecruiterFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 담당자</option>{recruiters.map((recruiter) => <option key={recruiter.uid} value={recruiter.uid}>{recruiter.name} · {recruiter.email}</option>)}</select>
+          <select aria-label="처리상태 필터" value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as "ALL" | "STALE")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 처리상태</option><option value="STALE">3일+ 미처리</option></select>
           <button type="button" onClick={resetFilters} disabled={!hasActiveFilters} className="rounded-lg border border-brand-line px-3 py-2.5 text-[11px] font-bold text-brand-muted disabled:opacity-35">초기화</button>
         </div>
 

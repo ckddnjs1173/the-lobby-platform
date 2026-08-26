@@ -83,6 +83,17 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
   }, [pathname]);
 
   useEffect(() => {
+    if (!mobileOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => {
     if (isLoginPage) {
       setCheckingAuth(false);
       setSession(null);
@@ -136,7 +147,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
   if (checkingAuth || !session) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-brand-light">
-        <div className="rounded-xl border border-brand-line bg-white px-8 py-7 text-center shadow-card">
+        <div role="status" aria-live="polite" className="rounded-xl border border-brand-line bg-white px-8 py-7 text-center shadow-card">
           <div className="font-editorial text-xl text-brand-espresso">THE LOBBY</div>
           <div className="mt-3 text-sm font-semibold text-brand-ink">관리자 권한을 확인하고 있습니다.</div>
           <div className="mt-1 text-xs text-brand-muted">인증 및 조직 권한 검증 중</div>
@@ -200,6 +211,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
           key={`${mobile ? "mobile-" : ""}${item.href}`}
           href={item.href}
           onClick={() => mobile && setMobileOpen(false)}
+          aria-current={item.active ? "page" : undefined}
           className={`flex items-center gap-3 rounded-lg px-3 py-3 transition ${
             item.active
               ? "bg-brand-bronze text-white shadow-card"
@@ -209,7 +221,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
           <NavIcon type={item.icon} />
           <div className="min-w-0">
             <div className="text-sm font-bold">{item.label}</div>
-            <div className={`mt-0.5 truncate text-[10px] ${item.active ? "text-white/65" : "text-brand-muted"}`}>{item.caption}</div>
+            <div className={`mt-0.5 truncate text-[11px] ${item.active ? "text-white/70" : "text-brand-muted"}`}>{item.caption}</div>
           </div>
         </Link>
       ))}
@@ -224,7 +236,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
             <LobbyMark />
             <div className="leading-none">
               <div className="font-editorial text-[19px] tracking-[0.08em] text-brand-espresso">THE LOBBY</div>
-              <div className="mt-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-brand-muted">Recruiting Operating System</div>
+              <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-muted">Recruiting Operating System</div>
             </div>
           </div>
 
@@ -268,6 +280,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
                 type="button"
                 aria-label={mobileOpen ? "관리자 메뉴 닫기" : "관리자 메뉴 열기"}
                 aria-expanded={mobileOpen}
+                aria-controls="b2b-mobile-navigation"
                 onClick={() => setMobileOpen((value) => !value)}
                 className="flex h-10 w-10 items-center justify-center rounded-lg border border-brand-line bg-white text-brand-espresso lg:hidden"
               >
@@ -276,7 +289,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
             </div>
 
             {mobileOpen ? (
-              <div className="absolute left-0 right-0 top-full z-40 border-b border-brand-line bg-brand-light p-4 shadow-soft lg:hidden">
+              <div id="b2b-mobile-navigation" className="absolute left-0 right-0 top-full z-40 max-h-[calc(100vh-88px)] overflow-y-auto border-b border-brand-line bg-brand-light p-4 shadow-soft lg:hidden">
                 <div className="mb-3 rounded-lg border border-brand-line bg-white p-3 text-xs">
                   <div className="font-bold text-brand-espresso">{session.name}</div>
                   <div className="mt-1 text-[11px] text-brand-muted">{session.role} · {session.organizationId || "전체 조직"}</div>

@@ -28,6 +28,8 @@ export default function CandidatePoolPage() {
   const session = useB2BSession();
   const [candidates, setCandidates] = useState<CandidatePoolItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [queryText, setQueryText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [cursor, setCursor] = useState<string | null>(null);
@@ -49,6 +51,7 @@ export default function CandidatePoolPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
 
     fetchCandidatePoolPage(session.organizationId, {
       cursor: searchQuery ? null : cursor,
@@ -63,11 +66,14 @@ export default function CandidatePoolPage() {
       .catch((error) => {
         if (cancelled) return;
         console.error("Candidate pool load failed:", error);
-        toast.error(
+        const message =
           error instanceof CandidatePoolApiError
             ? error.message
-            : "후보자 풀을 불러오지 못했습니다."
-        );
+            : "후보자 풀을 불러오지 못했습니다.";
+        setCandidates([]);
+        setPagination({ total: 0, limit: PAGE_SIZE, hasMore: false, nextCursor: null });
+        setLoadError(message);
+        toast.error(message);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -76,7 +82,7 @@ export default function CandidatePoolPage() {
     return () => {
       cancelled = true;
     };
-  }, [session.organizationId, cursor, searchQuery]);
+  }, [session.organizationId, cursor, reloadKey, searchQuery]);
 
   const pageNumber = cursorHistory.length + 1;
   const searching = Boolean(searchQuery);
@@ -201,7 +207,13 @@ export default function CandidatePoolPage() {
         </p>
 
         {loading ? (
-          <div className="py-16 text-center text-sm text-slate-400">후보자 풀을 불러오는 중입니다...</div>
+          <div role="status" aria-live="polite" className="py-16 text-center text-sm text-slate-400">후보자 풀을 불러오는 중입니다...</div>
+        ) : loadError ? (
+          <div role="alert" className="space-y-3 py-16 text-center">
+            <p className="text-sm font-bold text-slate-700">후보자 CRM을 불러오지 못했습니다.</p>
+            <p className="text-xs text-slate-500">{loadError}</p>
+            <button type="button" onClick={() => { setLoading(true); setReloadKey((value) => value + 1); }} className="rounded-lg bg-slate-900 px-4 py-2.5 text-xs font-bold text-white">다시 불러오기</button>
+          </div>
         ) : candidates.length === 0 ? (
           <div className="space-y-2 py-16 text-center">
             <div className="text-sm font-semibold text-slate-500">표시할 후보자가 없습니다.</div>

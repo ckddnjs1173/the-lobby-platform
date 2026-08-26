@@ -146,4 +146,60 @@ assert(
   "UI_RESILIENCE_MUST_HAVE_BROWSER_REGRESSION_COVERAGE"
 );
 
+console.log("STEP_5: INTERNAL_WORKSPACE_RESILIENCE");
+const candidatePortal = read("src/app/candidate/page.tsx");
+const savedJobsPage = read("src/app/candidate/saved-jobs/page.tsx");
+const opportunitiesPage = read("src/app/candidate/opportunities/page.tsx");
+const b2bLayout = read("src/app/b2b-admin/layout.tsx");
+const b2bPipeline = read("src/app/b2b-admin/page.tsx");
+const candidatePool = read("src/app/b2b-admin/candidates/page.tsx");
+const b2bJobs = read("src/app/b2b-admin/jobs/page.tsx");
+const globalTalentPool = read("src/app/b2b-admin/talent-pool/page.tsx");
+const jobDetails = read("src/app/b2b-admin/job-details/page.tsx");
+const recruitingAnalytics = read("src/app/b2b-admin/analytics/page.tsx");
+
+assert(
+  candidatePortal.includes("const [loadError, setLoadError]") &&
+    candidatePortal.includes('role="alert"') &&
+    candidatePortal.includes("다시 불러오기") &&
+    !candidatePortal.includes("추천 채용 보기") &&
+    savedJobsPage.includes("const [loadError, setLoadError]") &&
+    savedJobsPage.includes("const [reloadKey, setReloadKey]") &&
+    savedJobsPage.includes('role="alert"') &&
+    opportunitiesPage.includes("const [loadError, setLoadError]") &&
+    opportunitiesPage.includes("const [reloadKey, setReloadKey]") &&
+    opportunitiesPage.includes('role="alert"'),
+  "CANDIDATE_INTERNAL_SURFACES_MUST_SEPARATE_LOAD_FAILURE_FROM_EMPTY_STATE"
+);
+
+assert(
+  b2bLayout.includes('aria-controls="b2b-mobile-navigation"') &&
+    b2bLayout.includes('id="b2b-mobile-navigation"') &&
+    b2bLayout.includes('aria-current={item.active ? "page" : undefined}') &&
+    b2bLayout.includes('event.key === "Escape"') &&
+    !b2bLayout.includes("text-[9px]"),
+  "B2B_NAVIGATION_MUST_EXPOSE_CONTROLLED_CURRENT_AND_READABLE_STATE"
+);
+
+assert(
+  b2bPipeline.includes("const [loadError, setLoadError]") &&
+    b2bPipeline.includes('aria-label="지원 단계 필터"') &&
+    b2bPipeline.includes("aria-pressed={viewMode === mode}") &&
+    candidatePool.includes("const [loadError, setLoadError]") &&
+    b2bJobs.includes("const [loadError, setLoadError]") &&
+    globalTalentPool.includes("const [poolError, setPoolError]") &&
+    globalTalentPool.includes("const [jobsLoadError, setJobsLoadError]"),
+  "B2B_WORKSPACES_MUST_SEPARATE_API_FAILURE_FROM_EMPTY_DATA"
+);
+
+assert(
+  jobDetails.includes("const [detailsError, setDetailsError]") &&
+    jobDetails.includes("setForm(EMPTY);") &&
+    jobDetails.includes("setBenefitsText(\"\");") &&
+    jobDetails.includes('role="alert"') &&
+    jobDetails.includes("setDetailsReloadKey") &&
+    !recruitingAnalytics.includes("text-[9px]"),
+  "JOB_DETAILS_MUST_CLEAR_STALE_FORM_BEFORE_LOADING_ANOTHER_POSITION"
+);
+
 console.log("P1_PRODUCT_UX_CHECK_PASSED");

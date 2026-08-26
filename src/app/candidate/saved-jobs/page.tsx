@@ -28,7 +28,9 @@ export default function CandidateSavedJobsPage() {
   const [saved, setSaved] = useState<CandidateSavedJobView[]>([]);
   const [jobs, setJobs] = useState<PublicJobView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (user) => {
@@ -38,6 +40,7 @@ export default function CandidateSavedJobsPage() {
         return;
       }
 
+      setLoadError(null);
       try {
         const [savedItems, publicJobs] = await Promise.all([
           fetchCandidateSavedJobs(),
@@ -51,12 +54,16 @@ export default function CandidateSavedJobsPage() {
           router.replace("/register");
           return;
         }
-        toast.error(error instanceof CandidateSavedJobApiError ? error.message : "저장공고를 불러오지 못했습니다.");
+        const message = error instanceof CandidateSavedJobApiError ? error.message : "저장공고를 불러오지 못했습니다.";
+        setSaved([]);
+        setJobs([]);
+        setLoadError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }
     });
-  }, [router]);
+  }, [reloadKey, router]);
 
   const items = useMemo(() => {
     const jobsById = new Map(jobs.map((job) => [job.jobId, job]));
@@ -91,7 +98,13 @@ export default function CandidateSavedJobsPage() {
         </div>
 
         {loading ? (
-          <div className="mt-7 rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">저장공고를 불러오는 중입니다...</div>
+          <div role="status" aria-live="polite" className="mt-7 rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">저장공고를 불러오는 중입니다...</div>
+        ) : loadError ? (
+          <section role="alert" className="mt-7 rounded-xl border border-brand-line bg-white px-6 py-16 text-center shadow-card">
+            <p className="text-sm font-bold text-brand-espresso">관심공고를 불러오지 못했습니다.</p>
+            <p className="mt-2 text-xs leading-5 text-brand-muted">{loadError}</p>
+            <button type="button" onClick={() => { setLoading(true); setReloadKey((value) => value + 1); }} className="mt-5 rounded-lg bg-brand-bronze px-4 py-3 text-xs font-bold text-white">다시 불러오기</button>
+          </section>
         ) : items.length === 0 ? (
           <div className="mt-7 rounded-xl border border-dashed border-brand-line bg-white px-6 py-20 text-center shadow-card">
             <p className="text-sm font-bold text-brand-espresso">아직 저장한 공고가 없습니다.</p>

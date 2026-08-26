@@ -233,6 +233,8 @@ export default function B2BJobsPage() {
   const [jobs, setJobs] = useState<B2BJobView[]>([]);
   const [organizations, setOrganizations] = useState<B2BOrganizationView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [updatingJobId, setUpdatingJobId] = useState<string | null>(null);
@@ -256,6 +258,7 @@ export default function B2BJobsPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
 
     Promise.all([fetchB2BJobs(), fetchB2BOrganizations()])
       .then(([jobData, organizationData]) => {
@@ -266,11 +269,14 @@ export default function B2BJobsPage() {
       .catch((error) => {
         if (cancelled) return;
         console.error("B2B job workspace load failed:", error);
-        if (error instanceof JobApiError || error instanceof OrganizationApiError) {
-          toast.error(error.message);
-        } else {
-          toast.error("공고 관리 데이터를 불러오지 못했습니다.");
-        }
+        const message =
+          error instanceof JobApiError || error instanceof OrganizationApiError
+            ? error.message
+            : "공고 관리 데이터를 불러오지 못했습니다.";
+        setJobs([]);
+        setOrganizations([]);
+        setLoadError(message);
+        toast.error(message);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -279,7 +285,7 @@ export default function B2BJobsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const validateForm = (target: JobFormState, requiresOrganization: boolean): boolean => {
     if (
@@ -439,7 +445,7 @@ export default function B2BJobsPage() {
         {(["OPEN", "DRAFT", "CLOSED"] as JobStatus[]).map((status) => (
           <div key={status} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="text-xs font-semibold text-slate-400">{STATUS_LABELS[status]}</div>
-            <div className="mt-1 text-2xl font-bold text-slate-900">{counts[status]}</div>
+            <div className="mt-1 text-2xl font-bold text-slate-900">{loadError ? "—" : counts[status]}</div>
           </div>
         ))}
       </div>
@@ -471,7 +477,7 @@ export default function B2BJobsPage() {
               ) : null}
             </div>
 
-            {session.role === "ADMIN" && organizations.length === 0 && !loading ? (
+            {session.role === "ADMIN" && organizations.length === 0 && !loading && !loadError ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                 선택 가능한 조직이 없습니다. organizations 컬렉션의 고객사 정보를 먼저 확인해주세요.
               </div>
@@ -555,7 +561,13 @@ export default function B2BJobsPage() {
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         {loading ? (
-          <div className="py-16 text-center text-sm text-slate-400">공고 목록을 불러오는 중입니다...</div>
+          <div role="status" aria-live="polite" className="py-16 text-center text-sm text-slate-400">공고 목록을 불러오는 중입니다...</div>
+        ) : loadError ? (
+          <div role="alert" className="px-6 py-16 text-center">
+            <p className="text-sm font-bold text-slate-700">공고 관리 데이터를 불러오지 못했습니다.</p>
+            <p className="mt-2 text-xs text-slate-500">{loadError}</p>
+            <button type="button" onClick={() => { setLoading(true); setReloadKey((value) => value + 1); }} className="mt-5 rounded-lg bg-slate-900 px-4 py-2.5 text-xs font-bold text-white">다시 불러오기</button>
+          </div>
         ) : jobs.length === 0 ? (
           <div className="py-16 text-center text-sm text-slate-400">등록된 공고가 없습니다.</div>
         ) : (
