@@ -65,7 +65,9 @@ test("job search keeps empty results distinct from load failure", async ({ page 
   });
 
   await page.goto("/jobs");
-  const alert = page.getByRole("alert");
+  const alert = page.getByRole("alert").filter({
+    hasText: "채용공고를 불러오지 못했습니다.",
+  });
   await expect(alert).toContainText("채용공고를 불러오지 못했습니다.");
   await expect(alert).toContainText("잠시 후 다시 시도해주세요.");
   await expect(page.getByRole("button", { name: "다시 불러오기" })).toBeVisible();
