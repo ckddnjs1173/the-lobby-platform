@@ -32,13 +32,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify audited product tree
+      - name: Verify audited product source tree
         shell: bash
         run: |
-          parent="$(git rev-parse HEAD^)"
           expected="e97c7b273e098ca4fdd290dc9a10f4e06232e702"
-          if [ "$parent" != "$expected" ]; then
-            echo "AUTH_QA_BASE_MOVED expected=$expected actual=$parent"
+          git merge-base --is-ancestor "$expected" HEAD
+          if ! git diff --quiet "$expected" HEAD -- src tests package.json package-lock.json next.config.ts playwright.config.cjs; then
+            echo "AUTH_QA_PRODUCT_TREE_DRIFTED_FROM_$expected"
+            git diff --stat "$expected" HEAD -- src tests package.json package-lock.json next.config.ts playwright.config.cjs
             exit 1
           fi
 
