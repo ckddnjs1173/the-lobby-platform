@@ -76,6 +76,11 @@ jobs:
               s = s.replace(old, new, 1)
 
           replace_once('role: "RECRUITER",', 'role: "ADMIN",', 'ADMIN_ROLE')
+          replace_once(
+              '  const jobResult = await callApi(recruiterToken, "/api/b2b/jobs", "POST", {\n    company:',
+              '  const jobResult = await callApi(recruiterToken, "/api/b2b/jobs", "POST", {\n    organizationId: orgId,\n    company:',
+              'ADMIN_JOB_ORGANIZATION',
+          )
           replace_once('status: "OPEN",\n  });\n  assert(jobResult.status === 201', 'status: "DRAFT",\n  });\n  assert(jobResult.status === 201', 'DRAFT_JOB_SEED')
           replace_once(
               '  created.jobIds.push(jobId);\n\n  const applyResult =',
