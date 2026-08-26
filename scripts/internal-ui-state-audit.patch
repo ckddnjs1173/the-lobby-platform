@@ -1,0 +1,726 @@
+diff --git a/src/app/candidate/page.tsx b/src/app/candidate/page.tsx
+--- a/src/app/candidate/page.tsx
++++ b/src/app/candidate/page.tsx
+@@ -128,6 +128,7 @@ export default function CandidatePortalPage() {
+   const [applications, setApplications] = useState<CandidatePortalApplicationView[]>([]);
+   const [form, setForm] = useState<ProfileFormState | null>(null);
+   const [loading, setLoading] = useState(true);
++  const [loadError, setLoadError] = useState<string | null>(null);
+   const [saving, setSaving] = useState(false);
+   const [editing, setEditing] = useState(false);
+   const [cancelingApplicationId, setCancelingApplicationId] = useState<string | null>(null);
+@@ -135,6 +136,7 @@ export default function CandidatePortalPage() {
+   const loadPortal = useCallback(async () => {
+     setLoading(true);
++    setLoadError(null);
+     try {
+       const [profileData, applicationData] = await Promise.all([
+         fetchCandidatePortalProfile(),
+@@ -160,11 +162,11 @@ export default function CandidatePortalPage() {
+         router.replace("/login");
+         return;
+       }
+-      toast.error(
++      const message =
+         error instanceof CandidatePortalApiError
+           ? error.message
+-          : "Candidate Portal을 불러오지 못했습니다."
+-      );
++          : "Candidate Portal을 불러오지 못했습니다.";
++      setLoadError(message);
++      toast.error(message);
+     } finally {
+       setLoading(false);
+     }
+@@ -319,11 +321,27 @@ export default function CandidatePortalPage() {
+       <div className="candidate-surface min-h-screen bg-brand-light">
+         <CandidateHeader />
+-        <div className="flex min-h-[70vh] items-center justify-center pt-20 text-sm font-medium text-brand-muted">
++        <div role="status" aria-live="polite" className="flex min-h-[70vh] items-center justify-center pt-20 text-sm font-medium text-brand-muted">
+           내 커리어 정보를 불러오는 중입니다...
+         </div>
+       </div>
+     );
+   }
++
++  if (loadError) {
++    return (
++      <div className="candidate-surface min-h-screen bg-brand-light">
++        <CandidateHeader />
++        <main className="mx-auto max-w-xl px-5 pb-16 pt-32 sm:px-8">
++          <section role="alert" className="rounded-xl border border-brand-line bg-white px-6 py-12 text-center shadow-card">
++            <h1 className="font-editorial text-2xl text-brand-espresso">마이페이지를 불러오지 못했습니다.</h1>
++            <p className="mt-3 text-sm leading-6 text-brand-muted">{loadError}</p>
++            <button type="button" onClick={() => void loadPortal()} className="mt-6 rounded-lg bg-brand-bronze px-5 py-3 text-xs font-bold text-white">다시 불러오기</button>
++          </section>
++        </main>
++      </div>
++    );
++  }
+ 
+   if (!profile || !form) {
+@@ -373,7 +391,7 @@ export default function CandidatePortalPage() {
+               <p className="font-editorial mt-3 text-xl">새로운 기회를 계속 확인하세요.</p>
+               <Link href="/jobs" className="mt-5 inline-flex rounded-lg border border-white/20 px-4 py-2.5 text-xs font-bold text-brand-cream hover:bg-white/10">
+-                추천 채용 보기 →
++                채용공고 보기 →
+               </Link>
+             </div>
+           </aside>
+
+diff --git a/src/app/candidate/saved-jobs/page.tsx b/src/app/candidate/saved-jobs/page.tsx
+--- a/src/app/candidate/saved-jobs/page.tsx
++++ b/src/app/candidate/saved-jobs/page.tsx
+@@ -28,7 +28,9 @@ export default function CandidateSavedJobsPage() {
+   const [saved, setSaved] = useState<CandidateSavedJobView[]>([]);
+   const [jobs, setJobs] = useState<PublicJobView[]>([]);
+   const [loading, setLoading] = useState(true);
++  const [loadError, setLoadError] = useState<string | null>(null);
+   const [workingId, setWorkingId] = useState<string | null>(null);
++  const [reloadKey, setReloadKey] = useState(0);
+ 
+   useEffect(() => {
+     return onAuthStateChanged(auth, async (user) => {
+@@ -39,6 +41,7 @@ export default function CandidateSavedJobsPage() {
+         return;
+       }
+ 
++      setLoadError(null);
+       try {
+         const [savedItems, publicJobs] = await Promise.all([
+           fetchCandidateSavedJobs(),
+@@ -53,13 +56,16 @@ export default function CandidateSavedJobsPage() {
+           router.replace("/register");
+           return;
+         }
+-        toast.error(error instanceof CandidateSavedJobApiError ? error.message : "저장공고를 불러오지 못했습니다.");
++        const message = error instanceof CandidateSavedJobApiError ? error.message : "저장공고를 불러오지 못했습니다.";
++        setSaved([]);
++        setJobs([]);
++        setLoadError(message);
++        toast.error(message);
+       } finally {
+         setLoading(false);
+       }
+     });
+-  }, [router]);
++  }, [reloadKey, router]);
+@@ -94,8 +100,18 @@ export default function CandidateSavedJobsPage() {
+ 
+         {loading ? (
+-          <div className="mt-7 rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">저장공고를 불러오는 중입니다...</div>
+-        ) : items.length === 0 ? (
++          <div role="status" aria-live="polite" className="mt-7 rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">저장공고를 불러오는 중입니다...</div>
++        ) : loadError ? (
++          <section role="alert" className="mt-7 rounded-xl border border-brand-line bg-white px-6 py-16 text-center shadow-card">
++            <p className="text-sm font-bold text-brand-espresso">관심공고를 불러오지 못했습니다.</p>
++            <p className="mt-2 text-xs leading-5 text-brand-muted">{loadError}</p>
++            <button type="button" onClick={() => { setLoading(true); setReloadKey((value) => value + 1); }} className="mt-5 rounded-lg bg-brand-bronze px-4 py-3 text-xs font-bold text-white">
++              다시 불러오기
++            </button>
++          </section>
++        ) : items.length === 0 ? (
+           <div className="mt-7 rounded-xl border border-dashed border-brand-line bg-white px-6 py-20 text-center shadow-card">
+             <p className="text-sm font-bold text-brand-espresso">아직 저장한 공고가 없습니다.</p>
+             <p className="mt-2 text-xs text-brand-muted">공고 상세에서 관심공고 저장 버튼을 눌러 다시 확인할 수 있습니다.</p>
+
+diff --git a/src/app/candidate/opportunities/page.tsx b/src/app/candidate/opportunities/page.tsx
+--- a/src/app/candidate/opportunities/page.tsx
++++ b/src/app/candidate/opportunities/page.tsx
+@@ -35,7 +35,9 @@ export default function CandidateOpportunitiesPage() {
+   const router = useRouter();
+   const [items, setItems] = useState<TalentOpportunityView[]>([]);
+   const [loading, setLoading] = useState(true);
++  const [loadError, setLoadError] = useState<string | null>(null);
+   const [workingId, setWorkingId] = useState<string | null>(null);
++  const [reloadKey, setReloadKey] = useState(0);
+ 
+   useEffect(() => {
+     return onAuthStateChanged(auth, async (user) => {
+@@ -46,6 +48,7 @@ export default function CandidateOpportunitiesPage() {
+         return;
+       }
+ 
++      setLoadError(null);
+       try {
+         const opportunities = await fetchCandidateTalentOpportunities();
+         setItems(opportunities);
+@@ -60,15 +63,16 @@ export default function CandidateOpportunitiesPage() {
+           router.replace("/register");
+           return;
+         }
+-        toast.error(
++        const message =
+           error instanceof TalentOpportunityApiError
+             ? error.message
+-            : "채용 제안을 불러오지 못했습니다."
+-        );
++            : "채용 제안을 불러오지 못했습니다.";
++        setItems([]);
++        setLoadError(message);
++        toast.error(message);
+       } finally {
+         setLoading(false);
+       }
+     });
+-  }, [router]);
++  }, [reloadKey, router]);
+@@ -121,8 +125,18 @@ export default function CandidateOpportunitiesPage() {
+ 
+         {loading ? (
+-          <div className="mt-7 rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">채용 제안을 불러오는 중입니다...</div>
+-        ) : items.length === 0 ? (
++          <div role="status" aria-live="polite" className="mt-7 rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">채용 제안을 불러오는 중입니다...</div>
++        ) : loadError ? (
++          <section role="alert" className="mt-7 rounded-xl border border-brand-line bg-white px-6 py-16 text-center shadow-card">
++            <p className="text-sm font-bold text-brand-espresso">채용 제안을 불러오지 못했습니다.</p>
++            <p className="mt-2 text-xs leading-5 text-brand-muted">{loadError}</p>
++            <button type="button" onClick={() => { setLoading(true); setReloadKey((value) => value + 1); }} className="mt-5 rounded-lg bg-brand-bronze px-4 py-3 text-xs font-bold text-white">
++              다시 불러오기
++            </button>
++          </section>
++        ) : items.length === 0 ? (
+           <div className="mt-7 rounded-xl border border-dashed border-brand-line bg-white px-6 py-20 text-center shadow-card">
+             <p className="text-sm font-bold text-brand-espresso">현재 받은 채용 제안이 없습니다.</p>
+             <p className="mt-2 text-xs leading-5 text-brand-muted">인재풀 공개를 켜두면 J&C가 조건이 맞는 포지션을 검토할 수 있습니다.</p>
+
+diff --git a/src/app/b2b-admin/layout.tsx b/src/app/b2b-admin/layout.tsx
+--- a/src/app/b2b-admin/layout.tsx
++++ b/src/app/b2b-admin/layout.tsx
+@@ -105,6 +105,17 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode }) {
+     setMobileOpen(false);
+   }, [pathname]);
+ 
++  useEffect(() => {
++    if (!mobileOpen) return;
++    const handleKeyDown = (event: KeyboardEvent) => {
++      if (event.key === "Escape") setMobileOpen(false);
++    };
++    window.addEventListener("keydown", handleKeyDown);
++    return () => {
++      window.removeEventListener("keydown", handleKeyDown);
++    };
++  }, [mobileOpen]);
++
+   useEffect(() => {
+     if (isLoginPage) {
+@@ -154,7 +165,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode }) {
+   if (checkingAuth || !session) {
+     return (
+       <div className="flex min-h-screen items-center justify-center bg-brand-light">
+-        <div className="rounded-xl border border-brand-line bg-white px-8 py-7 text-center shadow-card">
++        <div role="status" aria-live="polite" className="rounded-xl border border-brand-line bg-white px-8 py-7 text-center shadow-card">
+           <div className="font-editorial text-xl text-brand-espresso">THE LOBBY</div>
+@@ -206,6 +217,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode }) {
+           key={`${mobile ? "mobile-" : ""}${item.href}`}
+           href={item.href}
+           onClick={() => mobile && setMobileOpen(false)}
++          aria-current={item.active ? "page" : undefined}
+           className={`flex items-center gap-3 rounded-lg px-3 py-3 transition ${
+@@ -220,7 +232,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode }) {
+           <NavIcon type={item.icon} />
+           <div className="min-w-0">
+             <div className="text-sm font-bold">{item.label}</div>
+-            <div className={`mt-0.5 truncate text-[10px] ${item.active ? "text-white/65" : "text-brand-muted"}`}>{item.caption}</div>
++            <div className={`mt-0.5 truncate text-[11px] ${item.active ? "text-white/70" : "text-brand-muted"}`}>{item.caption}</div>
+           </div>
+@@ -239,7 +251,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode }) {
+             <div className="leading-none">
+               <div className="font-editorial text-[19px] tracking-[0.08em] text-brand-espresso">THE LOBBY</div>
+-              <div className="mt-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-brand-muted">Recruiting Operating System</div>
++              <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-muted">Recruiting Operating System</div>
+             </div>
+@@ -292,6 +304,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode }) {
+                 type="button"
+                 aria-label={mobileOpen ? "관리자 메뉴 닫기" : "관리자 메뉴 열기"}
+                 aria-expanded={mobileOpen}
++                aria-controls="b2b-mobile-navigation"
+                 onClick={() => setMobileOpen((value) => !value)}
+@@ -303,7 +316,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode }) {
+             </div>
+ 
+             {mobileOpen ? (
+-              <div className="absolute left-0 right-0 top-full z-40 border-b border-brand-line bg-brand-light p-4 shadow-soft lg:hidden">
++              <div id="b2b-mobile-navigation" className="absolute left-0 right-0 top-full z-40 max-h-[calc(100vh-88px)] overflow-y-auto border-b border-brand-line bg-brand-light p-4 shadow-soft lg:hidden">
+                 <div className="mb-3 rounded-lg border border-brand-line bg-white p-3 text-xs">
+
+diff --git a/src/app/b2b-admin/page.tsx b/src/app/b2b-admin/page.tsx
+--- a/src/app/b2b-admin/page.tsx
++++ b/src/app/b2b-admin/page.tsx
+@@ -162,6 +162,7 @@ export default function B2BAdminPage() {
+   const session = useB2BSession();
+   const [applications, setApplications] = useState<ApplicationView[]>([]);
+   const [loading, setLoading] = useState(true);
++  const [loadError, setLoadError] = useState<string | null>(null);
+   const [refreshing, setRefreshing] = useState(false);
+@@ -181,10 +182,15 @@ export default function B2BAdminPage() {
+   const refreshApplications = useCallback(
+     async ({ initial = false, silent = false }: { initial?: boolean; silent?: boolean } = {}) => {
+-      if (initial) setLoading(true);
+-      else setRefreshing(true);
++      if (initial) {
++        setLoading(true);
++        setLoadError(null);
++      } else {
++        setRefreshing(true);
++      }
+ 
+       try {
+         setApplications(await fetchB2BApplications());
++        if (initial) setLoadError(null);
+       } catch (error) {
+         console.error("B2B application list API error:", error);
+         if (error instanceof ApplicationApiError) {
+@@ -195,10 +201,14 @@ export default function B2BAdminPage() {
+             router.replace("/b2b-admin/login");
+             return;
+           }
+-          if (!silent) toast.error(error.message);
+-        } else if (!silent) {
+-          toast.error("권한이 있는 지원 내역을 불러오지 못했습니다.");
++          if (initial) setLoadError(error.message);
++          if (!silent) toast.error(error.message);
++        } else {
++          const message = "권한이 있는 지원 내역을 불러오지 못했습니다.";
++          if (initial) setLoadError(message);
++          if (!silent) toast.error(message);
+         }
+         if (initial) setApplications([]);
+@@ -400,10 +410,23 @@ export default function B2BAdminPage() {
+   if (loading) {
+     return (
+-      <div className="flex min-h-[520px] items-center justify-center rounded-xl border border-brand-line bg-white text-sm font-medium text-brand-muted shadow-card">
++      <div role="status" aria-live="polite" className="flex min-h-[520px] items-center justify-center rounded-xl border border-brand-line bg-white text-sm font-medium text-brand-muted shadow-card">
+         서버 권한 기준으로 지원 내역을 불러오는 중입니다...
+       </div>
+     );
+   }
++
++  if (loadError) {
++    return (
++      <section role="alert" className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-brand-line bg-white px-6 text-center shadow-card">
++        <h2 className="text-base font-bold text-brand-espresso">지원자 파이프라인을 불러오지 못했습니다.</h2>
++        <p className="mt-2 max-w-xl text-sm leading-6 text-brand-muted">{loadError}</p>
++        <button type="button" onClick={() => void refreshApplications({ initial: true })} className="mt-5 rounded-lg bg-brand-bronze px-4 py-3 text-xs font-bold text-white">다시 불러오기</button>
++      </section>
++    );
++  }
+@@ -449,7 +472,7 @@ export default function B2BAdminPage() {
+             <button type="button" onClick={() => void refreshApplications()} disabled={refreshing} className="rounded-lg border border-brand-line bg-white px-3 py-2.5 text-[11px] font-bold text-brand-muted hover:bg-brand-ivory disabled:opacity-50">{refreshing ? "갱신 중..." : "새로고침"}</button>
+             <div className="flex rounded-lg border border-brand-line bg-brand-ivory p-1">
+-              {(["TABLE", "KANBAN"] as const).map((mode) => <button key={mode} type="button" onClick={() => setViewMode(mode)} className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-[11px] font-bold ${viewMode === mode ? "bg-white text-brand-bronze shadow-sm" : "text-brand-muted"}`}><ViewIcon mode={mode} />{mode === "TABLE" ? "Table" : "Pipeline"}</button>)}
++              {(["TABLE", "KANBAN"] as const).map((mode) => <button key={mode} type="button" aria-pressed={viewMode === mode} onClick={() => setViewMode(mode)} className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-[11px] font-bold ${viewMode === mode ? "bg-white text-brand-bronze shadow-sm" : "text-brand-muted"}`}><ViewIcon mode={mode} />{mode === "TABLE" ? "Table" : "Pipeline"}</button>)}
+             </div>
+@@ -458,11 +481,11 @@ export default function B2BAdminPage() {
+ 
+         <div className="mt-4 grid gap-2 xl:grid-cols-[minmax(240px,1.2fr)_160px_minmax(210px,1fr)_210px_160px_auto]">
+-          <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="지원자, 연락처, 이메일, 공고, 기업, 담당자 검색" className="w-full rounded-lg border border-brand-line px-3.5 py-2.5 text-xs outline-none focus:border-brand-bronze" />
+-          <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value as ApplicationStage | "ALL")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 단계</option>{Object.entries(STAGE_LABELS).map(([stage, label]) => <option key={stage} value={stage}>{label}</option>)}</select>
+-          <select value={jobFilter} onChange={(event) => setJobFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 공고</option>{jobOptions.map((job) => <option key={job.jobId} value={job.jobId}>{job.label}</option>)}</select>
+-          <select value={recruiterFilter} onChange={(event) => setRecruiterFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 담당자</option>{recruiters.map((recruiter) => <option key={recruiter.uid} value={recruiter.uid}>{recruiter.name} · {recruiter.email}</option>)}</select>
+-          <select value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as "ALL" | "STALE")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 처리상태</option><option value="STALE">3일+ 미처리</option></select>
++          <input aria-label="지원자 파이프라인 검색" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="지원자, 연락처, 이메일, 공고, 기업, 담당자 검색" className="w-full rounded-lg border border-brand-line px-3.5 py-2.5 text-xs outline-none focus:border-brand-bronze" />
++          <select aria-label="지원 단계 필터" value={stageFilter} onChange={(event) => setStageFilter(event.target.value as ApplicationStage | "ALL")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 단계</option>{Object.entries(STAGE_LABELS).map(([stage, label]) => <option key={stage} value={stage}>{label}</option>)}</select>
++          <select aria-label="공고 필터" value={jobFilter} onChange={(event) => setJobFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 공고</option>{jobOptions.map((job) => <option key={job.jobId} value={job.jobId}>{job.label}</option>)}</select>
++          <select aria-label="담당자 필터" value={recruiterFilter} onChange={(event) => setRecruiterFilter(event.target.value)} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 담당자</option>{recruiters.map((recruiter) => <option key={recruiter.uid} value={recruiter.uid}>{recruiter.name} · {recruiter.email}</option>)}</select>
++          <select aria-label="처리상태 필터" value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as "ALL" | "STALE")} className="w-full rounded-lg border border-brand-line bg-white px-3 py-2.5 text-xs"><option value="ALL">모든 처리상태</option><option value="STALE">3일+ 미처리</option></select>
+           <button type="button" onClick={resetFilters} disabled={!hasActiveFilters} className="rounded-lg border border-brand-line px-3 py-2.5 text-[11px] font-bold text-brand-muted disabled:opacity-35">초기화</button>
+
+diff --git a/src/app/b2b-admin/candidates/page.tsx b/src/app/b2b-admin/candidates/page.tsx
+--- a/src/app/b2b-admin/candidates/page.tsx
++++ b/src/app/b2b-admin/candidates/page.tsx
+@@ -33,6 +33,8 @@ export default function CandidatePoolPage() {
+   const session = useB2BSession();
+   const [candidates, setCandidates] = useState<CandidatePoolItem[]>([]);
+   const [loading, setLoading] = useState(true);
++  const [loadError, setLoadError] = useState<string | null>(null);
++  const [reloadKey, setReloadKey] = useState(0);
+   const [queryText, setQueryText] = useState("");
+@@ -52,6 +54,7 @@ export default function CandidatePoolPage() {
+   useEffect(() => {
+     let cancelled = false;
+     setLoading(true);
++    setLoadError(null);
+ 
+     fetchCandidatePoolPage(session.organizationId, {
+@@ -70,11 +73,17 @@ export default function CandidatePoolPage() {
+       .catch((error) => {
+         if (cancelled) return;
+         console.error("Candidate pool load failed:", error);
+-        toast.error(
++        const message =
+           error instanceof CandidatePoolApiError
+             ? error.message
+-            : "후보자 풀을 불러오지 못했습니다."
+-        );
++            : "후보자 풀을 불러오지 못했습니다.";
++        setCandidates([]);
++        setPagination({ total: 0, limit: PAGE_SIZE, hasMore: false, nextCursor: null });
++        setLoadError(message);
++        toast.error(message);
+       })
+@@ -85,7 +94,7 @@ export default function CandidatePoolPage() {
+     return () => {
+       cancelled = true;
+     };
+-  }, [session.organizationId, cursor, searchQuery]);
++  }, [session.organizationId, cursor, reloadKey, searchQuery]);
+@@ -162,8 +171,18 @@ export default function CandidatePoolPage() {
+ 
+         {loading ? (
+-          <div className="py-16 text-center text-sm text-slate-400">후보자 풀을 불러오는 중입니다...</div>
+-        ) : candidates.length === 0 ? (
++          <div role="status" aria-live="polite" className="py-16 text-center text-sm text-slate-400">후보자 풀을 불러오는 중입니다...</div>
++        ) : loadError ? (
++          <div role="alert" className="space-y-3 py-16 text-center">
++            <p className="text-sm font-bold text-slate-700">후보자 CRM을 불러오지 못했습니다.</p>
++            <p className="text-xs text-slate-500">{loadError}</p>
++            <button type="button" onClick={() => { setLoading(true); setReloadKey((value) => value + 1); }} className="rounded-lg bg-slate-900 px-4 py-2.5 text-xs font-bold text-white">
++              다시 불러오기
++            </button>
++          </div>
++        ) : candidates.length === 0 ? (
+           <div className="space-y-2 py-16 text-center">
+
+diff --git a/src/app/b2b-admin/jobs/page.tsx b/src/app/b2b-admin/jobs/page.tsx
+--- a/src/app/b2b-admin/jobs/page.tsx
++++ b/src/app/b2b-admin/jobs/page.tsx
+@@ -233,6 +233,8 @@ export default function B2BJobsPage() {
+   const [jobs, setJobs] = useState<B2BJobView[]>([]);
+   const [organizations, setOrganizations] = useState<B2BOrganizationView[]>([]);
+   const [loading, setLoading] = useState(true);
++  const [loadError, setLoadError] = useState<string | null>(null);
++  const [reloadKey, setReloadKey] = useState(0);
+   const [showCreate, setShowCreate] = useState(false);
+@@ -261,6 +263,7 @@ export default function B2BJobsPage() {
+   useEffect(() => {
+     let cancelled = false;
+     setLoading(true);
++    setLoadError(null);
+ 
+     Promise.all([fetchB2BJobs(), fetchB2BOrganizations()])
+@@ -275,12 +278,18 @@ export default function B2BJobsPage() {
+       .catch((error) => {
+         if (cancelled) return;
+         console.error("B2B job workspace load failed:", error);
++        const message =
++          error instanceof JobApiError || error instanceof OrganizationApiError
++            ? error.message
++            : "공고 관리 데이터를 불러오지 못했습니다.";
++        setJobs([]);
++        setOrganizations([]);
++        setLoadError(message);
+         if (error instanceof JobApiError || error instanceof OrganizationApiError) {
+-          toast.error(error.message);
++          toast.error(message);
+         } else {
+-          toast.error("공고 관리 데이터를 불러오지 못했습니다.");
++          toast.error(message);
+         }
+@@ -291,7 +300,7 @@ export default function B2BJobsPage() {
+     return () => {
+       cancelled = true;
+     };
+-  }, []);
++  }, [reloadKey]);
+@@ -404,7 +413,7 @@ export default function B2BJobsPage() {
+         {(["OPEN", "DRAFT", "CLOSED"] as JobStatus[]).map((status) => (
+           <div key={status} className="rounded-xl border border-slate-200 bg-white p-4">
+             <div className="text-xs font-semibold text-slate-400">{STATUS_LABELS[status]}</div>
+-            <div className="mt-1 text-2xl font-bold text-slate-900">{counts[status]}</div>
++            <div className="mt-1 text-2xl font-bold text-slate-900">{loadError ? "—" : counts[status]}</div>
+           </div>
+@@ -442,7 +451,7 @@ export default function B2BJobsPage() {
+-            {session.role === "ADMIN" && organizations.length === 0 && !loading ? (
++            {session.role === "ADMIN" && organizations.length === 0 && !loading && !loadError ? (
+@@ -515,8 +524,18 @@ export default function B2BJobsPage() {
+       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+         {loading ? (
+-          <div className="py-16 text-center text-sm text-slate-400">공고 목록을 불러오는 중입니다...</div>
+-        ) : jobs.length === 0 ? (
++          <div role="status" aria-live="polite" className="py-16 text-center text-sm text-slate-400">공고 목록을 불러오는 중입니다...</div>
++        ) : loadError ? (
++          <div role="alert" className="px-6 py-16 text-center">
++            <p className="text-sm font-bold text-slate-700">공고 관리 데이터를 불러오지 못했습니다.</p>
++            <p className="mt-2 text-xs text-slate-500">{loadError}</p>
++            <button type="button" onClick={() => { setLoading(true); setReloadKey((value) => value + 1); }} className="mt-5 rounded-lg bg-slate-900 px-4 py-2.5 text-xs font-bold text-white">
++              다시 불러오기
++            </button>
++          </div>
++        ) : jobs.length === 0 ? (
+           <div className="py-16 text-center text-sm text-slate-400">등록된 공고가 없습니다.</div>
+
+diff --git a/src/app/b2b-admin/talent-pool/page.tsx b/src/app/b2b-admin/talent-pool/page.tsx
+--- a/src/app/b2b-admin/talent-pool/page.tsx
++++ b/src/app/b2b-admin/talent-pool/page.tsx
+@@ -52,6 +52,10 @@ export default function GlobalTalentPoolPage() {
+   const [items, setItems] = useState<GlobalTalentPoolItem[]>([]);
+   const [jobs, setJobs] = useState<B2BJobView[]>([]);
+   const [loading, setLoading] = useState(true);
++  const [poolError, setPoolError] = useState<string | null>(null);
++  const [jobsLoadError, setJobsLoadError] = useState<string | null>(null);
++  const [poolReloadKey, setPoolReloadKey] = useState(0);
++  const [jobsReloadKey, setJobsReloadKey] = useState(0);
+   const [queryText, setQueryText] = useState("");
+@@ -73,17 +77,21 @@ export default function GlobalTalentPoolPage() {
+   useEffect(() => {
+     if (session.role !== "ADMIN") return;
+     let cancelled = false;
++    setJobsLoadError(null);
+     fetchB2BJobs()
+       .then((result) => {
+         if (!cancelled) setJobs(result);
+       })
+       .catch((error) => {
+-        if (!cancelled) console.error("Talent opportunity job list failed:", error);
++        if (cancelled) return;
++        console.error("Talent opportunity job list failed:", error);
++        setJobs([]);
++        setJobsLoadError("OPEN 포지션 목록을 불러오지 못했습니다.");
+       });
+     return () => {
+       cancelled = true;
+     };
+-  }, [session.role]);
++  }, [jobsReloadKey, session.role]);
+@@ -96,6 +104,7 @@ export default function GlobalTalentPoolPage() {
+ 
+     let cancelled = false;
+     setLoading(true);
++    setPoolError(null);
+ 
+     fetchGlobalTalentPool({
+@@ -111,11 +120,15 @@ export default function GlobalTalentPoolPage() {
+       .catch((error) => {
+         if (cancelled) return;
+         console.error("Global talent pool load failed:", error);
+-        toast.error(
++        const message =
+           error instanceof GlobalTalentPoolApiError
+             ? error.message
+-            : "J&C 공개 인재풀을 불러오지 못했습니다."
+-        );
++            : "J&C 공개 인재풀을 불러오지 못했습니다.";
++        setItems([]);
++        setPoolError(message);
++        toast.error(message);
+       })
+@@ -126,7 +139,7 @@ export default function GlobalTalentPoolPage() {
+     return () => {
+       cancelled = true;
+     };
+-  }, [session.role, cursor, searchQuery]);
++  }, [session.role, cursor, poolReloadKey, searchQuery]);
+@@ -220,7 +233,7 @@ export default function GlobalTalentPoolPage() {
+         </div>
+         <div className="rounded-lg border border-brand-line bg-white px-4 py-3 text-xs text-brand-muted shadow-card">
+-          공개 동의 후보자 <strong className="ml-1 text-brand-espresso">{pagination.total}명</strong>
++          공개 동의 후보자 <strong className="ml-1 text-brand-espresso">{poolError ? "—" : `${pagination.total}명`}</strong>
+         </div>
+@@ -259,6 +272,13 @@ export default function GlobalTalentPoolPage() {
+             <p className="mt-1 max-w-3xl text-[12px] leading-5 text-brand-muted">
+               AI 점수가 아니라 후보자가 직접 입력한 희망조건과 현재 OPEN 포지션을 비교한 설명 가능한 신호입니다. 이 신호만으로 자동 추천·지원·제안하지 않습니다.
+             </p>
++            {jobsLoadError ? (
++              <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-brand-line bg-white px-3 py-2 text-xs text-brand-muted">
++                <span>{jobsLoadError}</span>
++                <button type="button" onClick={() => setJobsReloadKey((value) => value + 1)} className="font-bold text-brand-bronze">다시 불러오기</button>
++              </div>
++            ) : null}
+           </div>
+@@ -270,7 +290,7 @@ export default function GlobalTalentPoolPage() {
+               disabled={openJobs.length === 0}
+               className="w-full rounded-lg border border-brand-line bg-white px-3 py-3 text-xs font-bold text-brand-espresso disabled:opacity-50"
+             >
+-              {openJobs.length === 0 ? <option value="">공개 포지션 없음</option> : null}
++              {openJobs.length === 0 ? <option value="">{jobsLoadError ? "포지션 목록 오류" : "공개 포지션 없음"}</option> : null}
+@@ -291,8 +311,18 @@ export default function GlobalTalentPoolPage() {
+ 
+       {loading ? (
+-        <div className="rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">공개 인재풀을 불러오는 중입니다...</div>
+-      ) : items.length === 0 ? (
++        <div role="status" aria-live="polite" className="rounded-xl border border-brand-line bg-white py-20 text-center text-sm text-brand-muted shadow-card">공개 인재풀을 불러오는 중입니다...</div>
++      ) : poolError ? (
++        <div role="alert" className="rounded-xl border border-brand-line bg-white px-6 py-16 text-center shadow-card">
++          <p className="text-sm font-bold text-brand-espresso">J&C 공개 인재풀을 불러오지 못했습니다.</p>
++          <p className="mt-2 text-xs text-brand-muted">{poolError}</p>
++          <button type="button" onClick={() => { setLoading(true); setPoolReloadKey((value) => value + 1); }} className="mt-5 rounded-lg bg-brand-bronze px-4 py-3 text-xs font-bold text-white">
++            다시 불러오기
++          </button>
++        </div>
++      ) : items.length === 0 ? (
+         <div className="rounded-xl border border-dashed border-brand-line bg-white py-20 text-center shadow-card">
+
+diff --git a/src/app/b2b-admin/job-details/page.tsx b/src/app/b2b-admin/job-details/page.tsx
+--- a/src/app/b2b-admin/job-details/page.tsx
++++ b/src/app/b2b-admin/job-details/page.tsx
+@@ -78,8 +78,12 @@ export default function JobOperationalDetailsPage() {
+   const [benefitsText, setBenefitsText] = useState("");
+   const [loadingJobs, setLoadingJobs] = useState(true);
+   const [loadingDetails, setLoadingDetails] = useState(false);
++  const [jobsError, setJobsError] = useState<string | null>(null);
++  const [detailsError, setDetailsError] = useState<string | null>(null);
+   const [saving, setSaving] = useState(false);
++  const [jobsReloadKey, setJobsReloadKey] = useState(0);
++  const [detailsReloadKey, setDetailsReloadKey] = useState(0);
+ 
+   useEffect(() => {
+     let cancelled = false;
++    setLoadingJobs(true);
++    setJobsError(null);
+     fetchB2BJobs()
+@@ -93,13 +97,17 @@ export default function JobOperationalDetailsPage() {
+       .catch((error) => {
+         if (cancelled) return;
+         console.error("Job details job list failed:", error);
+-        toast.error("공고 목록을 불러오지 못했습니다.");
++        const message = "공고 목록을 불러오지 못했습니다.";
++        setJobs([]);
++        setJobId("");
++        setJobsError(message);
++        toast.error(message);
+       })
+@@ -110,7 +118,7 @@ export default function JobOperationalDetailsPage() {
+     return () => {
+       cancelled = true;
+     };
+-  }, []);
++  }, [jobsReloadKey]);
+@@ -122,7 +130,11 @@ export default function JobOperationalDetailsPage() {
+ 
+     let cancelled = false;
+     setLoadingDetails(true);
++    setDetailsError(null);
++    setForm(EMPTY);
++    setBenefitsText("");
+     fetchJobOperationalDetails(jobId)
+@@ -156,14 +168,18 @@ export default function JobOperationalDetailsPage() {
+       .catch((error) => {
+         if (cancelled) return;
+         console.error("Job details load failed:", error);
+-        toast.error(
++        const message =
+           error instanceof JobOperationalDetailsApiError
+             ? error.message
+-            : "공고 상세조건을 불러오지 못했습니다."
+-        );
++            : "공고 상세조건을 불러오지 못했습니다.";
++        setForm(EMPTY);
++        setBenefitsText("");
++        setDetailsError(message);
++        toast.error(message);
+       })
+@@ -174,7 +190,7 @@ export default function JobOperationalDetailsPage() {
+     return () => {
+       cancelled = true;
+     };
+-  }, [jobId]);
++  }, [detailsReloadKey, jobId]);
+@@ -253,7 +269,7 @@ export default function JobOperationalDetailsPage() {
+           value={jobId}
+           onChange={(event) => setJobId(event.target.value)}
+-          disabled={loadingJobs}
++          disabled={loadingJobs || Boolean(jobsError)}
+           className="mt-2 w-full rounded-lg border border-brand-line bg-white px-4 py-3 text-sm font-bold text-brand-espresso outline-none focus:border-brand-bronze"
+@@ -269,6 +285,16 @@ export default function JobOperationalDetailsPage() {
+             </option>
+           ))}
+         </select>
++        {loadingJobs ? (
++          <p role="status" aria-live="polite" className="mt-3 text-xs text-brand-muted">포지션 목록을 불러오는 중입니다...</p>
++        ) : jobsError ? (
++          <div role="alert" className="mt-4 rounded-lg border border-brand-line bg-brand-light p-4 text-xs text-brand-muted">
++            <p>{jobsError}</p>
++            <button type="button" onClick={() => setJobsReloadKey((value) => value + 1)} className="mt-3 font-bold text-brand-bronze">다시 불러오기</button>
++          </div>
++        ) : jobs.length === 0 ? (
++          <p className="mt-3 text-xs text-brand-muted">등록된 포지션이 없습니다.</p>
++        ) : null}
+         {selectedJob ? (
+@@ -283,8 +309,16 @@ export default function JobOperationalDetailsPage() {
+       {jobId ? (
+         <section className="rounded-xl border border-brand-line bg-white p-5 shadow-card sm:p-7">
+           {loadingDetails ? (
+-            <div className="py-16 text-center text-sm text-brand-muted">상세조건을 불러오는 중입니다...</div>
++            <div role="status" aria-live="polite" className="py-16 text-center text-sm text-brand-muted">상세조건을 불러오는 중입니다...</div>
++          ) : detailsError ? (
++            <div role="alert" className="py-16 text-center">
++              <p className="text-sm font-bold text-brand-espresso">상세조건을 불러오지 못했습니다.</p>
++              <p className="mt-2 text-xs text-brand-muted">{detailsError}</p>
++              <button type="button" onClick={() => setDetailsReloadKey((value) => value + 1)} className="mt-5 rounded-lg bg-brand-bronze px-4 py-3 text-xs font-bold text-white">다시 불러오기</button>
++            </div>
+           ) : (
+             <>
+
+diff --git a/src/app/b2b-admin/analytics/page.tsx b/src/app/b2b-admin/analytics/page.tsx
+--- a/src/app/b2b-admin/analytics/page.tsx
++++ b/src/app/b2b-admin/analytics/page.tsx
+@@ -251,7 +251,7 @@ export default function RecruitingAnalyticsPage() {
+-                  <div className="text-[9px] text-slate-400">{item.date.slice(5)}</div>
++                  <div className="text-[10px] text-slate-400">{item.date.slice(5)}</div>
+                 </div>
+
+diff --git a/tests/p1-product-ux-check.cjs b/tests/p1-product-ux-check.cjs
+--- a/tests/p1-product-ux-check.cjs
++++ b/tests/p1-product-ux-check.cjs
+@@ -143,4 +143,63 @@ assert(
+   "UI_RESILIENCE_MUST_HAVE_BROWSER_REGRESSION_COVERAGE"
+ );
++
++console.log("STEP_5: INTERNAL_WORKSPACE_RESILIENCE");
++const candidatePortal = read("src/app/candidate/page.tsx");
++const savedJobsPage = read("src/app/candidate/saved-jobs/page.tsx");
++const opportunitiesPage = read("src/app/candidate/opportunities/page.tsx");
++const b2bLayout = read("src/app/b2b-admin/layout.tsx");
++const b2bPipeline = read("src/app/b2b-admin/page.tsx");
++const candidatePool = read("src/app/b2b-admin/candidates/page.tsx");
++const b2bJobs = read("src/app/b2b-admin/jobs/page.tsx");
++const globalTalentPool = read("src/app/b2b-admin/talent-pool/page.tsx");
++const jobDetails = read("src/app/b2b-admin/job-details/page.tsx");
++const recruitingAnalytics = read("src/app/b2b-admin/analytics/page.tsx");
++
++assert(
++  candidatePortal.includes("const [loadError, setLoadError]") &&
++    candidatePortal.includes('role="alert"') &&
++    candidatePortal.includes("다시 불러오기") &&
++    !candidatePortal.includes("추천 채용 보기") &&
++    savedJobsPage.includes("const [loadError, setLoadError]") &&
++    savedJobsPage.includes("const [reloadKey, setReloadKey]") &&
++    savedJobsPage.includes('role="alert"') &&
++    opportunitiesPage.includes("const [loadError, setLoadError]") &&
++    opportunitiesPage.includes("const [reloadKey, setReloadKey]") &&
++    opportunitiesPage.includes('role="alert"'),
++  "CANDIDATE_INTERNAL_SURFACES_MUST_SEPARATE_LOAD_FAILURE_FROM_EMPTY_STATE"
++);
++
++assert(
++  b2bLayout.includes('aria-controls="b2b-mobile-navigation"') &&
++    b2bLayout.includes('id="b2b-mobile-navigation"') &&
++    b2bLayout.includes('aria-current={item.active ? "page" : undefined}') &&
++    b2bLayout.includes('event.key === "Escape"') &&
++    !b2bLayout.includes("text-[9px]"),
++  "B2B_NAVIGATION_MUST_EXPOSE_CONTROLLED_CURRENT_AND_READABLE_STATE"
++);
++
++assert(
++  b2bPipeline.includes("const [loadError, setLoadError]") &&
++    b2bPipeline.includes('aria-label="지원 단계 필터"') &&
++    b2bPipeline.includes("aria-pressed={viewMode === mode}") &&
++    candidatePool.includes("const [loadError, setLoadError]") &&
++    b2bJobs.includes("const [loadError, setLoadError]") &&
++    globalTalentPool.includes("const [poolError, setPoolError]") &&
++    globalTalentPool.includes("const [jobsLoadError, setJobsLoadError]"),
++  "B2B_WORKSPACES_MUST_SEPARATE_API_FAILURE_FROM_EMPTY_DATA"
++);
++
++assert(
++  jobDetails.includes("const [detailsError, setDetailsError]") &&
++    jobDetails.includes("setForm(EMPTY);") &&
++    jobDetails.includes("setBenefitsText(\"\");") &&
++    jobDetails.includes('role="alert"') &&
++    jobDetails.includes("setDetailsReloadKey") &&
++    !recruitingAnalytics.includes("text-[9px]"),
++  "JOB_DETAILS_MUST_CLEAR_STALE_FORM_BEFORE_LOADING_ANOTHER_POSITION"
++);
+ 
+ console.log("P1_PRODUCT_UX_CHECK_PASSED");
