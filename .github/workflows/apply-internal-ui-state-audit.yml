@@ -5,7 +5,7 @@ on:
     branches:
       - ops/internal-ui-state-audit-20260826
     paths:
-      - scripts/internal-ui-state-audit.patch
+      - scripts/apply-internal-ui-state-audit.py
       - .github/workflows/apply-internal-ui-state-audit.yml
 
 permissions:
@@ -21,10 +21,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Preserve patch and lock product head
+      - name: Preserve transformer and lock product head
         shell: bash
         run: |
-          cp scripts/internal-ui-state-audit.patch /tmp/internal-ui-state-audit.patch
+          cp scripts/apply-internal-ui-state-audit.py /tmp/apply-internal-ui-state-audit.py
           git fetch origin agent/launch-pool-foundation
           actual="$(git rev-parse origin/agent/launch-pool-foundation)"
           expected="155e864658e77b81dd357f02017bf2371d4d41df"
@@ -34,13 +34,13 @@ jobs:
           fi
           git checkout -B agent/launch-pool-foundation origin/agent/launch-pool-foundation
 
-      - name: Apply and statically verify patch
+      - name: Transform and statically verify product
         shell: bash
         run: |
-          patch -p1 --dry-run --forward < /tmp/internal-ui-state-audit.patch
-          patch -p1 --forward < /tmp/internal-ui-state-audit.patch
+          python /tmp/apply-internal-ui-state-audit.py
           git diff --check
           node tests/p1-product-ux-check.cjs
+          git diff --stat
 
       - name: Commit product changes
         shell: bash
