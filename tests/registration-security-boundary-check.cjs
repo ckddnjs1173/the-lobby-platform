@@ -88,4 +88,18 @@ assert(
   "candidateConsents must be server-only"
 );
 
+console.log("STEP_5: FAILED_CONSENT_WRITE_COMPENSATES_NEW_REGISTRATION");
+assert(
+  consentService.includes("rollbackNewCandidateRegistration(") &&
+    consentService.includes("consentSnapshot.exists") &&
+    consentService.includes("transaction.delete(profileRef)") &&
+    consentService.includes("transaction.delete(candidateRef)"),
+  "New registration rollback must remove incomplete Candidate/Profile state"
+);
+assert(
+  candidateRoute.includes("await rollbackNewCandidateRegistration(") &&
+    candidateRoute.includes("if (result.created)"),
+  "Candidate route must compensate only newly-created registrations"
+);
+
 console.log("REGISTRATION_SECURITY_BOUNDARY_CHECK_PASSED");
