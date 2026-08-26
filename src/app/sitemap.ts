@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { connection } from "next/server";
 
+import { careerTracks } from "../lib/receptionCareerGuide";
 import { listPublicJobs } from "../lib/server/publicJobService";
 
 function getSiteUrl(): string {
@@ -12,11 +13,18 @@ function getSiteUrl(): string {
 }
 
 function staticEntries(siteUrl: string): MetadataRoute.Sitemap {
+  const careerEntries: MetadataRoute.Sitemap = careerTracks.map((track) => ({
+    url: `${siteUrl}/careers/${track.id}`,
+    changeFrequency: "monthly",
+    priority: 0.7,
+  }));
+
   return [
     { url: `${siteUrl}/`, changeFrequency: "weekly", priority: 1 },
     { url: `${siteUrl}/jobs`, changeFrequency: "daily", priority: 0.9 },
-    { url: `${siteUrl}/careers`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${siteUrl}/talent-pool`, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${siteUrl}/careers`, changeFrequency: "monthly", priority: 0.8 },
+    ...careerEntries,
     { url: `${siteUrl}/privacy`, changeFrequency: "monthly", priority: 0.3 },
     { url: `${siteUrl}/terms`, changeFrequency: "monthly", priority: 0.3 },
   ];

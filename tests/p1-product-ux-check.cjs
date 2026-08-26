@@ -51,4 +51,39 @@ assert(
   "TALENT_POOL_MATCHING_MUST_REMAIN_EXPLAINABLE_AND_CONSENT_SAFE"
 );
 
+console.log("STEP_3: SPECIALIST_CAREER_GUIDES");
+const careerData = read("src/lib/receptionCareerGuide.ts");
+const careerHub = read("src/app/careers/page.tsx");
+const careerDetail = read("src/app/careers/[slug]/page.tsx");
+const sitemap = read("src/app/sitemap.ts");
+const careerBrowser = read("tests/browser/career-guide.spec.cjs");
+
+for (const slug of [
+  "corporate-reception",
+  "automotive-reception",
+  "hotel-front",
+  "medical-reception",
+  "vip-lounge",
+]) {
+  assert(
+    careerData.includes(`id: "${slug}"`) &&
+      careerHub.includes('href={`/careers/${track.id}`}') &&
+      careerBrowser.includes(slug),
+    `CAREER_GUIDE_ROUTE_INCOMPLETE:${slug}`
+  );
+}
+
+assert(
+  careerDetail.includes("generateStaticParams") &&
+    careerDetail.includes("generateMetadata") &&
+    careerDetail.includes("getReceptionCareerTrack") &&
+    careerDetail.includes("Profile Evidence") &&
+    careerDetail.includes("Interview Prep") &&
+    careerDetail.includes("실제 급여·근무시간·고용형태·업무범위") &&
+    sitemap.includes("careerTracks.map") &&
+    careerBrowser.includes("390") &&
+    careerBrowser.includes("10.5px readability floor"),
+  "CAREER_GUIDES_MUST_HAVE_DETAIL_SEO_DISCOVERY_AND_MOBILE_QA"
+);
+
 console.log("P1_PRODUCT_UX_CHECK_PASSED");

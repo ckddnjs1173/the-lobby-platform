@@ -2,98 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import PublicHeader from "../../components/public/PublicHeader";
+import { careerTracks, fitQuestions } from "../../lib/receptionCareerGuide";
 
 export const metadata: Metadata = {
   title: "리셉션 커리어 가이드 | The Lobby",
   description:
     "기업 리셉션, 자동차 서비스센터, 호텔 프론트, 메디컬 리셉션, VIP 라운지 직무의 실제 업무와 채용공고 확인 포인트를 정리한 The Lobby 커리어 가이드입니다.",
 };
-
-const careerTracks = [
-  {
-    id: "corporate-reception",
-    number: "01",
-    title: "기업 리셉션",
-    english: "Corporate Reception",
-    summary:
-      "기업의 첫 접점을 운영하며 방문객, 임직원, 회의 공간과 출입 흐름을 안정적으로 연결하는 역할입니다.",
-    duties: [
-      "방문객 확인·응대 및 담당 부서 연결",
-      "회의실·출입·전화 등 프런트 운영 지원",
-      "외부 VIP와 주요 방문 일정의 사전 확인 및 인계",
-    ],
-    strengths: ["차분하고 정확한 커뮤니케이션", "인수인계와 일정 관리", "상황에 맞는 응대 톤"],
-    checks: ["안내데스크 단독/팀 운영 여부", "근무시간과 교대 여부", "외국어·VIP 응대 비중"],
-  },
-  {
-    id: "automotive-reception",
-    number: "02",
-    title: "자동차 서비스 리셉션",
-    english: "Automotive Service Reception",
-    summary:
-      "서비스센터를 방문하는 고객의 첫 응대부터 AS 접수·예약·대기 안내까지 서비스 흐름을 연결합니다.",
-    duties: [
-      "서비스센터 내방 고객 응대 및 동선 안내",
-      "차량 AS 접수·예약 및 문의 전화 응대",
-      "대기 고객 지원과 센터 내 상품·운영 업무 보조",
-    ],
-    strengths: ["고객 불편 상황의 침착한 응대", "예약·접수의 정확성", "여러 요청의 우선순위 판단"],
-    checks: ["토요일·주말 근무 여부", "기본급과 성과급·수당 구분", "실근무처와 소속회사 구분"],
-  },
-  {
-    id: "hotel-front",
-    number: "03",
-    title: "호텔 프론트",
-    english: "Hotel Front Desk",
-    summary:
-      "체크인·체크아웃, 예약 확인, 투숙 중 문의 대응을 통해 고객의 체류 경험을 운영하는 직무입니다.",
-    duties: [
-      "체크인·체크아웃 및 예약 정보 확인",
-      "투숙객 문의·요청 접수와 관련 부서 연결",
-      "교대 근무 시 고객 이슈와 운영사항 인수인계",
-    ],
-    strengths: ["서비스 회복 커뮤니케이션", "정확한 예약·정보 확인", "교대 간 명확한 인수인계"],
-    checks: ["교대·야간 근무 구성", "외국어 사용 빈도", "프론트 외 담당 업무 범위"],
-  },
-  {
-    id: "medical-reception",
-    number: "04",
-    title: "메디컬 리셉션",
-    english: "Medical Reception",
-    summary:
-      "병원·클리닉의 예약과 접수, 내원 안내를 담당하며 정확한 정보 처리와 안정적인 고객 응대가 중요한 역할입니다.",
-    duties: [
-      "내원 고객 접수 및 예약 일정 확인",
-      "진료·검사 동선 안내와 문의 응대",
-      "접수 정보와 요청사항의 정확한 전달·관리",
-    ],
-    strengths: ["개인정보를 다루는 신중함", "긴장한 고객을 배려하는 응대", "정확한 정보 확인"],
-    checks: ["평일·주말 운영시간", "접수와 상담의 업무 범위", "요구되는 관련 경력·자격 여부"],
-  },
-  {
-    id: "vip-lounge",
-    number: "05",
-    title: "VIP 라운지",
-    english: "VIP Lounge & Guest Relations",
-    summary:
-      "예약 고객과 주요 내방객의 경험을 세심하게 관리하며 공간·서비스·담당자 간 연결을 책임지는 직무입니다.",
-    duties: [
-      "VIP·예약 고객 확인 및 좌석·공간 안내",
-      "라운지 서비스와 고객 요청의 신속한 연결",
-      "특이사항 기록 및 다음 담당자에게 정확히 인계",
-    ],
-    strengths: ["절제된 서비스 매너", "디테일한 사전 준비", "예외 상황에서도 흔들리지 않는 응대"],
-    checks: ["VIP 응대 프로토콜", "외국어 사용 여부", "교대·유니폼·서비스 범위"],
-  },
-] as const;
-
-const fitQuestions = [
-  "처음 만나는 사람에게도 안정적인 톤으로 안내할 수 있는가",
-  "여러 요청이 동시에 들어올 때 우선순위를 정리할 수 있는가",
-  "작은 변경사항도 기록하고 다음 담당자에게 정확히 전달하는가",
-  "감정적인 고객 앞에서도 사실과 절차를 분리해 설명할 수 있는가",
-  "복장·언어·공간 상태 등 서비스 디테일을 꾸준히 관리할 수 있는가",
-] as const;
 
 export default function CareersPage() {
   return (
@@ -160,6 +75,9 @@ export default function CareersPage() {
                     <p className="font-editorial text-[28px] text-brand-gold/80">{track.number}</p>
                     <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.16em] text-brand-bronze">{track.english}</p>
                     <h3 className="font-editorial mt-2 text-[26px] font-bold tracking-[-0.035em] text-brand-espresso">{track.title}</h3>
+                    <Link href={`/careers/${track.id}`} className="mt-4 inline-flex min-h-10 items-center text-sm font-bold text-brand-bronze hover:underline">
+                      상세 가이드 보기 →
+                    </Link>
                   </div>
 
                   <div className="min-w-0">
