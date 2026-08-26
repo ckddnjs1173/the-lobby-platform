@@ -51,6 +51,29 @@ assert(
   "PRODUCTION_ENV_CONTRACT_INCOMPLETE"
 );
 
+const publicLaunchEnvKeys = [
+  "PUBLIC_LAUNCH_MODE",
+  "NEXT_PUBLIC_SITE_URL",
+  "NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL",
+  "NEXT_PUBLIC_OPERATOR_ADDRESS",
+  "NEXT_PUBLIC_CUSTOMER_SUPPORT_CONTACT",
+  "NEXT_PUBLIC_ACCOUNT_PROFILE_RETENTION",
+  "NEXT_PUBLIC_TALENT_POOL_RETENTION",
+  "NEXT_PUBLIC_APPLICATION_RETENTION",
+  "NEXT_PUBLIC_CONSENT_RETENTION",
+  "NEXT_PUBLIC_INFRA_PROCESSING_DISCLOSURE",
+];
+
+assert(
+  publicLaunchEnvKeys.every((key) => envExample.includes(`${key}=`)) &&
+    publicLaunchEnvKeys.every((key) => envValidator.includes(key)) &&
+    envValidator.includes("PUBLIC_LAUNCH_MODE=LIVE") &&
+    envValidator.includes("PUBLIC_LAUNCH_MODE=PREVIEW") &&
+    envValidator.includes("your-production-domain.example") &&
+    envValidator.includes("NEXT_PUBLIC_SITE_URL must use HTTPS for public launch"),
+  "PUBLIC_LAUNCH_ENV_GUARD_INCOMPLETE"
+);
+
 const optionalCommunicationKeys = [
   "COMMUNICATION_EMAIL_PROVIDER",
   "RESEND_API_KEY",
@@ -131,10 +154,17 @@ assert(
     healthRoute.includes('"Cache-Control": "no-store"') &&
     readinessRoute.includes('status: ready ? "ready" : "not_ready"') &&
     readinessRoute.includes("checks.firestore") &&
+    readinessRoute.includes("checks.publicLaunchConfiguration") &&
     readinessRoute.includes("REQUIRED_SERVER_ENV") &&
+    readinessRoute.includes("REQUIRED_PUBLIC_LAUNCH_ENV") &&
     readinessRoute.includes('communicationMode: emailAutomation ? "RESEND" : "MANUAL"') &&
+    readinessRoute.includes("publicLaunchMode") &&
     smoke.includes("/api/readiness") &&
     smoke.includes("PRODUCTION_BASE_URL") &&
+    smoke.includes("publicLaunchConfiguration") &&
+    smoke.includes("publicLaunchMode === true") &&
+    smoke.includes("/privacy") &&
+    smoke.includes("/terms") &&
     smoke.includes("PHASE10_PRODUCTION_SMOKE_PASSED"),
   "PRODUCTION_HEALTH_READINESS_OR_SMOKE_GATE_MISSING"
 );
@@ -143,6 +173,7 @@ console.log("STEP_7: RELEASE_RUNBOOK");
 
 assert(
   runbook.includes("Local release gate") &&
+    runbook.includes("PUBLIC_LAUNCH_MODE=true") &&
     runbook.includes("npm run deploy:firestore") &&
     runbook.includes("npm run check:phase10:smoke") &&
     runbook.includes("Rollback"),
