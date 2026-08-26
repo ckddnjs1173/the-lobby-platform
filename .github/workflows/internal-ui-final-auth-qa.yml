@@ -1,0 +1,143 @@
+name: Internal UI Final Auth QA
+
+on:
+  push:
+    branches:
+      - ops/internal-ui-final-auth-qa-20260826
+    paths:
+      - .github/workflows/internal-ui-final-auth-qa.yml
+
+permissions:
+  contents: read
+
+jobs:
+  authenticated-ui-final:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+      NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+      FIREBASE_ADMIN_PROJECT_ID: ${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}
+      FIREBASE_ADMIN_CLIENT_EMAIL: ${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}
+      FIREBASE_ADMIN_PRIVATE_KEY: ${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      PUBLIC_ANALYTICS_DISABLED: "true"
+    steps:
+      - name: Checkout audited product head
+        uses: actions/checkout@v4
+
+      - name: Verify audited product tree
+        shell: bash
+        run: |
+          parent="$(git rev-parse HEAD^)"
+          expected="e97c7b273e098ca4fdd290dc9a10f4e06232e702"
+          if [ "$parent" != "$expected" ]; then
+            echo "AUTH_QA_BASE_MOVED expected=$expected actual=$parent"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install isolated Chromium
+        run: |
+          npm install --prefix /tmp/the-lobby-playwright --no-package-lock playwright@1.55.0
+          /tmp/the-lobby-playwright/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Materialize isolated authenticated QA
+        shell: bash
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/ckddnjs1173/the-lobby-platform/82fe491815b463d0c579b3d4ef611322c23cb62f/tests/authenticated-ui-qa.cjs -o /tmp/authenticated-ui-qa.cjs
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/authenticated-ui-qa.cjs')
+          s = p.read_text(encoding='utf-8')
+
+          def replace_once(old, new, label):
+              global s
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 match, found {count}')
+              s = s.replace(old, new, 1)
+
+          replace_once('role: "RECRUITER",', 'role: "ADMIN",', 'ADMIN_ROLE')
+          replace_once('status: "OPEN",\n  });\n  assert(jobResult.status === 201', 'status: "DRAFT",\n  });\n  assert(jobResult.status === 201', 'DRAFT_JOB_SEED')
+          replace_once(
+              '  created.jobIds.push(jobId);\n\n  const applyResult =',
+              '  created.jobIds.push(jobId);\n  await db.collection("jobs").doc(jobId).set({ isTestData: true, status: "OPEN" }, { merge: true });\n\n  const applyResult =',
+              'TEST_JOB_ISOLATION',
+          )
+
+          replace_once(
+              '''  await capture(page, `${viewportName.toLowerCase()}-candidate`);\n\n  if (viewport.width < 1024) {\n    const menu = page.getByRole("button", { name: "메뉴 열기" });\n    if (await menu.isVisible().catch(() => false)) {\n      await menu.click();\n      await capture(page, `${viewportName.toLowerCase()}-candidate-menu`);\n      await menu.click();\n    }\n  }''',
+              '''  await capture(page, `${viewportName.toLowerCase()}-candidate`);\n\n  for (const [route, shot] of [\n    ["/candidate/saved-jobs", "saved-jobs"],\n    ["/candidate/opportunities", "opportunities"],\n  ]) {\n    await page.goto(`${BASE_URL}${route}`, { waitUntil: "domcontentloaded" });\n    await page.locator("main").waitFor({ state: "visible", timeout: 15000 });\n    await page.waitForTimeout(600);\n    assert(!page.url().includes("/login"), `${viewportName}:CANDIDATE_AUTH_REDIRECT:${route}`);\n    await noHorizontalOverflow(page, `${viewportName}:CANDIDATE:${route}`);\n    await capture(page, `${viewportName.toLowerCase()}-candidate-${shot}`);\n  }\n\n  if (viewport.width < 1024) {\n    await page.goto(`${BASE_URL}/candidate`, { waitUntil: "domcontentloaded" });\n    await page.locator("main").waitFor({ state: "visible", timeout: 15000 });\n    const menu = page.getByRole("button", { name: "메뉴 열기" });\n    if (await menu.isVisible().catch(() => false)) {\n      assert((await menu.getAttribute("aria-controls")) === "candidate-mobile-navigation", "CANDIDATE_MENU_CONTROLS_MISSING");\n      await menu.click();\n      assert((await menu.getAttribute("aria-expanded")) === "true", "CANDIDATE_MENU_NOT_EXPANDED");\n      await page.locator("#candidate-mobile-navigation").waitFor({ state: "visible" });\n      await capture(page, `${viewportName.toLowerCase()}-candidate-menu`);\n      await page.keyboard.press("Escape");\n      assert((await menu.getAttribute("aria-expanded")) === "false", "CANDIDATE_MENU_ESCAPE_FAILED");\n    }\n  }''',
+              'CANDIDATE_JOURNEY',
+          )
+
+          replace_once(
+              '''  const routes = [\n    ["/b2b-admin", "pipeline"],\n    ["/b2b-admin/candidates", "candidates"],\n    ["/b2b-admin/jobs", "jobs"],\n    ["/b2b-admin/analytics", "analytics"],\n  ];\n\n  for (const [route, shot] of routes) {\n    await page.goto(`${BASE_URL}${route}`, { waitUntil: "domcontentloaded" });\n    await page.waitForTimeout(1100);\n    await noHorizontalOverflow(page, `${viewportName}:B2B:${route}`);\n    await capture(page, `${viewportName.toLowerCase()}-b2b-${shot}`);\n  }''',
+              '''  const routes = [\n    ["/b2b-admin", "pipeline"],\n    ["/b2b-admin/candidates", "candidates"],\n    ["/b2b-admin/jobs", "jobs"],\n    ["/b2b-admin/job-details", "job-details"],\n    ["/b2b-admin/talent-pool", "talent-pool"],\n    ["/b2b-admin/acquisition", "acquisition"],\n    ["/b2b-admin/analytics", "analytics"],\n  ];\n\n  for (const [route, shot] of routes) {\n    await page.goto(`${BASE_URL}${route}`, { waitUntil: "domcontentloaded" });\n    await page.locator("main").waitFor({ state: "visible", timeout: 15000 });\n    await page.waitForTimeout(800);\n    assert(!page.url().includes("/login"), `${viewportName}:B2B_AUTH_REDIRECT:${route}`);\n    await noHorizontalOverflow(page, `${viewportName}:B2B:${route}`);\n    await capture(page, `${viewportName.toLowerCase()}-b2b-${shot}`);\n  }''',
+              'B2B_ROUTES',
+          )
+
+          replace_once(
+              '''  if (viewport.width < 1024) {\n    await page.goto(`${BASE_URL}/b2b-admin`, { waitUntil: "domcontentloaded" });\n    await page.waitForTimeout(900);\n    const menu = page.getByRole("button", { name: "관리자 메뉴 열기" });\n    await menu.click();\n    await capture(page, `${viewportName.toLowerCase()}-b2b-menu`);\n  }''',
+              '''  if (viewport.width < 1024) {\n    await page.goto(`${BASE_URL}/b2b-admin`, { waitUntil: "domcontentloaded" });\n    await page.locator("main").waitFor({ state: "visible", timeout: 15000 });\n    const menu = page.getByRole("button", { name: "관리자 메뉴 열기" });\n    assert((await menu.getAttribute("aria-controls")) === "b2b-mobile-navigation", "B2B_MENU_CONTROLS_MISSING");\n    await menu.click();\n    assert((await menu.getAttribute("aria-expanded")) === "true", "B2B_MENU_NOT_EXPANDED");\n    await page.locator("#b2b-mobile-navigation").waitFor({ state: "visible" });\n    const current = page.locator('#b2b-mobile-navigation a[aria-current="page"]');\n    assert((await current.count()) === 1, "B2B_CURRENT_ROUTE_MISSING");\n    await capture(page, `${viewportName.toLowerCase()}-b2b-menu`);\n    await page.keyboard.press("Escape");\n    assert((await menu.getAttribute("aria-expanded")) === "false", "B2B_MENU_ESCAPE_FAILED");\n  }''',
+              'B2B_MOBILE_MENU',
+          )
+
+          if 'isTestData: true' not in s:
+              raise SystemExit('PUBLIC_TEST_JOB_ISOLATION_MISSING')
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Start production server
+        shell: bash
+        run: |
+          npm start > /tmp/the-lobby-internal-auth-qa.log 2>&1 &
+          echo $! > /tmp/the-lobby-internal-auth-qa.pid
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/api/health >/dev/null; then
+              echo INTERNAL_AUTH_QA_SERVER_READY
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/the-lobby-internal-auth-qa.log
+          exit 1
+
+      - name: Run isolated authenticated journeys
+        env:
+          NODE_PATH: /tmp/the-lobby-playwright/node_modules
+        run: node /tmp/authenticated-ui-qa.cjs
+
+      - name: Upload QA screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: internal-ui-final-auth-screenshots
+          path: authenticated-ui-qa-artifacts/*.png
+          retention-days: 1
+          if-no-files-found: warn
+
+      - name: Server diagnostics
+        if: failure()
+        run: tail -n 250 /tmp/the-lobby-internal-auth-qa.log || true
+
+      - name: Stop application
+        if: always()
+        run: |
+          if [ -f /tmp/the-lobby-internal-auth-qa.pid ]; then
+            kill "$(cat /tmp/the-lobby-internal-auth-qa.pid)" || true
+          fi
