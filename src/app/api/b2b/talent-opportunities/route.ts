@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { B2BAuthorizationError } from "../../../../lib/server/b2bAuthorization";
+import { recordPublicEvent } from "../../../../lib/server/publicEventService";
 import {
   TalentOpportunityServiceError,
   createTalentOpportunity,
@@ -49,6 +50,12 @@ export async function POST(request: Request) {
     }
 
     const result = await createTalentOpportunity(user.uid, body);
+    void recordPublicEvent(
+      "opportunity_created",
+      "/b2b-admin/talent-pool"
+    ).catch((error) =>
+      console.error("Talent opportunity conversion event failed:", error)
+    );
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
     return errorResponse(error);

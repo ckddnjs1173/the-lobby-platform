@@ -12,7 +12,12 @@ export interface AcquisitionAnalyticsView {
     registerViews: number;
     profileCreated: number;
     talentPoolSettingsSaved: number;
+    talentPoolOptedIn: number;
+    talentPoolOptedOut: number;
     savedJobsAdded: number;
+    opportunitiesCreated: number;
+    opportunitiesAccepted: number;
+    opportunitiesDeclined: number;
     applicationsSubmitted: number;
   };
 }

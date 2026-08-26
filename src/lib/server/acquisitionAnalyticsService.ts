@@ -35,7 +35,12 @@ export interface AcquisitionFunnel {
   registerViews: number;
   profileCreated: number;
   talentPoolSettingsSaved: number;
+  talentPoolOptedIn: number;
+  talentPoolOptedOut: number;
   savedJobsAdded: number;
+  opportunitiesCreated: number;
+  opportunitiesAccepted: number;
+  opportunitiesDeclined: number;
   applicationsSubmitted: number;
 }
 
@@ -95,7 +100,10 @@ export async function getAcquisitionAnalytics(
     .get();
   const documents = snapshot.docs.map((document) => document.data());
   const eventCounts = countBy(documents, (data) => stringValue(data.eventName));
-  const pathCounts = countBy(documents, (data) => stringValue(data.path));
+  const pageViewDocuments = documents.filter(
+    (data) => stringValue(data.eventName) === "page_view"
+  );
+  const pathCounts = countBy(pageViewDocuments, (data) => stringValue(data.path));
 
   const pathCount = (path: string) => pathCounts.get(path) || 0;
   const eventCount = (eventName: string) => eventCounts.get(eventName) || 0;
@@ -110,7 +118,12 @@ export async function getAcquisitionAnalytics(
       registerViews: pathCount("/register"),
       profileCreated: eventCount("profile_created"),
       talentPoolSettingsSaved: eventCount("talent_pool_settings_saved"),
+      talentPoolOptedIn: eventCount("talent_pool_opted_in"),
+      talentPoolOptedOut: eventCount("talent_pool_opted_out"),
       savedJobsAdded: eventCount("saved_job_added"),
+      opportunitiesCreated: eventCount("opportunity_created"),
+      opportunitiesAccepted: eventCount("opportunity_accepted"),
+      opportunitiesDeclined: eventCount("opportunity_declined"),
       applicationsSubmitted: eventCount("application_submitted"),
     },
   };

@@ -71,13 +71,28 @@ export async function PATCH(request: Request) {
       );
     }
 
+    const previous = await getCandidatePreferences(user.uid);
     const result = await updateCandidatePreferences(user.uid, body);
+
     void recordPublicEvent(
       "talent_pool_settings_saved",
       "/talent-pool/settings"
     ).catch((error) =>
       console.error("Talent-pool settings event failed:", error)
     );
+
+    if (previous.talentPoolOptIn !== result.talentPoolOptIn) {
+      const transitionEvent = result.talentPoolOptIn
+        ? "talent_pool_opted_in"
+        : "talent_pool_opted_out";
+      void recordPublicEvent(
+        transitionEvent,
+        "/talent-pool/settings"
+      ).catch((error) =>
+        console.error("Talent-pool visibility transition event failed:", error)
+      );
+    }
+
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     return errorResponse(error);

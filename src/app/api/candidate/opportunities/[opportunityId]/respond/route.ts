@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   CandidatePortalServiceError,
 } from "../../../../../../lib/server/candidatePortalService";
+import { recordPublicEvent } from "../../../../../../lib/server/publicEventService";
 import {
   TalentOpportunityServiceError,
   respondToTalentOpportunity,
@@ -63,6 +64,23 @@ export async function POST(
       opportunityId,
       decision
     );
+
+    if (decision === "ACCEPT") {
+      void Promise.all([
+        recordPublicEvent("opportunity_accepted", "/candidate/opportunities"),
+        recordPublicEvent("application_submitted", "/candidate/opportunities"),
+      ]).catch((error) =>
+        console.error("Talent opportunity acceptance events failed:", error)
+      );
+    } else if (decision === "DECLINE") {
+      void recordPublicEvent(
+        "opportunity_declined",
+        "/candidate/opportunities"
+      ).catch((error) =>
+        console.error("Talent opportunity decline event failed:", error)
+      );
+    }
+
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     return errorResponse(error);

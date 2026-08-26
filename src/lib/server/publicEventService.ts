@@ -6,8 +6,13 @@ export const PUBLIC_EVENT_NAMES = new Set([
   "page_view",
   "profile_created",
   "talent_pool_settings_saved",
+  "talent_pool_opted_in",
+  "talent_pool_opted_out",
   "saved_job_added",
   "saved_job_removed",
+  "opportunity_created",
+  "opportunity_accepted",
+  "opportunity_declined",
   "application_submitted",
 ]);
 
