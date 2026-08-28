@@ -58,7 +58,6 @@ const publicLaunchEnvKeys = [
   "PUBLIC_LAUNCH_MODE",
   "NEXT_PUBLIC_SITE_URL",
   "NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL",
-  "NEXT_PUBLIC_OPERATOR_ADDRESS",
   "NEXT_PUBLIC_CUSTOMER_SUPPORT_CONTACT",
   "NEXT_PUBLIC_ACCOUNT_PROFILE_RETENTION",
   "NEXT_PUBLIC_TALENT_POOL_RETENTION",
@@ -70,6 +69,7 @@ const publicLaunchEnvKeys = [
 assert(
   publicLaunchEnvKeys.every((key) => envExample.includes(`${key}=`)) &&
     publicLaunchEnvKeys.every((key) => envValidator.includes(key)) &&
+    !envValidator.includes("NEXT_PUBLIC_OPERATOR_ADDRESS") &&
     envValidator.includes("PUBLIC_LAUNCH_MODE=LIVE") &&
     envValidator.includes("PUBLIC_LAUNCH_MODE=PREVIEW") &&
     envValidator.includes("your-production-domain.example") &&
