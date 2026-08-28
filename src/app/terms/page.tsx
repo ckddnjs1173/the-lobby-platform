@@ -2,10 +2,9 @@ import Link from "next/link";
 
 const operatorName = "박창원";
 const publicLaunchMode = process.env.PUBLIC_LAUNCH_MODE?.trim().toLowerCase() === "true";
-const operatorAddress = process.env.NEXT_PUBLIC_OPERATOR_ADDRESS?.trim() || "";
-const privacyContact = process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL?.trim() || "";
+const privacyContact = process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL?.trim() || "parkcw0713@gmail.com";
 const customerSupportContact =
-  process.env.NEXT_PUBLIC_CUSTOMER_SUPPORT_CONTACT?.trim() || "";
+  process.env.NEXT_PUBLIC_CUSTOMER_SUPPORT_CONTACT?.trim() || "parkcw0713@gmail.com";
 const businessRegistrationInfo =
   process.env.NEXT_PUBLIC_BUSINESS_REGISTRATION_INFO?.trim() || "";
 
@@ -23,7 +22,7 @@ export default function TermsPage() {
 
         {!publicLaunchMode ? (
           <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-800">
-            현재는 공개 출시 전 검토 모드입니다. 실제 공개 시 운영자 주소·연락처와 적용되는 사업자 정보가 있다면 해당 정보까지 최종 운영값으로 고지됩니다.
+            현재는 공개 출시 전 검토 모드입니다. 실제 공개 시 개인정보·고객 문의 채널과 적용되는 사업자 정보가 있다면 해당 정보까지 최종 운영값으로 고지됩니다.
           </div>
         ) : null}
 
@@ -38,10 +37,10 @@ export default function TermsPage() {
           <section>
             <h2 className="text-base font-bold text-brand-espresso">8. 운영자 및 문의</h2>
             <p className="mt-2">운영자: {operatorName}</p>
-            <p>주소: {operatorAddress || previewFallback}</p>
             <p>개인정보 문의: {privacyContact || previewFallback}</p>
             <p>고객·분쟁 문의: {customerSupportContact || previewFallback}</p>
-            {businessRegistrationInfo ? <p>사업자 정보: {businessRegistrationInfo}</p> : null}
+            <p>전화번호는 공개하지 않으며, 문의는 위 이메일 채널로 접수합니다.</p>
+            {businessRegistrationInfo ? <p>사업자 정보: {businessRegistrationInfo}</p> : <p>현재 별도 사업자등록 정보는 없습니다.</p>}
           </section>
           <section><h2 className="text-base font-bold text-brand-espresso">9. 약관 변경</h2><p className="mt-2">서비스 운영상 필요한 경우 관련 법령에 따라 약관을 변경할 수 있으며, 중요한 변경사항은 서비스 화면을 통해 고지합니다.</p></section>
         </div>
