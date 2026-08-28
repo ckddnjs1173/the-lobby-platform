@@ -23,12 +23,11 @@ const liveEnv = {
   PUBLIC_LAUNCH_MODE: "true",
   NEXT_PUBLIC_SITE_URL: "https://thelobby.test",
   NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL: "privacy@thelobby.test",
-  NEXT_PUBLIC_OPERATOR_ADDRESS: "서울특별시 공개 운영 주소",
   NEXT_PUBLIC_CUSTOMER_SUPPORT_CONTACT: "support@thelobby.test",
-  NEXT_PUBLIC_ACCOUNT_PROFILE_RETENTION: "회원 탈퇴 또는 삭제 요청 시 지체 없이 파기",
-  NEXT_PUBLIC_TALENT_POOL_RETENTION: "인재풀 공개 동의 철회 시 신규 검색에서 제외하고 운영정책에 따라 파기",
-  NEXT_PUBLIC_APPLICATION_RETENTION: "채용 절차 종료 후 확정된 운영정책 기간 동안 보관 후 파기",
-  NEXT_PUBLIC_CONSENT_RETENTION: "동의 및 철회 증빙을 확정된 운영정책 기간 동안 보관 후 파기",
+  NEXT_PUBLIC_ACCOUNT_PROFILE_RETENTION: "회원 탈퇴 또는 삭제 요청 시까지, 백업 최대 30일",
+  NEXT_PUBLIC_TALENT_POOL_RETENTION: "동의일로부터 2년 또는 철회 시까지",
+  NEXT_PUBLIC_APPLICATION_RETENTION: "채용절차 종료 후 1년",
+  NEXT_PUBLIC_CONSENT_RETENTION: "처리 종료 후 3년",
   NEXT_PUBLIC_INFRA_PROCESSING_DISCLOSURE: "실제 운영 호스팅 계약과 데이터 흐름을 반영한 처리위탁 및 국외 처리 고지",
 };
 
@@ -61,7 +60,6 @@ console.log("STEP_3: LIVE_MODE_REJECTS_PLACEHOLDERS");
 const livePlaceholder = run({
   ...liveEnv,
   NEXT_PUBLIC_SITE_URL: "https://your-production-domain.example",
-  NEXT_PUBLIC_OPERATOR_ADDRESS: "미정",
 });
 assert(livePlaceholder.status !== 0, "LIVE_MODE_MUST_REJECT_PLACEHOLDERS");
 assert(
