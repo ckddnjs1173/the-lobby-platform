@@ -21,6 +21,8 @@ export const runtime = "nodejs";
 const PUBLIC_RESUME_PARSE_LIMIT = 5;
 const PUBLIC_RESUME_PARSE_WINDOW_MS = 60_000;
 const MAX_MULTIPART_REQUEST_BYTES = MAX_RESUME_FILE_BYTES + 1024 * 1024;
+const AI_TRANSFER_CONSENT_HEADER = "x-ai-transfer-consent";
+const AI_TRANSFER_CONSENT_VERSION = "groq-us-2026-08-25";
 
 function isResumeUploadFile(value: unknown): value is ResumeUploadFile {
   if (typeof value !== "object" || value === null) return false;
@@ -106,6 +108,20 @@ async function parseMultipartResume(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (
+    request.headers.get(AI_TRANSFER_CONSENT_HEADER) !==
+    AI_TRANSFER_CONSENT_VERSION
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "AI 이력서 분석을 이용하려면 미국 국외 처리 안내에 동의해야 합니다.",
+        code: "AI_TRANSFER_CONSENT_REQUIRED",
+      },
+      { status: 400 }
+    );
+  }
+
   const clientKey = getRequestClientKey(request);
   const rateLimit = consumeRateLimit(
     `public-resume-parse:${clientKey}`,
@@ -142,7 +158,7 @@ export async function POST(request: Request) {
         data: result.parsed,
         source: result.source,
         notice:
-          "입력한 이력서 원문과 업로드 원본 파일은 프로필 구조화에만 사용되며 The Lobby Firestore에는 저장하지 않습니다.",
+          "입력한 이력서 원문은 Groq LLC의 미국 인프라에서 AI 구조화에 사용될 수 있으며, 업로드 원본 파일 자체와 이력서 원문은 The Lobby Firestore에 저장하지 않습니다.",
       },
       {
         headers: rateLimitHeaders,

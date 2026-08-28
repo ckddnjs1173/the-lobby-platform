@@ -71,13 +71,27 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
 
   const isLoginPage = pathname === "/b2b-admin/login";
   const isApplicationsPage = pathname === "/b2b-admin";
+  const isTalentPoolPage = pathname.startsWith("/b2b-admin/talent-pool");
   const isCandidatesPage = pathname.startsWith("/b2b-admin/candidates");
   const isJobsPage = pathname.startsWith("/b2b-admin/jobs");
+  const isJobDetailsPage = pathname.startsWith("/b2b-admin/job-details");
   const isAnalyticsPage = pathname.startsWith("/b2b-admin/analytics");
+  const isAcquisitionPage = pathname.startsWith("/b2b-admin/acquisition");
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileOpen]);
 
   useEffect(() => {
     if (isLoginPage) {
@@ -133,7 +147,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
   if (checkingAuth || !session) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-brand-light">
-        <div className="rounded-xl border border-brand-line bg-white px-8 py-7 text-center shadow-card">
+        <div role="status" aria-live="polite" className="rounded-xl border border-brand-line bg-white px-8 py-7 text-center shadow-card">
           <div className="font-editorial text-xl text-brand-espresso">THE LOBBY</div>
           <div className="mt-3 text-sm font-semibold text-brand-ink">관리자 권한을 확인하고 있습니다.</div>
           <div className="mt-1 text-xs text-brand-muted">인증 및 조직 권한 검증 중</div>
@@ -144,26 +158,45 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
 
   const navItems = [
     { href: "/b2b-admin", label: "지원자 파이프라인", caption: "Applications", icon: "pipeline" as const, active: isApplicationsPage },
-    { href: "/b2b-admin/candidates", label: "후보자 CRM", caption: "Candidate Pool", icon: "candidate" as const, active: isCandidatesPage },
+    ...(session.role === "ADMIN"
+      ? [
+          { href: "/b2b-admin/talent-pool", label: "J&C 공개 인재풀", caption: "Global Talent Pool", icon: "candidate" as const, active: isTalentPoolPage },
+          { href: "/b2b-admin/acquisition", label: "공개 유입 분석", caption: "Acquisition", icon: "analytics" as const, active: isAcquisitionPage },
+        ]
+      : []),
+    { href: "/b2b-admin/candidates", label: "후보자 CRM", caption: "Organization Pool", icon: "candidate" as const, active: isCandidatesPage },
     { href: "/b2b-admin/jobs", label: "포지션 관리", caption: "Jobs", icon: "job" as const, active: isJobsPage },
-    { href: "/b2b-admin/analytics", label: "채용 분석", caption: "Analytics", icon: "analytics" as const, active: isAnalyticsPage },
+    { href: "/b2b-admin/job-details", label: "공고 상세조건", caption: "Job Quality", icon: "job" as const, active: isJobDetailsPage },
+    { href: "/b2b-admin/analytics", label: "채용 분석", caption: "Recruiting Analytics", icon: "analytics" as const, active: isAnalyticsPage },
   ];
 
-  const pageTitle = isCandidatesPage
-    ? "후보자 CRM"
-    : isJobsPage
-      ? "포지션 관리"
-      : isAnalyticsPage
-        ? "채용 분석"
-        : "지원자 파이프라인";
+  const pageTitle = isTalentPoolPage
+    ? "J&C 공개 인재풀"
+    : isAcquisitionPage
+      ? "공개 유입 분석"
+      : isCandidatesPage
+        ? "후보자 CRM"
+        : isJobDetailsPage
+          ? "공고 상세조건"
+          : isJobsPage
+            ? "포지션 관리"
+            : isAnalyticsPage
+              ? "채용 분석"
+              : "지원자 파이프라인";
 
-  const pageCaption = isCandidatesPage
-    ? "인재 프로필과 지원 이력을 한 곳에서 관리합니다."
-    : isJobsPage
-      ? "채용 포지션을 등록하고 공개 상태를 운영합니다."
-      : isAnalyticsPage
-        ? "채용 퍼널과 운영 지표를 데이터로 확인합니다."
-        : "지원자 진행 상황을 빠르게 파악하고 다음 액션을 관리합니다.";
+  const pageCaption = isTalentPoolPage
+    ? "직접 가입하고 공개에 동의한 후보자를 J&C 내부에서 검색합니다."
+    : isAcquisitionPage
+      ? "개인 식별정보 없이 공개 사이트의 유입과 전환 방향을 확인합니다."
+      : isCandidatesPage
+        ? "조직에서 직접 발굴한 인재 프로필과 지원 이력을 관리합니다."
+        : isJobDetailsPage
+          ? "공개 공고의 근무조건·복리후생·마감일을 보완합니다."
+          : isJobsPage
+            ? "채용 포지션을 등록하고 공개 상태를 운영합니다."
+            : isAnalyticsPage
+              ? "채용 퍼널과 운영 지표를 데이터로 확인합니다."
+              : "지원자 진행 상황을 빠르게 파악하고 다음 액션을 관리합니다.";
 
   const handleSignOut = async () => {
     setMobileOpen(false);
@@ -178,6 +211,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
           key={`${mobile ? "mobile-" : ""}${item.href}`}
           href={item.href}
           onClick={() => mobile && setMobileOpen(false)}
+          aria-current={item.active ? "page" : undefined}
           className={`flex items-center gap-3 rounded-lg px-3 py-3 transition ${
             item.active
               ? "bg-brand-bronze text-white shadow-card"
@@ -187,7 +221,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
           <NavIcon type={item.icon} />
           <div className="min-w-0">
             <div className="text-sm font-bold">{item.label}</div>
-            <div className={`mt-0.5 truncate text-[10px] ${item.active ? "text-white/65" : "text-brand-muted"}`}>{item.caption}</div>
+            <div className={`mt-0.5 truncate text-[11px] ${item.active ? "text-white/70" : "text-brand-muted"}`}>{item.caption}</div>
           </div>
         </Link>
       ))}
@@ -202,11 +236,11 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
             <LobbyMark />
             <div className="leading-none">
               <div className="font-editorial text-[19px] tracking-[0.08em] text-brand-espresso">THE LOBBY</div>
-              <div className="mt-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-brand-muted">Recruiting Operating System</div>
+              <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-muted">Recruiting Operating System</div>
             </div>
           </div>
 
-          <nav className="flex-1 space-y-1.5 px-3 py-6">
+          <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-6">
             <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-brand-muted">Workspace</p>
             <NavLinks />
             <div className="my-5 border-t border-brand-line" />
@@ -246,6 +280,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
                 type="button"
                 aria-label={mobileOpen ? "관리자 메뉴 닫기" : "관리자 메뉴 열기"}
                 aria-expanded={mobileOpen}
+                aria-controls="b2b-mobile-navigation"
                 onClick={() => setMobileOpen((value) => !value)}
                 className="flex h-10 w-10 items-center justify-center rounded-lg border border-brand-line bg-white text-brand-espresso lg:hidden"
               >
@@ -254,7 +289,7 @@ export default function B2BAdminLayout({ children }: { children: React.ReactNode
             </div>
 
             {mobileOpen ? (
-              <div className="absolute left-0 right-0 top-full z-40 border-b border-brand-line bg-brand-light p-4 shadow-soft lg:hidden">
+              <div id="b2b-mobile-navigation" className="absolute left-0 right-0 top-full z-40 max-h-[calc(100vh-88px)] overflow-y-auto border-b border-brand-line bg-brand-light p-4 shadow-soft lg:hidden">
                 <div className="mb-3 rounded-lg border border-brand-line bg-white p-3 text-xs">
                   <div className="font-bold text-brand-espresso">{session.name}</div>
                   <div className="mt-1 text-[11px] text-brand-muted">{session.role} · {session.organizationId || "전체 조직"}</div>

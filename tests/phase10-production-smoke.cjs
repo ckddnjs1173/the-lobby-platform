@@ -32,12 +32,16 @@ const checks = [
         body?.status === "ready" &&
         body?.service === "the-lobby-platform" &&
         body?.checks?.environment === true &&
-        body?.checks?.firestore === true
+        body?.checks?.publicLaunchConfiguration === true &&
+        body?.checks?.firestore === true &&
+        body?.capabilities?.publicLaunchMode === true
       );
     },
   },
   { path: "/", expectedStatus: 200 },
   { path: "/jobs", expectedStatus: 200 },
+  { path: "/privacy", expectedStatus: 200 },
+  { path: "/terms", expectedStatus: 200 },
   { path: "/login", expectedStatus: 200 },
   { path: "/b2b-admin/login", expectedStatus: 200 },
 ];

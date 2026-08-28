@@ -92,6 +92,7 @@ export default function RegisterProfilePage() {
   const [resumeText, setResumeText] = useState("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [hasAuthenticatedAccount, setHasAuthenticatedAccount] = useState(false);
+  const [aiTransferConsent, setAiTransferConsent] = useState(false);
   const [formData, setFormData] = useState<RegistrationFormData>({
     name: "",
     phone: "",
@@ -189,11 +190,16 @@ export default function RegisterProfilePage() {
       return;
     }
 
+    if (!aiTransferConsent) {
+      toast.error("AI 이력서 분석을 이용하려면 국외 처리 안내에 동의해주세요.");
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch("/api/ai-parse-resume", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-AI-Transfer-Consent": "groq-us-2026-08-25" },
         body: JSON.stringify({ resumeText: source }),
       });
       await parseResponse(response);
@@ -235,12 +241,18 @@ export default function RegisterProfilePage() {
       return;
     }
 
+    if (!aiTransferConsent) {
+      toast.error("AI 이력서 분석을 이용하려면 국외 처리 안내에 동의해주세요.");
+      return;
+    }
+
     setLoading(true);
     try {
       const formData = new FormData();
       formData.set("file", resumeFile);
       const response = await fetch("/api/ai-parse-resume", {
         method: "POST",
+        headers: { "X-AI-Transfer-Consent": "groq-us-2026-08-25" },
         body: formData,
       });
       await parseResponse(response);
@@ -339,7 +351,30 @@ export default function RegisterProfilePage() {
             <section className="rounded-xl border border-brand-line bg-white p-6 shadow-card sm:p-8">
               <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-brand-bronze">AI Resume Intake</p>
               <h2 className="font-editorial mt-3 text-[28px] text-brand-espresso">이력서 빠른 등록</h2>
-              <p className="mt-2 text-xs leading-6 text-brand-muted">파일과 원문은 구조화에만 사용하고 Firestore에는 저장하지 않습니다.</p>
+              <p className="mt-2 text-xs leading-6 text-brand-muted">파일과 원문은 구조화에만 사용하고 Firestore에는 저장하지 않습니다. AI 분석은 선택 기능입니다.</p>
+
+              <div className="mt-4 rounded-xl border border-brand-line bg-brand-ivory p-4 text-[11px] leading-6 text-brand-muted">
+                <p className="font-bold text-brand-espresso">AI 이력서 분석 및 국외 처리 동의 (선택)</p>
+                <p className="mt-2">
+                  AI 분석을 실행하면 서버에서 추출한 이력서 텍스트(이름·연락처·이메일·경력·학력 등이 포함될 수 있음)가 미국의 Groq LLC로 암호화 전송되어 프로필 구조화에 사용됩니다. 원본 이력서 파일 자체는 Groq에 전송하지 않습니다.
+                </p>
+                <p className="mt-2">
+                  이전 시점·방법: AI 분석 버튼을 누른 때 API를 통한 암호화 전송 · 이전받는 자: Groq LLC, P.O. Box 1778, Mountain View, CA 94042, USA · 보유기간: inference 입력·출력은 기본적으로 보관하지 않으나 시스템 안정성·남용 조사 시 최대 30일 임시 보관될 수 있습니다.
+                </p>
+                <p className="mt-2">
+                  동의를 거부하면 AI 분석만 사용할 수 없으며 직접 입력으로 프로필을 등록할 수 있습니다. 자세한 내용은 <Link href="/privacy" className="font-bold text-brand-bronze underline">개인정보 처리방침</Link>을 확인해주세요.
+                </p>
+                <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-brand-line bg-white px-3 py-3 text-brand-ink">
+                  <input
+                    type="checkbox"
+                    checked={aiTransferConsent}
+                    onChange={(event) => setAiTransferConsent(event.target.checked)}
+                    disabled={loading}
+                    className="mt-1 h-4 w-4 accent-brand-bronze"
+                  />
+                  <span className="font-bold">위 AI 이력서 분석 및 미국 국외 처리에 동의합니다.</span>
+                </label>
+              </div>
 
               <div className="mt-6 rounded-xl border border-dashed border-brand-line bg-brand-light p-5">
                 <FieldLabel>이력서 파일</FieldLabel>

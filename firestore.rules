@@ -4,7 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ========================================================================
-    // Authentication Helpers
+    // Authentication / Authorization helpers
     // ========================================================================
 
     function isAuthenticated() {
@@ -13,15 +13,11 @@ service cloud.firestore {
 
     function hasUserDocument() {
       return isAuthenticated()
-        && exists(
-          /databases/$(database)/documents/users/$(request.auth.uid)
-        );
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function currentUserData() {
-      return get(
-        /databases/$(database)/documents/users/$(request.auth.uid)
-      ).data;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function isActiveB2BUser() {
@@ -51,20 +47,12 @@ service cloud.firestore {
         );
     }
 
-    // ========================================================================
-    // Candidate Helpers
-    // ========================================================================
-
     function candidateExists(candidateId) {
-      return exists(
-        /databases/$(database)/documents/candidates/$(candidateId)
-      );
+      return exists(/databases/$(database)/documents/candidates/$(candidateId));
     }
 
     function candidateData(candidateId) {
-      return get(
-        /databases/$(database)/documents/candidates/$(candidateId)
-      ).data;
+      return get(/databases/$(database)/documents/candidates/$(candidateId)).data;
     }
 
     function isCandidateOwner(candidateId) {
@@ -73,230 +61,58 @@ service cloud.firestore {
         && candidateData(candidateId).authUid == request.auth.uid;
     }
 
-    function hasCandidateSchema(data) {
-      return data.keys().hasAll([
-          'candidateId',
-          'authUid',
-          'name',
-          'phone',
-          'email',
-          'source',
-          'accountStatus',
-          'createdAt',
-          'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'candidateId',
-          'authUid',
-          'name',
-          'phone',
-          'email',
-          'source',
-          'accountStatus',
-          'createdAt',
-          'updatedAt'
-        ]);
-    }
-
-    function hasValidCandidateTypes(data) {
-      return data.candidateId is string
-        && data.authUid is string
-        && data.name is string
-        && data.phone is string
-        && data.email is string
-        && data.source is string
-        && data.accountStatus is string
-        && data.createdAt is timestamp
-        && data.updatedAt is timestamp;
-    }
-
     // ========================================================================
-    // Profile Helpers
-    // ========================================================================
-
-    function hasProfileSchema(data) {
-      return data.keys().hasAll([
-          'candidateId',
-          'headline',
-          'careerSummary',
-          'skills',
-          'careers',
-          'education',
-          'profileCompleteness',
-          'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'candidateId',
-          'headline',
-          'careerSummary',
-          'skills',
-          'careers',
-          'education',
-          'profileCompleteness',
-          'updatedAt'
-        ]);
-    }
-
-    function hasValidProfileTypes(data) {
-      return data.candidateId is string
-        && data.headline is string
-        && data.careerSummary is string
-        && data.skills is list
-        && data.careers is list
-        && data.education is list
-        && data.profileCompleteness is int
-        && data.profileCompleteness >= 0
-        && data.profileCompleteness <= 100
-        && data.updatedAt is timestamp;
-    }
-
-    // ========================================================================
-    // candidates
+    // Candidate identity / profile
     // ========================================================================
 
     match /candidates/{candidateId} {
-
-      /**
-       * Candidate PII는 Candidate 본인만 Client SDK에서 조회한다.
-       *
-       * B2B Recruiter 조회는 Firebase Admin 기반 Server API를 사용한다.
-       */
+      // Candidate PII may be read only by the linked Firebase account.
+      // B2B reads use tenant-authorized Firebase Admin server APIs.
       allow read: if isAuthenticated()
         && resource.data.authUid == request.auth.uid;
 
-      /**
-       * B2C Candidate Self Registration.
-       *
-       * Client가 서버 소유 필드나 임의 스키마를 주입하지 못하도록
-       * 정확한 필드 집합과 타입을 함께 검증한다.
-       */
-      allow create: if isAuthenticated()
-        && hasCandidateSchema(request.resource.data)
-        && hasValidCandidateTypes(request.resource.data)
-        && request.resource.data.candidateId == candidateId
-        && request.resource.data.authUid == request.auth.uid
-        && request.resource.data.source == 'B2C_SELF'
-        && request.resource.data.accountStatus == 'ACTIVE'
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.updatedAt == request.time;
-
-      /**
-       * Candidate 본인의 Client Update.
-       *
-       * Identity / Source / Status / 생성시간은 Client에서 바꿀 수 없다.
-       * 변경 가능한 PII 필드도 정해진 타입만 허용한다.
-       */
-      allow update: if isAuthenticated()
-        && resource.data.authUid == request.auth.uid
-        && hasCandidateSchema(request.resource.data)
-        && hasValidCandidateTypes(request.resource.data)
-        && request.resource.data.authUid == resource.data.authUid
-        && request.resource.data.candidateId == resource.data.candidateId
-        && request.resource.data.source == resource.data.source
-        && request.resource.data.accountStatus == resource.data.accountStatus
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.updatedAt == request.time
-        && request.resource.data
-          .diff(resource.data)
-          .affectedKeys()
-          .hasOnly([
-            'name',
-            'phone',
-            'email',
-            'updatedAt'
-          ]);
-
-      allow delete: if false;
+      // Registration and profile mutations are server-owned. This is critical:
+      // allowing Client SDK writes here would bypass registration consent,
+      // server DTO validation, auth-link creation, snapshot synchronization,
+      // and audit behavior.
+      allow create, update, delete: if false;
     }
-
-    // ========================================================================
-    // profile
-    // ========================================================================
 
     match /profile/{candidateId} {
-
-      /**
-       * Profile Client Read는 본인만.
-       * Recruiter는 Server API:
-       * /api/b2b/applications/{applicationId}/candidate-profile
-       */
       allow read: if isCandidateOwner(candidateId);
 
-      /**
-       * Firestore Rules는 skills/careers/education이 list인지 검증할 수 있다.
-       * 다만 list 내부 모든 map 요소의 스키마를 반복 검증할 수 없으므로
-       * CareerItem / EducationItem 상세 스키마는 Server API DTO에서도 검증한다.
-       */
-      allow create: if isCandidateOwner(candidateId)
-        && hasProfileSchema(request.resource.data)
-        && hasValidProfileTypes(request.resource.data)
-        && request.resource.data.candidateId == candidateId
-        && request.resource.data.updatedAt == request.time;
+      // Candidate self-service profile changes also go through
+      // /api/candidate/me so server validation and application snapshot sync run.
+      allow create, update, delete: if false;
+    }
 
-      /**
-       * Profile 상세 필드는 Candidate가 수정할 수 있다.
-       * candidateId는 불변이고 임의 최상위 필드 추가를 금지한다.
-       */
-      allow update: if isCandidateOwner(candidateId)
-        && hasProfileSchema(request.resource.data)
-        && hasValidProfileTypes(request.resource.data)
-        && request.resource.data.candidateId == resource.data.candidateId
-        && request.resource.data.updatedAt == request.time
-        && request.resource.data
-          .diff(resource.data)
-          .affectedKeys()
-          .hasOnly([
-            'headline',
-            'careerSummary',
-            'skills',
-            'careers',
-            'education',
-            'profileCompleteness',
-            'updatedAt'
-          ]);
+    match /candidateAuthLinks/{authUid} {
+      allow read, create, update, delete: if false;
+    }
 
-      allow delete: if false;
+    match /candidateConsents/{candidateId} {
+      allow read, create, update, delete: if false;
     }
 
     // ========================================================================
-    // jobs
+    // Jobs
     // ========================================================================
 
     match /jobs/{jobId} {
-
-      /**
-       * Public job discovery는 Firebase Admin 기반 /api/public/jobs를 사용한다.
-       * Raw Job 문서에는 실제 고객사명, recruiterId, organizationId가 있으므로
-       * 익명 Client SDK read를 허용하지 않는다.
-       *
-       * B2B는 자신의 Tenant 공고 또는 ADMIN만 조회 가능하다.
-       */
+      // Public job discovery는 Firebase Admin 기반 /api/public/jobs를 사용한다.
+      // Raw Job documents contain organizationId, recruiterId and internal
+      // employing-company fields, so anonymous Client SDK reads stay disabled.
       allow read: if isActiveB2BUser()
         && hasTenantAccess(resource.data.organizationId);
 
-      /**
-       * Job Write는 Client SDK에서 차단한다.
-       * Job Management Server API가 Firebase Admin으로 처리한다.
-       */
       allow create, update, delete: if false;
     }
 
     // ========================================================================
-    // applications
+    // Applications
     // ========================================================================
 
     match /applications/{applicationId} {
-
-      /**
-       * Candidate:
-       * 자신의 Application만 읽기 가능.
-       *
-       * Recruiter:
-       * 자신의 Tenant만.
-       *
-       * ADMIN:
-       * 전체 Tenant.
-       */
       allow read: if isAuthenticated()
         && (
           isCandidateOwner(resource.data.candidateId)
@@ -306,69 +122,46 @@ service cloud.firestore {
           )
         );
 
-      /**
-       * 모든 Application Write는 Server Application Service만 수행한다.
-       *
-       * Firebase Admin SDK는 Firestore Security Rules를 우회하며
-       * Server API에서 Authentication / Authorization / Validation 수행.
-       */
+      // All application mutations are handled by authenticated server services.
       allow create, update, delete: if false;
     }
 
     // ========================================================================
-    // appEvents
+    // Server-owned operational collections
     // ========================================================================
 
     match /appEvents/{eventId} {
-
-      /**
-       * Audit Trail은 Client SDK에서 직접 접근하지 않는다.
-       *
-       * Activity Timeline API를 통해 Tenant 검증 후 제공한다.
-       */
       allow read, create, update, delete: if false;
     }
-
-    // ========================================================================
-    // communications
-    // ========================================================================
 
     match /communications/{communicationId} {
-
-      /**
-       * 이메일 수신자, 본문, provider message id와 실패 원인은
-       * 서버 소유 Outbox/Audit 데이터다.
-       *
-       * Client SDK 직접 접근은 모두 차단하고
-       * B2B Communication API가 Firebase Admin으로만 처리한다.
-       */
+      // 수신자, 본문, provider message id와 실패 원인은 서버 소유 데이터다.
+      // B2B Communication API가 Firebase Admin으로만 처리한다.
       allow read, create, update, delete: if false;
     }
 
-    // ========================================================================
-    // users
-    // ========================================================================
+    match /interviews/{interviewId} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /talentOpportunities/{opportunityId} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /publicEvents/{eventId} {
+      allow read, create, update, delete: if false;
+    }
 
     match /users/{uid} {
-
-      /**
-       * Role / Tenant 정보는 보안 경계이므로 Client 직접 접근 차단.
-       *
-       * B2B Session API와 Firestore Rules 내부 get()에서만 사용한다.
-       */
       allow read, create, update, delete: if false;
     }
-
-    // ========================================================================
-    // organizations
-    // ========================================================================
 
     match /organizations/{organizationId} {
       allow read, create, update, delete: if false;
     }
 
     // ========================================================================
-    // Default Deny
+    // Default deny
     // ========================================================================
 
     match /{document=**} {

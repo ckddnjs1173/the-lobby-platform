@@ -14,9 +14,12 @@ function assert(condition, message) {
 }
 
 const packageJson = JSON.parse(read("package.json"));
+const vercelConfig = JSON.parse(read("vercel.json"));
 const envExample = read(".env.example");
 const envValidator = read("scripts/validate-production-env.cjs");
 const workflow = read(".github/workflows/ci.yml");
+const browserWorkflow = read(".github/workflows/browser-e2e.yml");
+const releaseWorkflow = read(".github/workflows/release-verification.yml");
 const healthRoute = read("src/app/api/health/route.ts");
 const readinessRoute = read("src/app/api/readiness/route.ts");
 const smoke = read("tests/phase10-production-smoke.cjs");
@@ -51,6 +54,29 @@ assert(
   "PRODUCTION_ENV_CONTRACT_INCOMPLETE"
 );
 
+const publicLaunchEnvKeys = [
+  "PUBLIC_LAUNCH_MODE",
+  "NEXT_PUBLIC_SITE_URL",
+  "NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL",
+  "NEXT_PUBLIC_CUSTOMER_SUPPORT_CONTACT",
+  "NEXT_PUBLIC_ACCOUNT_PROFILE_RETENTION",
+  "NEXT_PUBLIC_TALENT_POOL_RETENTION",
+  "NEXT_PUBLIC_APPLICATION_RETENTION",
+  "NEXT_PUBLIC_CONSENT_RETENTION",
+  "NEXT_PUBLIC_INFRA_PROCESSING_DISCLOSURE",
+];
+
+assert(
+  publicLaunchEnvKeys.every((key) => envExample.includes(`${key}=`)) &&
+    publicLaunchEnvKeys.every((key) => envValidator.includes(key)) &&
+    !envValidator.includes("NEXT_PUBLIC_OPERATOR_ADDRESS") &&
+    envValidator.includes("PUBLIC_LAUNCH_MODE=LIVE") &&
+    envValidator.includes("PUBLIC_LAUNCH_MODE=PREVIEW") &&
+    envValidator.includes("your-production-domain.example") &&
+    envValidator.includes("NEXT_PUBLIC_SITE_URL must use HTTPS for public launch"),
+  "PUBLIC_LAUNCH_ENV_GUARD_INCOMPLETE"
+);
+
 const optionalCommunicationKeys = [
   "COMMUNICATION_EMAIL_PROVIDER",
   "RESEND_API_KEY",
@@ -74,8 +100,13 @@ assert(
 console.log("STEP_2: CI_BUILD_GATE");
 
 assert(
-  workflow.includes("actions/checkout@v4") &&
-    workflow.includes("actions/setup-node@v4") &&
+  workflow.includes("actions/checkout@v6") &&
+    workflow.includes("actions/setup-node@v6") &&
+    browserWorkflow.includes("actions/checkout@v6") &&
+    browserWorkflow.includes("actions/setup-node@v6") &&
+    releaseWorkflow.includes("actions/checkout@v6") &&
+    releaseWorkflow.includes("actions/setup-node@v6") &&
+    releaseWorkflow.includes("actions/setup-java@v5") &&
     workflow.includes("npm ci") &&
     workflow.includes("npm run check:final:integration") &&
     workflow.includes("npm audit --omit=dev --audit-level=high") &&
@@ -85,7 +116,16 @@ assert(
   "CI_PRODUCTION_GATE_INCOMPLETE"
 );
 
-console.log("STEP_3: FIRESTORE_RELEASE_COMMANDS");
+console.log("STEP_3: VERCEL_FUNCTION_REGION");
+
+assert(
+  Array.isArray(vercelConfig.regions) &&
+    vercelConfig.regions.length === 1 &&
+    vercelConfig.regions[0] === "icn1",
+  "VERCEL_FUNCTION_REGION_NOT_PINNED_TO_SEOUL"
+);
+
+console.log("STEP_4: FIRESTORE_RELEASE_COMMANDS");
 
 const scripts = packageJson.scripts || {};
 
@@ -96,7 +136,7 @@ assert(
   "FIRESTORE_RELEASE_COMMANDS_INCOMPLETE"
 );
 
-console.log("STEP_4: PUBLIC_DATA_BOUNDARY");
+console.log("STEP_5: PUBLIC_DATA_BOUNDARY");
 
 assert(
   publicJobService.includes("displayCompany") &&
@@ -114,7 +154,7 @@ assert(
   "PUBLIC_JOB_DATA_BOUNDARY_INCOMPLETE"
 );
 
-console.log("STEP_5: AI_ABUSE_GATE");
+console.log("STEP_6: AI_ABUSE_GATE");
 
 assert(
   publicResumeParseRoute.includes("RATE_LIMITED") &&
@@ -123,7 +163,7 @@ assert(
   "PUBLIC_AI_HARDENING_INCOMPLETE"
 );
 
-console.log("STEP_6: HEALTH_READINESS_AND_SMOKE_GATE");
+console.log("STEP_7: HEALTH_READINESS_AND_SMOKE_GATE");
 
 assert(
   healthRoute.includes('status: "ok"') &&
@@ -131,18 +171,26 @@ assert(
     healthRoute.includes('"Cache-Control": "no-store"') &&
     readinessRoute.includes('status: ready ? "ready" : "not_ready"') &&
     readinessRoute.includes("checks.firestore") &&
+    readinessRoute.includes("checks.publicLaunchConfiguration") &&
     readinessRoute.includes("REQUIRED_SERVER_ENV") &&
+    readinessRoute.includes("REQUIRED_PUBLIC_LAUNCH_ENV") &&
     readinessRoute.includes('communicationMode: emailAutomation ? "RESEND" : "MANUAL"') &&
+    readinessRoute.includes("publicLaunchMode") &&
     smoke.includes("/api/readiness") &&
     smoke.includes("PRODUCTION_BASE_URL") &&
+    smoke.includes("publicLaunchConfiguration") &&
+    smoke.includes("publicLaunchMode === true") &&
+    smoke.includes("/privacy") &&
+    smoke.includes("/terms") &&
     smoke.includes("PHASE10_PRODUCTION_SMOKE_PASSED"),
   "PRODUCTION_HEALTH_READINESS_OR_SMOKE_GATE_MISSING"
 );
 
-console.log("STEP_7: RELEASE_RUNBOOK");
+console.log("STEP_8: RELEASE_RUNBOOK");
 
 assert(
   runbook.includes("Local release gate") &&
+    runbook.includes("PUBLIC_LAUNCH_MODE=true") &&
     runbook.includes("npm run deploy:firestore") &&
     runbook.includes("npm run check:phase10:smoke") &&
     runbook.includes("Rollback"),

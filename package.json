@@ -39,7 +39,12 @@
     "deploy:firestore:rules": "firebase deploy --only firestore:rules --project the-lobby-platform",
     "deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes --project the-lobby-platform",
     "check:final:integration": "node tests/final-frontend-backend-contract-check.cjs",
-    "check:core-workflows": "node tests/core-workflows-release-check.cjs"
+    "check:launch-readiness": "node tests/launch-readiness-check.cjs",
+    "check:p1:ux": "node tests/p1-product-ux-check.cjs",
+    "check:p1:analytics": "node tests/p1-analytics-conversion-check.cjs",
+    "check:registration-security": "node tests/registration-security-boundary-check.cjs",
+    "check:public-launch-guard": "node tests/public-launch-env-guard-check.cjs",
+    "check:core-workflows": "node tests/core-workflows-release-check.cjs && node tests/launch-readiness-check.cjs && node tests/p1-product-ux-check.cjs && node tests/p1-analytics-conversion-check.cjs && node tests/registration-security-boundary-check.cjs && node tests/public-launch-env-guard-check.cjs"
   },
   "dependencies": {
     "firebase": "^12.17.1",

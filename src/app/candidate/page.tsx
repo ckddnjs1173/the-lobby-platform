@@ -127,12 +127,14 @@ export default function CandidatePortalPage() {
   const [applications, setApplications] = useState<CandidatePortalApplicationView[]>([]);
   const [form, setForm] = useState<ProfileFormState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [cancelingApplicationId, setCancelingApplicationId] = useState<string | null>(null);
 
   const loadPortal = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [profileData, applicationData] = await Promise.all([
         fetchCandidatePortalProfile(),
@@ -154,11 +156,12 @@ export default function CandidatePortalPage() {
         router.replace("/login");
         return;
       }
-      toast.error(
+      const message =
         error instanceof CandidatePortalApiError
           ? error.message
-          : "Candidate Portal을 불러오지 못했습니다."
-      );
+          : "Candidate Portal을 불러오지 못했습니다.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -320,9 +323,24 @@ export default function CandidatePortalPage() {
     return (
       <div className="candidate-surface min-h-screen bg-brand-light">
         <CandidateHeader />
-        <div className="flex min-h-[70vh] items-center justify-center pt-20 text-sm font-medium text-brand-muted">
+        <div role="status" aria-live="polite" className="flex min-h-[70vh] items-center justify-center pt-20 text-sm font-medium text-brand-muted">
           내 커리어 정보를 불러오는 중입니다...
         </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="candidate-surface min-h-screen bg-brand-light">
+        <CandidateHeader />
+        <main className="mx-auto max-w-xl px-5 pb-16 pt-32 sm:px-8">
+          <section role="alert" className="rounded-xl border border-brand-line bg-white px-6 py-12 text-center shadow-card">
+            <h1 className="font-editorial text-2xl text-brand-espresso">마이페이지를 불러오지 못했습니다.</h1>
+            <p className="mt-3 text-sm leading-6 text-brand-muted">{loadError}</p>
+            <button type="button" onClick={() => void loadPortal()} className="mt-6 rounded-lg bg-brand-bronze px-5 py-3 text-xs font-bold text-white">다시 불러오기</button>
+          </section>
+        </main>
       </div>
     );
   }
@@ -378,7 +396,7 @@ export default function CandidatePortalPage() {
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-cream/60">Career Support</p>
               <p className="font-editorial mt-3 text-xl">새로운 기회를 계속 확인하세요.</p>
               <Link href="/jobs" className="mt-5 inline-flex rounded-lg border border-white/20 px-4 py-2.5 text-xs font-bold text-brand-cream hover:bg-white/10">
-                추천 채용 보기 →
+                채용공고 보기 →
               </Link>
             </div>
           </aside>

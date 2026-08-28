@@ -289,7 +289,7 @@ export default function RecruitingAnalyticsPage() {
                 <div key={item.date} className="group flex min-w-7 flex-1 flex-col items-center justify-end gap-2" title={`${item.date}: ${item.count}건`}>
                   <div className="text-[10px] font-bold text-slate-500 opacity-0 group-hover:opacity-100">{item.count}</div>
                   <div className="w-full max-w-8 rounded-t bg-brand-gold" style={{ height: `${height}px` }} />
-                  <div className="text-[9px] text-slate-400">{item.date.slice(5)}</div>
+                  <div className="text-[10px] text-slate-400">{item.date.slice(5)}</div>
                 </div>
               );
             })}

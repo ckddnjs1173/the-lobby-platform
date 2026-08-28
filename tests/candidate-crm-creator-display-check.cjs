@@ -42,6 +42,51 @@ const recruiterUid =
 
 let createdCandidateId = null;
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchRetriable(url, options, label) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetch(url, options);
+
+      if (
+        response.status !== 429 &&
+        response.status < 500
+      ) {
+        return response;
+      }
+
+      if (attempt === 3) {
+        return response;
+      }
+
+      console.warn(
+        `${label}_RETRY: attempt=${attempt} status=${response.status}`
+      );
+    } catch (error) {
+      lastError = error;
+
+      if (attempt === 3) {
+        throw error;
+      }
+
+      console.warn(
+        `${label}_RETRY: attempt=${attempt} error=${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+
+    await sleep(250 * attempt);
+  }
+
+  throw lastError || new Error(`${label}_FETCH_FAILED`);
+}
+
 async function exchangeCustomToken(uid) {
   const apiKey =
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -55,7 +100,7 @@ async function exchangeCustomToken(uid) {
   const customToken =
     await auth.createCustomToken(uid);
 
-  const response = await fetch(
+  const response = await fetchRetriable(
     "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=" +
       encodeURIComponent(apiKey),
     {
@@ -68,7 +113,8 @@ async function exchangeCustomToken(uid) {
         token: customToken,
         returnSecureToken: true,
       }),
-    }
+    },
+    "IDENTITY_TOKEN_EXCHANGE"
   );
 
   const body =
@@ -90,14 +136,15 @@ async function callApi(
   idToken,
   path
 ) {
-  const response = await fetch(
+  const response = await fetchRetriable(
     "http://localhost:3000" + path,
     {
       headers: {
         Authorization:
           "Bearer " + idToken,
       },
-    }
+    },
+    "LOCAL_READ_API"
   );
 
   const text =
@@ -125,6 +172,8 @@ async function createCandidate(
   idToken,
   marker
 ) {
+  // Intentionally no automatic retry here: a lost response after a successful
+  // write could otherwise create a duplicate candidate.
   const response = await fetch(
     "http://localhost:3000/api/b2b/candidates",
     {
