@@ -2,10 +2,9 @@ import Link from "next/link";
 
 const operatorName = "박창원";
 const publicLaunchMode = process.env.PUBLIC_LAUNCH_MODE?.trim().toLowerCase() === "true";
-const privacyContact = process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL?.trim() || "";
-const operatorAddress = process.env.NEXT_PUBLIC_OPERATOR_ADDRESS?.trim() || "";
+const privacyContact = process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL?.trim() || "parkcw0713@gmail.com";
 const customerSupportContact =
-  process.env.NEXT_PUBLIC_CUSTOMER_SUPPORT_CONTACT?.trim() || "";
+  process.env.NEXT_PUBLIC_CUSTOMER_SUPPORT_CONTACT?.trim() || "parkcw0713@gmail.com";
 const accountProfileRetention =
   process.env.NEXT_PUBLIC_ACCOUNT_PROFILE_RETENTION?.trim() || "";
 const talentPoolRetention =
@@ -31,7 +30,7 @@ export default function PrivacyPage() {
 
         {!publicLaunchMode ? (
           <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-800">
-            현재는 공개 출시 전 검토 모드입니다. 실제 공개 시에는 <code>NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL</code>을 포함한 운영자 연락처·주소·보유기간·인프라 처리 고지가 모두 확정되어야 하며, 출시 검증과 readiness가 누락값을 차단합니다.
+            현재는 공개 출시 전 검토 모드입니다. 실제 공개 시에는 개인정보·고객 문의 채널, 보유기간 및 인프라 처리 고지가 모두 확정되어야 하며, 출시 검증과 readiness가 누락값을 차단합니다.
           </div>
         ) : null}
 
@@ -78,10 +77,10 @@ export default function PrivacyPage() {
           </section>
           <section>
             <h2 className="text-base font-bold text-brand-espresso">9. 개인정보 보호 및 고객 문의</h2>
-            <p className="mt-2">운영자: {operatorName}</p>
-            <p>주소: {operatorAddress || previewFallback}</p>
-            <p>개인정보 문의: {privacyContact || previewFallback}</p>
-            <p>고객·분쟁 문의: {customerSupportContact || previewFallback}</p>
+            <p className="mt-2">운영자 및 개인정보 보호 담당자: {operatorName}</p>
+            <p>개인정보 문의: {privacyContact}</p>
+            <p>고객·분쟁 문의: {customerSupportContact}</p>
+            <p>전화번호는 공개하지 않으며, 문의는 위 이메일 채널로 접수합니다.</p>
           </section>
           <section>
             <h2 className="text-base font-bold text-brand-espresso">10. 변경 고지</h2>
